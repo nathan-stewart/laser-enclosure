@@ -1,0 +1,53 @@
+- name: Switch to systemd-networkd
+  hosts: all
+  become: yes
+  tasks:
+    - name: Stop and disable NetworkManager
+      systemd:
+        name: NetworkManager
+        enabled: false
+        state: stopped
+
+    - name: Enable and start systemd-networkd
+      systemd:
+        name: systemd-networkd
+        enabled: true
+        state: started
+
+    - name: Enable and start systemd-resolved
+      systemd:
+        name: systemd-resolved
+        enabled: true
+        state: started
+
+    - name: Symlink /etc/resolv.conf to systemd-resolved
+      file:
+        src: /run/systemd/resolve/stub-resolv.conf
+        dest: /etc/resolv.conf
+        state: link
+        force: yes
+
+    - name: Configure eth0 for DHCP
+      copy:
+        dest: /etc/systemd/network/10-eth0.network
+        content: |
+          [Match]
+          Name=eth0
+
+          [Network]
+          DHCP=yes
+
+    - name: Configure wlan0 for DHCP
+      copy:
+        dest: /etc/systemd/network/10-wlan0.network
+        content: |
+          [Match]
+          Name=wlan0
+
+          [Network]
+          DHCP=yes
+
+    - name: Restart systemd-networkd
+      systemd:
+        name: systemd-networkd
+        state: restarted

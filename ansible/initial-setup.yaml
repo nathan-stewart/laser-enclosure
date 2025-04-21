@@ -1,5 +1,5 @@
 - name: Setup Raspberry Pi
-  hosts: 192.168.1.60
+  hosts: laser
   become: true
   tasks:
 
@@ -14,41 +14,12 @@
           - socat
           - python3-pip
           - git
-          - network-manager
         update_cache: true
 
-    # Ensure NetworkManager is enabled and running
-    - name: Enable and start NetworkManager
-      systemd:
-        name: NetworkManager
-        enabled: true
-        state: started
 
-    # Configure static IP using NetworkManager
-    - name: Configure static IP for eth0
-      copy:
-        content: |
-          [connection]
-          id=eth0
-          type=ethernet
-          interface-name=eth0
-
-          [ipv4]
-          method=manual
-          address1=192.168.1.13/24,192.168.1.1
-          dns=192.168.1.2
-          dns-search=
-
-          [ipv6]
-          method=ignore
-        dest: /etc/NetworkManager/system-connections/eth0.nmconnection
-        mode: '0600'
-
-    # Restart NetworkManager to apply changes
-    - name: Restart NetworkManager
-      systemd:
-        name: NetworkManager
-        state: restarted
+    # Switch to systemd-networkd
+    - name: Include networking tasks
+      include_tasks: networking.yaml
 
     # Create socat service file
     - name: Create socat service file
