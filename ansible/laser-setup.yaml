@@ -1,0 +1,81 @@
+- name: Setup Raspberry Pi
+  hosts: 192.168.1.60
+  become: true
+  tasks:
+
+    - name: Enable SSH
+      shell: systemctl enable ssh && systemctl start ssh
+      when: ansible_service_mgr == 'systemd'
+
+    # Install required packages
+    - name: Install required packages
+      apt:
+        name:
+          - socat
+          - python3-pip
+          - git
+          - network-manager
+        update_cache: true
+
+    # Ensure NetworkManager is enabled and running
+    - name: Enable and start NetworkManager
+      systemd:
+        name: NetworkManager
+        enabled: true
+        state: started
+
+    # Configure static IP using NetworkManager
+    - name: Configure static IP for eth0
+      copy:
+        content: |
+          [connection]
+          id=eth0
+          type=ethernet
+          interface-name=eth0
+
+          [ipv4]
+          method=manual
+          address1=192.168.1.13/24,192.168.1.1
+          dns=192.168.1.2
+          dns-search=
+
+          [ipv6]
+          method=ignore
+        dest: /etc/NetworkManager/system-connections/eth0.nmconnection
+        mode: '0600'
+
+    # Restart NetworkManager to apply changes
+    - name: Restart NetworkManager
+      systemd:
+        name: NetworkManager
+        state: restarted
+
+    # Create socat service file
+    - name: Create socat service file
+      copy:
+        content: |
+          [Unit]
+          Description=Socat Serial to Network Bridge
+          After=network.target
+
+          [Service]
+          Type=simple
+          ExecStart=/usr/bin/socat -d -d TCP-LISTEN:2000,reuseaddr,fork FILE:/dev/ttyACM0,rawer
+          Restart=always
+          User=root
+
+          [Install]
+          WantedBy=multi-user.target
+        dest: /etc/systemd/system/socat.service
+        mode: '0644'
+
+    - name: Enable and start socat
+      systemd:
+        name: socat
+        enabled: true
+        state: started
+
+    # Placeholder for additional tasks
+    - name: Setup camera stuff (placeholder)
+      debug:
+        msg: "Add camera setup steps here"
