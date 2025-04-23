@@ -21,6 +21,8 @@
           - socat
           - python3-pip
           - git
+          - guvcview
+          - python3-opencv
         update_cache: true
 
     # Create socat service file
