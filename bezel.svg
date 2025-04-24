@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="210mm"
+   height="297mm"
+   viewBox="0 0 210 297"
+   version="1.1"
+   id="svg35493"
+   sodipodi:docname="bezel.svg"
+   inkscape:version="1.2.2 (b0a8486541, 2022-12-01)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview35495"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     showgrid="false"
+     inkscape:zoom="0.74742565"
+     inkscape:cx="256.88174"
+     inkscape:cy="590.02525"
+     inkscape:window-width="1920"
+     inkscape:window-height="1019"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs35490" />
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <text
+       xml:space="preserve"
+       style="font-size:4.23333px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.4;stroke-opacity:0.737226"
+       x="57.64378"
+       y="59.191734"
+       id="text40320"><tspan
+         sodipodi:role="line"
+         id="tspan40318"
+         style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.4;stroke-opacity:0.737226"
+         x="57.64378"
+         y="59.191734">Bezel 1/16</tspan></text>
+    <path
+       id="path35893-3"
+       style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.0999991;stroke-dasharray:none;stroke-opacity:1"
+       d="M 5,110.51023 V 215.97045 H 132.70021 V 110.51023 Z m 7.799524,6.04975 a 1.75,1.75 0 0 1 1.750281,1.7503 1.75,1.75 0 0 1 -1.750281,1.74975 1.75,1.75 0 0 1 -1.749764,-1.74975 1.75,1.75 0 0 1 1.749764,-1.7503 z m 112.100126,0 a 1.75,1.75 0 0 1 1.75028,1.7503 1.75,1.75 0 0 1 -1.75028,1.74975 1.75,1.75 0 0 1 -1.74976,-1.74975 1.75,1.75 0 0 1 1.74976,-1.7503 z M 13.879561,129.99018 H 123.37985 V 196.49 H 13.879561 Z m -1.080037,76.42995 a 1.75,1.75 0 0 1 1.750281,1.75028 1.75,1.75 0 0 1 -1.750281,1.74977 1.75,1.75 0 0 1 -1.749764,-1.74977 1.75,1.75 0 0 1 1.749764,-1.75028 z m 112.100126,0 a 1.75,1.75 0 0 1 1.75028,1.75028 1.75,1.75 0 0 1 -1.75028,1.74977 1.75,1.75 0 0 1 -1.74976,-1.74977 1.75,1.75 0 0 1 1.74976,-1.75028 z" />
+    <text
+       xml:space="preserve"
+       style="font-size:4.23333px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.4;stroke-opacity:1"
+       x="57.455463"
+       y="164.37102"
+       id="text40285"><tspan
+         sodipodi:role="line"
+         id="tspan40283"
+         style="stroke-width:0.4"
+         x="57.455463"
+         y="164.37102">Spacer 1/8</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.4"
+         x="57.455463"
+         y="169.66267"
+         id="tspan41253" /></text>
+    <path
+       id="path35893-3-1"
+       style="fill:#000000;fill-opacity:1;stroke:#e2e2e2;stroke-width:0.0999991;stroke-dasharray:none;stroke-opacity:0.87291"
+       d="M 5.049821 5.049821 L 5.049821 110.51005 L 132.75004 110.51005 L 132.75004 5.049821 L 5.049821 5.049821 z M 12.849345 11.099581 A 1.75 1.75 0 0 1 14.599626 12.849862 A 1.75 1.75 0 0 1 12.849345 14.599626 A 1.75 1.75 0 0 1 11.099581 12.849862 A 1.75 1.75 0 0 1 12.849345 11.099581 z M 124.94948 11.099581 A 1.75 1.75 0 0 1 126.69976 12.849862 A 1.75 1.75 0 0 1 124.94948 14.599626 A 1.75 1.75 0 0 1 123.19972 12.849862 A 1.75 1.75 0 0 1 124.94948 11.099581 z M 14.949992 25.330237 L 122.84987 25.330237 L 122.84987 86.229879 L 14.949992 86.229879 L 14.949992 25.330237 z M 12.849345 100.95973 A 1.75 1.75 0 0 1 14.599626 102.71001 A 1.75 1.75 0 0 1 12.849345 104.45977 A 1.75 1.75 0 0 1 11.099581 102.71001 A 1.75 1.75 0 0 1 12.849345 100.95973 z M 124.94948 100.95973 A 1.75 1.75 0 0 1 126.69976 102.71001 A 1.75 1.75 0 0 1 124.94948 104.45977 A 1.75 1.75 0 0 1 123.19972 102.71001 A 1.75 1.75 0 0 1 124.94948 100.95973 z " />
+  </g>
+</svg>
