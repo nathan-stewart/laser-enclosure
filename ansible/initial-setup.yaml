@@ -19,11 +19,24 @@
       apt:
         name:
           - socat
+          - screen
           - python3-pip
           - git
-          - guvcview
           - python3-opencv
+          - xserver-xorg
+          - xinit
         update_cache: true
+
+    # Remove Wayland
+    - name: Remove Wayland packages
+      apt:
+        name: 
+          - gnome-shell
+          - gdm3
+          - libwayland-client0
+          - libwayland-server0
+        state: absent
+        purge: true
 
     # Create socat service file
     - name: Create socat service file
@@ -49,6 +62,64 @@
         name: socat
         enabled: true
         state: started
+
+    # Configure X11 to start an app at boot
+    - name: Create .xinitrc to start the app
+      copy:
+        content: |
+          #!/bin/bash
+          exec /usr/bin/ffplay /dev/vidoe0
+        mode: '0755'
+        owner: pi
+        group: pi
+
+    - name: Configure system to start X11 at boot
+      copy:
+        content: |
+          [Unit]
+          Description=Start X11 with custom app
+          After=multi-user.target
+
+          [Service]
+          ExecStart=/usr/bin/startx
+          User=pi
+          WorkingDirectory=/home/pi
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+        dest: /etc/systemd/system/x11-app.service
+        mode: '0644'
+
+    - name: Enable and start X11 service
+      systemd:
+        name: x11-app.service
+        enabled: true
+        state: started
+
+    # Configure HDMI settings
+    - name: Add HDMI configuration to /boot/firmware/config.txt
+      blockinfile:
+        path: /boot/firmware/config.txt
+        marker: "# {mark} ANSIBLE MANAGED BLOCK HDMI CONFIGURATION"
+        block: |
+          hdmi_force_hotplug=1
+          hdmi_group=2
+          hdmi_mode=87
+          hdmi_cvt=800 480 60 6 0 0 0
+          hdmi_drive=1
+
+    # Configure touchscreen transformation matrix
+    - name: Add touchscreen transformation matrix
+      copy:
+        content: |
+          Section "InputClass"
+              Identifier "Touchscreen Calibration"
+              MatchIsTouchscreen "on"
+              Option "TransformationMatrix" "1 0 0 0 -1 1 0 0 1"
+          EndSection
+        dest: /etc/X11/xorg.conf.d/99-touchscreen-calibration.conf
+        mode: '0644'
 
     # Placeholder for additional tasks
     - name: Setup camera stuff (placeholder)
