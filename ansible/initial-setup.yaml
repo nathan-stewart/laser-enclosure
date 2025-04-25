@@ -27,6 +27,7 @@
           - xinit
           - ffmpeg
           - v4l2loopback-dkms
+          - v4l2loopback-utils
         update_cache: true
 
     # Ensure Wayland is not used (skip removing Wayland libraries)
@@ -65,7 +66,7 @@
     - name: Load v4l2loopback kernel module
       modprobe:
         name: v4l2loopback
-        params: "devices=2 video_nr=10,11 card_label='Loopback1,Loopback2' exclusive_caps=1"
+        params: "devices=2 video_nr=10,11 card_label='Loopback1 Loopback2' exclusive_caps=1"
 
     # Ensure v4l2loopback is loaded on boot
     - name: Ensure v4l2loopback loads on boot
@@ -138,3 +139,33 @@
     - name: Setup camera stuff (placeholder)
       debug:
         msg: "Add camera setup steps here"
+
+    # Create camera-loop service file
+    - name: Create camera-loop service file
+      copy:
+        content: |
+          [Unit]
+          Description=Loop /dev/video0 to /dev/video10 and /dev/video11
+          After=multi-user.target
+
+          [Service]
+          ExecStart=/usr/bin/ffmpeg -f v4l2 -input_format mjpeg -framerate 10 -video_size 800x480 -i /dev/video0 \
+          -filter_complex "[0:v]split=2[out1][out2]" \
+          -map "[out1]" -f v4l2 -vcodec mjpeg /dev/video10 \
+          -map "[out2]" -f v4l2 -vcodec mjpeg /dev/video11
+          Restart=always
+          RestartSec=2
+          User=pi
+          WorkingDirectory=/home/pi
+
+          [Install]
+          WantedBy=multi-user.target
+        dest: /etc/systemd/system/camera-loop.service
+        mode: '0644'
+
+    # Enable and start camera-loop service
+    - name: Enable and start camera-loop service
+      systemd:
+        name: camera-loop.service
+        enabled: true
+        state: started
