@@ -2,7 +2,7 @@
   hosts: laser
   become: true
   tasks:
-      
+
     # Update packages
     - name: Update apt cache
       apt:
@@ -13,7 +13,7 @@
         upgrade: dist
         update_cache: yes
         cache_valid_time: 3600
-        
+
     # Install required packages
     - name: Install required packages
       apt:
@@ -144,12 +144,23 @@
         enabled: true
         state: started
 
-    # Download Meerkat AppImage
-    - name: Download Meerkat AppImage
+    # Download Meerkat tarball
+    - name: Download Meerkat tarball
       get_url:
-        url: https://github.com/meerk40t/meerk40t/releases/download/0.9.7030/MeerK40t-Linux-Ubuntu-22.04
-        dest: /usr/local/bin/meerk40t
-        mode: '0755'
+        url: https://github.com/meerk40t/meerk40t/releases/download/0.9.7030/MeerK40t_Pi64.tar
+        dest: /tmp/MeerK40t_Pi64.tar
+        mode: '0644'
+
+    # Extract MeerK40t binary to /usr/local/bin
+    - name: Extract MeerK40t binary to /usr/local/bin
+      unarchive:
+        src: /tmp/MeerK40t_Pi64.tar
+        dest: /usr/local/bin
+        remote_src: true
+        extra_opts:
+          - --strip-components=1
+          - --wildcards
+          - MeerK40t_Pi64/MeerK40t
 
     # Create Meerkat service file
     - name: Create Meerkat service file
@@ -160,7 +171,7 @@
           After=network.target
 
           [Service]
-          ExecStart=/usr/local/bin/meerk40t --config /etc/meerkat/config.yaml
+          ExecStart=/usr/local/bin/MeerK40t --config /etc/meerkat/config.yaml
           Restart=always
           RestartSec=2
           User=root
@@ -170,6 +181,35 @@
           WantedBy=multi-user.target
         dest: /etc/systemd/system/meerkat.service
         mode: '0644'
+
+    # Create Meerkat configuration directory
+    - name: Create Meerkat configuration directory
+      file:
+        path: /etc/meerkat
+        state: directory
+        mode: '0755'
+
+    # Create Meerkat config.yaml
+    - name: Create Meerkat config.yaml
+      copy:
+        dest: /etc/meerkat/config.yaml
+        mode: '0644'
+        content: |
+          server:
+            host: 0.0.0.0
+            port: 7020
+
+          broadcast:
+            enabled: true
+            port: 7020
+            interval: 5  # Every 5 seconds broadcast "hey I'm here" on the network
+
+          device:
+            type: grbl
+            usb_index: 0
+
+          logging:
+            level: info
 
     # Enable and start Meerkat service
     - name: Enable and start Meerkat service
