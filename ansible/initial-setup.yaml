@@ -18,7 +18,6 @@
     - name: Install required packages
       apt:
         name:
-          - socat
           - screen
           - python3-pip
           - git
@@ -36,31 +35,6 @@
         path: /etc/environment
         line: "XDG_SESSION_TYPE=x11"
         state: present
-
-    # Create socat service file
-    - name: Create socat service file
-      copy:
-        content: |
-          [Unit]
-          Description=Socat Serial to Network Bridge
-          After=network.target
-
-          [Service]
-          Type=simple
-          ExecStart=/usr/bin/socat -d -d TCP-LISTEN:2000,reuseaddr,fork FILE:/dev/ttyACM0,rawer
-          Restart=always
-          User=root
-
-          [Install]
-          WantedBy=multi-user.target
-        dest: /etc/systemd/system/socat.service
-        mode: '0644'
-
-    - name: Enable and start socat
-      systemd:
-        name: socat
-        enabled: true
-        state: started
 
     # Load v4l2loopback module
     - name: Load v4l2loopback kernel module
@@ -167,5 +141,39 @@
     - name: Enable and start camera-loop service
       systemd:
         name: camera-loop.service
+        enabled: true
+        state: started
+
+    # Download Meerkat AppImage
+    - name: Download Meerkat AppImage
+      get_url:
+        url: https://github.com/meerk40t/meerk40t/releases/download/0.9.7030/MeerK40t-Linux-Ubuntu-22.04
+        dest: /usr/local/bin/meerk40t
+        mode: '0755'
+
+    # Create Meerkat service file
+    - name: Create Meerkat service file
+      copy:
+        content: |
+          [Unit]
+          Description=Meerkat Service
+          After=network.target
+
+          [Service]
+          ExecStart=/usr/local/bin/meerk40t --config /etc/meerkat/config.yaml
+          Restart=always
+          RestartSec=2
+          User=root
+          WorkingDirectory=/etc/meerkat
+
+          [Install]
+          WantedBy=multi-user.target
+        dest: /etc/systemd/system/meerkat.service
+        mode: '0644'
+
+    # Enable and start Meerkat service
+    - name: Enable and start Meerkat service
+      systemd:
+        name: meerkat.service
         enabled: true
         state: started
