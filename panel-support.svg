@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="210mm"
+   height="297mm"
+   viewBox="0 0 210 297"
+   version="1.1"
+   id="svg5"
+   inkscape:version="1.2.2 (b0a8486541, 2022-12-01)"
+   sodipodi:docname="panel-support.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     showgrid="false"
+     inkscape:zoom="1.054926"
+     inkscape:cx="179.63345"
+     inkscape:cy="-311.87022"
+     inkscape:window-width="1920"
+     inkscape:window-height="1019"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs2" />
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <rect
+       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:0.0999998;stroke-opacity:1"
+       id="rect968-6"
+       width="112.9"
+       height="112.9"
+       x="195.37843"
+       y="-49.284031" />
+    <rect
+       style="fill:#ff9000;fill-opacity:0.760882;stroke:#000000;stroke-width:0.0999998;stroke-opacity:1"
+       id="rect1393"
+       width="304.69998"
+       height="5.9000001"
+       x="27.146402"
+       y="-174.95067" />
+    <rect
+       style="fill:#e8deba;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-opacity:1"
+       id="rect1395"
+       width="38"
+       height="88.799995"
+       x="-10.953598"
+       y="-168.95067" />
+    <text
+       xml:space="preserve"
+       style="font-size:5.64444px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.1;stroke-opacity:1"
+       x="2.0241027"
+       y="-132.64677"
+       id="text1453"><tspan
+         sodipodi:role="line"
+         id="tspan1451"
+         style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.1"
+         x="2.0241027"
+         y="-132.64677">2x4</tspan></text>
+    <g
+       id="g3126">
+      <path
+         id="rect234-7"
+         style="fill:#000000;fill-opacity:1;stroke:#5a943e;stroke-width:0.0999998"
+         d="m 193.67209,-7.0194802 v 2.8999998 l 126.90021,-2.5e-6 -10e-6,-2.8999978 z m 51.00031,3.0000003 -3.7e-4,77.9001509 h 24.90034 V -4.0191049 Z" />
+      <path
+         id="rect2624"
+         style="fill:#e80000;fill-opacity:1;stroke:none;stroke-width:0.0999994;stroke-opacity:1"
+         d="m 237.12212,-32.069501 v 14.9996 h 15.00012 v 10.0004204 h 9.99991 V -17.069901 h 15.00012 v -14.9996 h -15.00012 -9.99991 z" />
+    </g>
+    <path
+       id="rect1668"
+       style="fill:#e8deba;fill-opacity:1;stroke:#000000;stroke-width:0.0999997;stroke-opacity:1"
+       d="M 27.096537 -167.11125 L 27.096537 -71.786833 L 30.604333 -71.786833 L 30.604333 -71.215808 L 134.50445 -71.216325 L 134.50445 -77.216475 L 132.38262 -77.216475 L 42.580347 -167.01875 L 42.576213 -167.06112 L 33.976737 -167.06112 L 33.976737 -167.11125 L 27.096537 -167.11125 z " />
+    <g
+       id="g10029">
+      <g
+         id="g3126-7"
+         transform="rotate(45,314.7955,-267.90719)">
+        <path
+           id="rect234-7-9"
+           style="fill:#000000;fill-opacity:1;stroke:#5a943e;stroke-width:0.0999998"
+           d="m 193.67209,-7.0194802 v 2.8999998 l 126.90021,-2.5e-6 -10e-6,-2.8999978 z m 51.00031,3.0000003 -3.7e-4,77.9001509 h 24.90034 V -4.0191049 Z" />
+        <path
+           id="rect2624-2"
+           style="fill:#e80000;fill-opacity:1;stroke:none;stroke-width:0.0999994;stroke-opacity:1"
+           d="m 237.12212,-32.069501 v 14.9996 h 15.00012 v 10.0004204 h 9.99991 V -17.069901 h 15.00012 v -14.9996 h -15.00012 -9.99991 z" />
+      </g>
+      <text
+         xml:space="preserve"
+         style="font-size:5.64444px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';fill:#ff0000;fill-opacity:0.760882;stroke:none;stroke-width:0.1;stroke-opacity:1"
+         x="94.985397"
+         y="-28.248295"
+         id="text3274"
+         transform="rotate(-45)"><tspan
+           sodipodi:role="line"
+           id="tspan3272"
+           style="fill:#ff0000;fill-opacity:0.760882;stroke:none;stroke-width:0.1"
+           x="94.985397"
+           y="-28.248295">Pneumatic</tspan><tspan
+           sodipodi:role="line"
+           style="fill:#ff0000;fill-opacity:0.760882;stroke:none;stroke-width:0.1"
+           x="94.985397"
+           y="-21.192745"
+           id="tspan3276">    Valve</tspan></text>
+    </g>
+  </g>
+</svg>
