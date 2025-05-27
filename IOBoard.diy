@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<project>
+  <fileVersion>
+    <major>5</major>
+    <minor>3</minor>
+    <build>0</build>
+  </fileVersion>
+  <title>New Project</title>
+  <author>nps</author>
+  <width value="29.0" unit="cm"/>
+  <height value="21.0" unit="cm"/>
+  <gridSpacing value="0.1" unit="in"/>
+  <dotSpacing>1</dotSpacing>
+  <components>
+    <diylc.boards.VeroBoard>
+      <name>Board1</name>
+      <alpha>127</alpha>
+      <value></value>
+      <controlPoints>
+        <point x="5.7" y="2.4"/>
+        <point x="4.5" y="3.9"/>
+      </controlPoints>
+      <firstPoint x="4.5" y="2.4"/>
+      <secondPoint x="5.7" y="3.9"/>
+      <boardColor hex="f8ebb3"/>
+      <borderColor hex="ada47d"/>
+      <coordinateColor hex="b6b6b6"/>
+      <xType>Numbers</xType>
+      <coordinateOrigin>Top_Right</coordinateOrigin>
+      <coordinateDisplay>One_Side</coordinateDisplay>
+      <yType>Letters</yType>
+      <length value="30.48" unit="mm"/>
+      <width value="38.1" unit="mm"/>
+      <mode>TwoPoints</mode>
+      <boardUndersideDisplay>NONE</boardUndersideDisplay>
+      <undersideOffset value="0.1" unit="in"/>
+      <undersideTransparency>true</undersideTransparency>
+      <spacing value="0.1" unit="in"/>
+      <stripColor hex="da8a67"/>
+      <orientation>VERTICAL</orientation>
+    </diylc.boards.VeroBoard>
+    <diylc.semiconductors.SIL__IC>
+      <name>IC1</name>
+      <alpha>100</alpha>
+      <value></value>
+      <orientation>_90</orientation>
+      <pinCount>_10</pinCount>
+      <pinSpacing value="0.1" unit="in"/>
+      <controlPoints>
+        <point x="5.5" y="2.3"/>
+        <point x="5.4" y="2.3"/>
+        <point x="5.3" y="2.3"/>
+        <point x="5.2" y="2.3"/>
+        <point x="5.1" y="2.3"/>
+        <point x="5.0" y="2.3"/>
+        <point x="4.9" y="2.3"/>
+        <point x="4.8" y="2.3"/>
+        <point x="4.7" y="2.3"/>
+        <point x="4.6" y="2.3"/>
+      </controlPoints>
+      <display>NAME</display>
+      <bodyColor hex="808080"/>
+      <borderColor hex="595959"/>
+      <labelColor hex="ffffff"/>
+      <indentColor hex="595959"/>
+    </diylc.semiconductors.SIL__IC>
+    <diylc.connectivity.PCBTerminalBlock>
+      <name>TB1</name>
+      <alpha>127</alpha>
+      <controlPoints>
+        <point x="4.0" y="3.1"/>
+        <point x="4.0" y="3.0"/>
+        <point x="4.0" y="2.9"/>
+        <point x="4.0" y="2.8"/>
+        <point x="4.0" y="2.7"/>
+        <point x="4.0" y="2.6"/>
+        <point x="4.0" y="2.5"/>
+        <point x="4.0" y="2.4"/>
+      </controlPoints>
+      <count>_8</count>
+      <orientation>_180</orientation>
+      <bodyColor hex="90ab66"/>
+      <borderColor hex="647747"/>
+      <pitch value="0.1" unit="in"/>
+      <width value="0.3" unit="in"/>
+      <screwPosition>Offset</screwPosition>
+    </diylc.connectivity.PCBTerminalBlock>
+    <diylc.connectivity.PCBTerminalBlock>
+      <name>TB2</name>
+      <alpha>127</alpha>
+      <controlPoints>
+        <point x="6.3" y="2.4"/>
+        <point x="6.3" y="2.5"/>
+        <point x="6.3" y="2.6"/>
+      </controlPoints>
+      <count>_3</count>
+      <orientation>DEFAULT</orientation>
+      <bodyColor hex="90ab66"/>
+      <borderColor hex="647747"/>
+      <pitch value="0.1" unit="in"/>
+      <width value="0.3" unit="in"/>
+      <screwPosition>Offset</screwPosition>
+    </diylc.connectivity.PCBTerminalBlock>
+    <diylc.connectivity.PCBTerminalBlock>
+      <name>TB3</name>
+      <alpha>127</alpha>
+      <controlPoints>
+        <point x="6.3" y="2.7"/>
+        <point x="6.3" y="2.8"/>
+        <point x="6.3" y="2.9"/>
+      </controlPoints>
+      <count>_3</count>
+      <orientation>DEFAULT</orientation>
+      <bodyColor hex="90ab66"/>
+      <borderColor hex="647747"/>
+      <pitch value="0.1" unit="in"/>
+      <width value="0.3" unit="in"/>
+      <screwPosition>Offset</screwPosition>
+    </diylc.connectivity.PCBTerminalBlock>
+    <diylc.connectivity.PCBTerminalBlock>
+      <name>TB4</name>
+      <alpha>127</alpha>
+      <controlPoints>
+        <point x="6.3" y="3.0"/>
+        <point x="6.3" y="3.1"/>
+        <point x="6.3" y="3.2"/>
+      </controlPoints>
+      <count>_3</count>
+      <orientation>DEFAULT</orientation>
+      <bodyColor hex="90ab66"/>
+      <borderColor hex="647747"/>
+      <pitch value="0.1" unit="in"/>
+      <width value="0.3" unit="in"/>
+      <screwPosition>Offset</screwPosition>
+    </diylc.connectivity.PCBTerminalBlock>
+    <diylc.connectivity.PCBTerminalBlock>
+      <name>TB5</name>
+      <alpha>127</alpha>
+      <controlPoints>
+        <point x="6.3" y="3.3"/>
+        <point x="6.3" y="3.4"/>
+        <point x="6.3" y="3.5"/>
+      </controlPoints>
+      <count>_3</count>
+      <orientation>DEFAULT</orientation>
+      <bodyColor hex="90ab66"/>
+      <borderColor hex="647747"/>
+      <pitch value="0.1" unit="in"/>
+      <width value="0.3" unit="in"/>
+      <screwPosition>Offset</screwPosition>
+    </diylc.connectivity.PCBTerminalBlock>
+    <diylc.connectivity.PCBTerminalBlock>
+      <name>TB6</name>
+      <alpha>127</alpha>
+      <controlPoints>
+        <point x="6.3" y="3.6"/>
+        <point x="6.3" y="3.7"/>
+        <point x="6.3" y="3.8"/>
+      </controlPoints>
+      <count>_3</count>
+      <orientation>DEFAULT</orientation>
+      <bodyColor hex="90ab66"/>
+      <borderColor hex="647747"/>
+      <pitch value="0.1" unit="in"/>
+      <width value="0.3" unit="in"/>
+      <screwPosition>Offset</screwPosition>
+    </diylc.connectivity.PCBTerminalBlock>
+    <diylc.connectivity.PCBTerminalBlock>
+      <name>TB7</name>
+      <alpha>127</alpha>
+      <controlPoints>
+        <point x="4.0" y="3.8"/>
+        <point x="4.0" y="3.7"/>
+        <point x="4.0" y="3.6"/>
+        <point x="4.0" y="3.5"/>
+        <point x="4.0" y="3.4"/>
+        <point x="4.0" y="3.3"/>
+      </controlPoints>
+      <count>_6</count>
+      <orientation>_180</orientation>
+      <bodyColor hex="90ab66"/>
+      <borderColor hex="647747"/>
+      <pitch value="0.1" unit="in"/>
+      <width value="0.3" unit="in"/>
+      <screwPosition>Offset</screwPosition>
+    </diylc.connectivity.PCBTerminalBlock>
+  </components>
+  <groups/>
+  <lockedLayers/>
+  <lockedComponents/>
+  <hiddenLayers/>
+  <font name="Dialog.plain" size="14" style="0"/>
+</project>

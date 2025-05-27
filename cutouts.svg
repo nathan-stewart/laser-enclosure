@@ -24,9 +24,9 @@
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="mm"
      showgrid="false"
-     inkscape:zoom="4.6702668"
-     inkscape:cx="1091.0511"
-     inkscape:cy="578.55367"
+     inkscape:zoom="2.3351335"
+     inkscape:cx="996.73104"
+     inkscape:cy="615.38239"
      inkscape:window-width="1920"
      inkscape:window-height="1019"
      inkscape:window-x="0"
@@ -454,6 +454,9 @@
        x="105608.35"
        y="415517.94">12V</text>
   </g>
+  <g
+     id="g618-6"
+     transform="matrix(1.0000024,0,0,1.0000024,267533.73,27317.056)" />
   <path
      d="m 254202.56,86792.562 c 0,562.467 -148.09,1115.144 -429.32,1602.255 -281.24,487.111 -685.82,891.699 -1172.93,1172.933 -487.12,281.233 -1039.79,429.322 -1602.26,429.322 -562.47,0 -1115.14,-148.089 -1602.26,-429.322 -487.11,-281.234 -891.69,-685.822 -1172.93,-1172.933 -281.23,-487.111 -429.32,-1039.788 -429.32,-1602.255 0,-562.466 148.09,-1115.142 429.33,-1602.251 281.23,-487.109 685.82,-891.696 1172.93,-1172.928 487.11,-281.233 1039.78,-429.321 1602.25,-429.321 562.47,0 1115.14,148.088 1602.25,429.321 487.11,281.232 891.7,685.819 1172.93,1172.928 281.24,487.109 429.33,1039.785 429.33,1602.251 v 0 m 105052.14,0 c 0,562.467 -148.09,1115.144 -429.32,1602.255 -281.24,487.111 -685.82,891.699 -1172.93,1172.933 -487.12,281.233 -1039.79,429.322 -1602.26,429.322 -562.47,0 -1115.14,-148.089 -1602.26,-429.322 -487.11,-281.234 -891.69,-685.822 -1172.93,-1172.933 -281.23,-487.111 -429.32,-1039.788 -429.32,-1602.255 0,-562.466 148.09,-1115.142 429.33,-1602.251 281.23,-487.109 685.82,-891.696 1172.93,-1172.928 487.11,-281.233 1039.78,-429.321 1602.25,-429.321 562.47,0 1115.14,148.088 1602.25,429.321 487.11,281.232 891.7,685.819 1172.93,1172.928 281.24,487.109 429.33,1039.785 429.33,1602.251 v 0 m -33753.59,-65793.923 -43955.32,1.33 -12981.13,12982.47 V 143942.07 h 69918.92 V 33982.439 l -12982.47,-12983.8"
      stroke_scale="True"
@@ -591,216 +594,6 @@
      id="path316"
      style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:1548.07;stroke-opacity:1"
      d="M 589868.16 163428.12 L 589868.16 328554.89 L 954954.48 328554.89 L 954954.48 163428.12 L 589868.16 163428.12 z M 603285.28 210230.06 C 603964.68 210229.96 604632.86 210409.03 605221.25 210748.72 C 605809.64 211088.4 606297.55 211576.31 606637.23 212164.7 C 606976.92 212753.09 607155.96 213421.27 607155.89 214100.67 C 607155.72 214779.93 606976.98 215447.13 606637.23 216035.31 C 606297.49 216623.5 605808.22 217111.74 605219.92 217451.28 C 604631.65 217790.82 603964.53 217970.01 603285.28 217969.94 C 602606.01 217970.04 601938.95 217790.82 601350.65 217451.28 C 600762.35 217111.74 600273.08 216623.5 599933.34 216035.31 C 599593.6 215447.13 599414.85 214779.93 599414.68 214100.67 C 599414.58 213421.27 599593.66 212753.09 599933.34 212164.7 C 600273.02 211576.31 600762.26 211088.4 601350.65 210748.72 C 601939.04 210409.03 602605.86 210229.99 603285.28 210230.06 z M 941538.69 210230.06 C 942218.09 210229.96 942886.26 210409.03 943474.66 210748.72 C 944063.05 211088.4 944550.96 211576.3 944890.64 212164.7 C 945230.33 212753.09 945409.37 213421.27 945409.3 214100.67 C 945409.13 214779.93 945230.39 215447.13 944890.64 216035.31 C 944550.9 216623.51 944061.63 217111.74 943473.33 217451.28 C 942885.05 217790.82 942217.94 217970.01 941538.69 217969.94 C 940859.42 217970.04 940192.35 217790.82 939604.05 217451.28 C 939015.74 217111.74 938526.48 216623.51 938186.74 216035.31 C 937847 215447.13 937668.25 214779.93 937668.08 214100.67 C 937667.98 213421.27 937847.06 212753.09 938186.74 212164.7 C 938526.42 211576.3 939015.65 211088.4 939604.05 210748.72 C 940192.44 210409.03 940859.27 210229.99 941538.69 210230.06 z M 625860.93 219544.59 A 3741.1794 3741.1794 0 0 1 629602.21 223285.86 A 3741.1794 3741.1794 0 0 1 625860.93 227027.14 A 3741.1794 3741.1794 0 0 1 622119.66 223285.86 A 3741.1794 3741.1794 0 0 1 625860.93 219544.59 z M 918963.04 219545.92 A 3741.1704 3741.1704 0 0 1 922702.98 223285.86 A 3741.1704 3741.1704 0 0 1 918963.04 227027.14 A 3741.1704 3741.1704 0 0 1 915221.77 223285.86 A 3741.1704 3741.1704 0 0 1 918963.04 219545.92 z M 603285.28 242120.23 C 603964.68 242120.13 604632.86 242299.21 605221.25 242638.89 C 605809.65 242978.57 606297.55 243467.79 606637.23 244056.2 C 606976.92 244644.58 607155.96 245312.77 607155.89 245992.17 C 607155.99 246671.57 606976.92 247338.41 606637.23 247926.81 C 606297.55 248515.21 605809.65 249004.44 605221.25 249344.12 C 604632.86 249683.8 603964.68 249862.85 603285.28 249862.78 C 602605.86 249862.88 601939.04 249683.8 601350.65 249344.12 C 600762.25 249004.44 600273.02 248515.21 599933.34 247926.81 C 599593.66 247338.41 599414.61 246671.57 599414.68 245992.17 C 599414.58 245312.77 599593.66 244644.58 599933.34 244056.2 C 600273.02 243467.79 600762.25 242978.57 601350.65 242638.89 C 601939.04 242299.21 602605.86 242120.16 603285.28 242120.23 z M 941538.69 242120.23 C 942218.09 242120.13 942886.26 242299.21 943474.66 242638.89 C 944063.06 242978.57 944550.96 243467.79 944890.64 244056.2 C 945230.33 244644.58 945409.37 245312.77 945409.3 245992.17 C 945409.4 246671.57 945230.33 247338.41 944890.64 247926.81 C 944550.96 248515.21 944063.06 249004.44 943474.66 249344.12 C 942886.26 249683.81 942218.09 249862.85 941538.69 249862.78 C 940859.27 249862.88 940192.44 249683.81 939604.05 249344.12 C 939015.64 249004.44 938526.42 248515.21 938186.74 247926.81 C 937847.06 247338.41 937668.01 246671.57 937668.08 245992.17 C 937667.98 245312.77 937847.06 244644.58 938186.74 244056.2 C 938526.42 243467.79 939015.64 242978.57 939604.05 242638.89 C 940192.44 242299.21 940859.27 242120.16 941538.69 242120.23 z M 664820.33 242250.9 A 3741.1884 3741.1884 0 0 1 668561.6 245990.84 A 3741.1884 3741.1884 0 0 1 664820.33 249732.12 A 3741.1884 3741.1884 0 0 1 661080.38 245990.84 A 3741.1884 3741.1884 0 0 1 664820.33 242250.9 z M 880002.31 242250.9 A 3741.1794 3741.1794 0 0 1 883743.59 245990.84 A 3741.1794 3741.1794 0 0 1 880002.31 249732.12 A 3741.1794 3741.1794 0 0 1 876261.04 245990.84 A 3741.1794 3741.1794 0 0 1 880002.31 242250.9 z M 625860.93 264955.88 A 3741.1884 3741.1884 0 0 1 629602.21 268697.15 A 3741.1884 3741.1884 0 0 1 625860.93 272437.1 A 3741.1884 3741.1884 0 0 1 622119.66 268697.15 A 3741.1884 3741.1884 0 0 1 625860.93 264955.88 z M 918963.04 264955.88 A 3741.1794 3741.1794 0 0 1 922702.98 268697.15 A 3741.1794 3741.1794 0 0 1 918963.04 272437.1 A 3741.1794 3741.1794 0 0 1 915221.77 268697.15 A 3741.1794 3741.1794 0 0 1 918963.04 264955.88 z M 603285.28 274011.74 C 603964.68 274011.64 604632.86 274190.72 605221.25 274530.4 C 605809.65 274870.08 606297.55 275357.97 606637.23 275946.37 C 606976.92 276534.74 607155.96 277202.95 607155.89 277882.34 C 607155.99 278561.72 606976.92 279228.58 606637.23 279816.98 C 606297.54 280405.36 605809.64 280894.6 605221.25 281234.29 C 604632.86 281573.97 603964.68 281753.02 603285.28 281752.95 C 602605.86 281753.05 601939.04 281573.97 601350.65 281234.29 C 600762.26 280894.6 600273.03 280405.36 599933.34 279816.98 C 599593.66 279228.58 599414.62 278561.72 599414.68 277882.34 C 599414.58 277202.95 599593.66 276534.74 599933.34 275946.37 C 600273.02 275357.97 600762.25 274870.08 601350.65 274530.4 C 601939.04 274190.72 602605.86 274011.67 603285.28 274011.74 z M 941538.69 274011.74 C 942218.09 274011.64 942886.26 274190.71 943474.66 274530.4 C 944063.06 274870.08 944550.96 275357.97 944890.64 275946.37 C 945230.33 276534.74 945409.37 277202.95 945409.3 277882.34 C 945409.4 278561.72 945230.33 279228.58 944890.64 279816.98 C 944550.95 280405.36 944063.05 280894.6 943474.66 281234.29 C 942886.26 281573.97 942218.09 281753.02 941538.69 281752.95 C 940859.27 281753.05 940192.44 281573.97 939604.05 281234.29 C 939015.65 280894.6 938526.43 280405.36 938186.74 279816.98 C 937847.06 279228.58 937668.02 278561.72 937668.08 277882.34 C 937667.98 277202.95 937847.06 276534.74 938186.74 275946.37 C 938526.42 275357.97 939015.64 274870.08 939604.05 274530.4 C 940192.44 274190.71 940859.27 274011.67 941538.69 274011.74 z " />
-  <g
-     id="g1725"
-     transform="translate(-112905.74,-88531.434)">
-    <path
-       id="rect1055"
-       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:258.012;stroke-dasharray:none;stroke-opacity:1"
-       d="m 423161.42,-703886.39 c 0,2869.35 2310.57,5179.92 5179.92,5179.92 h 123807.41 c 2869.34,0 5179.92,-2310.57 5179.92,-5179.92 v -100586.43 c 0,-2869.34 -2310.58,-5179.92 -5179.92,-5179.92 H 428341.34 c -2869.35,0 -5179.92,2310.58 -5179.92,5179.92 z m 10321.17,-18403.71 c -0.1,-679.4 178.98,-1347.59 518.66,-1935.97 339.68,-588.4 828.91,-1076.3 1417.31,-1415.98 588.39,-339.68 1255.23,-518.73 1934.64,-518.66 679.4,-0.1 1347.58,178.98 1935.97,518.66 588.4,339.68 1076.3,827.58 1415.98,1415.98 339.68,588.38 518.72,1256.57 518.65,1935.97 0.1,679.38 -178.97,1346.25 -518.65,1934.64 -339.69,588.38 -827.59,1077.63 -1415.98,1417.31 -588.39,339.68 -1256.57,518.73 -1935.97,518.66 -679.41,0.1 -1346.25,-178.98 -1934.64,-518.66 -588.39,-339.68 -1077.62,-828.93 -1417.31,-1417.31 -339.68,-588.39 -518.72,-1255.26 -518.66,-1934.64 z m 0,-31890.17 c -0.1,-679.4 178.98,-1347.59 518.66,-1935.97 339.68,-588.4 828.91,-1076.29 1417.31,-1415.98 588.39,-339.68 1255.23,-518.73 1934.64,-518.66 679.4,-0.1 1347.58,178.98 1935.97,518.66 588.4,339.69 1076.3,827.58 1415.98,1415.98 339.68,588.38 518.72,1256.57 518.65,1935.97 0.1,679.39 -178.97,1346.25 -518.65,1934.64 -339.68,588.4 -827.58,1077.63 -1415.98,1417.31 -588.39,339.68 -1256.57,518.73 -1935.97,518.66 -679.41,0.1 -1346.25,-178.98 -1934.64,-518.66 -588.4,-339.68 -1077.63,-828.91 -1417.31,-1417.31 -339.68,-588.39 -518.73,-1255.25 -518.66,-1934.64 z m 0,-31890.17 c -0.1,-679.4 178.98,-1347.58 518.66,-1935.97 339.68,-588.38 828.92,-1076.3 1417.31,-1415.98 588.39,-339.69 1255.23,-518.73 1934.64,-518.66 679.4,-0.1 1347.58,178.97 1935.97,518.66 588.39,339.68 1076.3,827.6 1415.98,1415.98 339.68,588.39 518.72,1256.57 518.65,1935.97 -0.17,679.25 -178.91,1346.46 -518.65,1934.64 -339.74,588.19 -829.02,1076.44 -1417.32,1415.97 -588.26,339.55 -1255.38,518.73 -1934.63,518.66 -679.26,0.1 -1346.34,-179.11 -1934.64,-518.66 -588.3,-339.53 -1077.57,-827.78 -1417.31,-1415.97 -339.74,-588.18 -518.49,-1255.39 -518.66,-1934.64 z m 23971.63,72504.2 a 3741.1704,3741.1704 0 0 1 3741.27,-3741.27 3741.1704,3741.1704 0 0 1 3739.95,3741.27 3741.1704,3741.1704 0 0 1 -3739.95,3741.28 3741.1704,3741.1704 0 0 1 -3741.27,-3741.28 z m 58103.09,0 a 3741.1794,3741.1794 0 0 1 3741.28,-3741.27 3741.1794,3741.1794 0 0 1 3741.28,3741.27 3741.1794,3741.1794 0 0 1 -3741.28,3741.28 3741.1794,3741.1794 0 0 1 -3741.28,-3741.28 z m 23710.3,-8722.53 c -0.1,-679.4 178.98,-1348.92 518.66,-1937.3 339.68,-588.41 828.91,-1076.3 1417.31,-1415.98 588.39,-339.68 1255.23,-518.73 1934.64,-518.66 679.4,-0.1 1347.58,178.98 1935.97,518.66 588.4,339.68 1076.3,827.57 1415.98,1415.98 339.68,588.38 518.73,1257.9 518.66,1937.3 0.1,679.38 -178.98,1346.24 -518.66,1934.64 -339.69,588.38 -827.59,1077.63 -1415.98,1417.31 -588.39,339.68 -1256.57,518.73 -1935.97,518.66 -679.41,0.1 -1346.25,-178.98 -1934.64,-518.66 -588.39,-339.68 -1077.62,-828.93 -1417.31,-1417.31 -339.68,-588.4 -518.72,-1255.26 -518.66,-1934.64 z m 0,-31891.5 c -0.1,-679.4 178.98,-1347.59 518.66,-1935.97 339.68,-588.4 828.91,-1076.29 1417.31,-1415.98 588.39,-339.68 1255.23,-518.73 1934.64,-518.66 679.4,-0.1 1347.58,178.98 1935.97,518.66 588.4,339.69 1076.3,827.58 1415.98,1415.98 339.68,588.38 518.73,1256.57 518.66,1935.97 0.1,679.4 -178.98,1346.25 -518.66,1934.64 -339.68,588.4 -827.58,1077.63 -1415.98,1417.31 -588.39,339.68 -1256.57,518.73 -1935.97,518.66 -679.41,0.1 -1346.25,-178.98 -1934.64,-518.66 -588.4,-339.68 -1077.63,-828.91 -1417.31,-1417.31 -339.68,-588.39 -518.73,-1255.24 -518.66,-1934.64 z m 0,-31890.17 c -0.1,-679.4 178.98,-1347.58 518.66,-1935.97 339.68,-588.38 828.92,-1076.3 1417.31,-1415.98 588.39,-339.69 1255.23,-518.73 1934.64,-518.66 679.4,-0.1 1347.58,178.97 1935.97,518.66 588.39,339.68 1076.3,827.6 1415.98,1415.98 339.68,588.39 518.73,1256.57 518.66,1935.97 -0.17,679.25 -178.92,1346.46 -518.66,1934.64 -339.74,588.19 -829.01,1076.43 -1417.31,1415.97 -588.26,339.55 -1255.39,518.73 -1934.64,518.66 -679.26,0.1 -1346.34,-179.11 -1934.64,-518.66 -588.3,-339.54 -1077.57,-827.78 -1417.31,-1415.97 -339.74,-588.18 -518.49,-1255.39 -518.66,-1934.64 z"
-       transform="rotate(90)" />
-    <text
-       xml:space="preserve"
-       style="font-size:14563.3px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07"
-       x="474516.12"
-       y="-789431.38"
-       id="text1619"
-       transform="rotate(90)"><tspan
-         sodipodi:role="line"
-         id="tspan1617"
-         style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07"
-         x="474516.12"
-         y="-789431.38">ADC </tspan></text>
-    <rect
-       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:1548.07;stroke-opacity:1"
-       id="rect951"
-       width="72243.289"
-       height="46442.113"
-       x="454125"
-       y="-753686.38"
-       ry="5179.3247"
-       transform="rotate(90)" />
-    <circle
-       style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
-       id="path1136"
-       cx="458769.19"
-       cy="-745682"
-       r="1290.0587"
-       transform="rotate(90)" />
-    <circle
-       style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
-       id="path1136-1"
-       cx="486749.12"
-       cy="-745682"
-       r="1290.0618"
-       transform="rotate(90)" />
-    <circle
-       style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
-       id="path1136-2"
-       cx="472759.19"
-       cy="-745682"
-       r="1290.0618"
-       transform="rotate(90)" />
-    <circle
-       style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
-       id="path1136-7"
-       cx="500739.12"
-       cy="-745682"
-       r="1290.0618"
-       transform="rotate(90)" />
-    <circle
-       style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
-       id="path1136-0"
-       cx="514729.06"
-       cy="-745682"
-       r="1290.0618"
-       transform="rotate(90)" />
-    <circle
-       style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
-       id="path1136-9"
-       cx="465764.19"
-       cy="-745682"
-       r="1290.0618"
-       transform="rotate(90)" />
-    <circle
-       style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
-       id="path1136-1-3"
-       cx="493744.12"
-       cy="-745682"
-       r="1290.0648"
-       transform="rotate(90)" />
-    <circle
-       style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
-       id="path1136-2-6"
-       cx="479754.12"
-       cy="-745682"
-       r="1290.0648"
-       transform="rotate(90)" />
-    <circle
-       style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
-       id="path1136-7-0"
-       cx="507734.06"
-       cy="-745682"
-       r="1290.0648"
-       transform="rotate(90)" />
-    <circle
-       style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
-       id="path1136-0-6"
-       cx="521724.06"
-       cy="-745682"
-       r="1290.0648"
-       transform="rotate(90)" />
-    <text
-       xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
-       x="759072.38"
-       y="460759.81"
-       id="text1367"><tspan
-         sodipodi:role="line"
-         id="tspan1365"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke-width:1548.07"
-         x="759072.38"
-         y="460759.81">VDD</tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
-       x="759072.38"
-       y="467754.81"
-       id="text1367-5"><tspan
-         sodipodi:role="line"
-         id="tspan1365-0"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke-width:1548.07"
-         x="759072.38"
-         y="467754.81">GND</tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
-       x="759072.38"
-       y="474749.78"
-       id="text1367-3"><tspan
-         sodipodi:role="line"
-         id="tspan1365-6"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke-width:1548.07"
-         x="759072.38"
-         y="474749.78">SCL</tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
-       x="759072.38"
-       y="481744.78"
-       id="text1367-1"><tspan
-         sodipodi:role="line"
-         id="tspan1365-06"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke-width:1548.07"
-         x="759072.38"
-         y="481744.78">SDA</tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
-       x="759072.38"
-       y="488739.75"
-       id="text1367-32"><tspan
-         sodipodi:role="line"
-         id="tspan1365-061"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke-width:1548.07"
-         x="759072.38"
-         y="488739.75">ADDR</tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
-       x="759072.38"
-       y="495734.75"
-       id="text1367-55"><tspan
-         sodipodi:role="line"
-         id="tspan1365-4"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke-width:1548.07"
-         x="759072.38"
-         y="495734.75">ALRT</tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
-       x="759072.38"
-       y="502729.72"
-       id="text1367-7"><tspan
-         sodipodi:role="line"
-         id="tspan1365-65"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke-width:1548.07"
-         x="759072.38"
-         y="502729.72">A0</tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
-       x="759072.38"
-       y="509724.72"
-       id="text1367-6"><tspan
-         sodipodi:role="line"
-         id="tspan1365-9"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke-width:1548.07"
-         x="759072.38"
-         y="509724.72">A1</tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
-       x="759072.38"
-       y="516719.69"
-       id="text1367-37"><tspan
-         sodipodi:role="line"
-         id="tspan1365-45"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke-width:1548.07"
-         x="759072.38"
-         y="516719.69">A2</tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
-       x="759072.38"
-       y="523714.69"
-       id="text1367-2"><tspan
-         sodipodi:role="line"
-         id="tspan1365-5"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke-width:1548.07"
-         x="759072.38"
-         y="523714.69">A3</tspan></text>
-  </g>
   <text
      xml:space="preserve"
      style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
@@ -809,5 +602,146 @@
      id="text1620"><tspan
        sodipodi:role="line"
        id="tspan1618"
-       style="stroke-width:1548.07"></tspan></text>
+       style="stroke-width:1548.07" /></text>
+  <path
+     id="path1136-0-6"
+     style="stroke-width:258.0117379;fill:none;stroke:#000000;stroke-opacity:1;stroke-dasharray:none"
+     d="M 588233.52 333936.14 C 586804.13 333936.14 585652.22 335086.72 585652.22 336516.1 L 585652.22 537764.97 C 585652.22 539194.35 586804.13 540344.93 588233.52 540344.93 L 750780.32 540344.93 C 752209.71 540344.93 753360.28 539194.35 753360.28 537764.97 L 753360.28 336516.1 C 753360.28 335086.72 752209.71 333936.14 750780.32 333936.14 L 588233.52 333936.14 z M 599842.67 401380.42 C 600522.06 401380.32 601190.25 401559.4 601778.64 401899.08 C 602367.02 402238.76 602854.94 402726.67 603194.62 403315.06 C 603534.29 403903.45 603713.34 404571.63 603713.28 405251.03 C 603713.11 405930.29 603534.35 406597.49 603194.62 407185.67 C 602854.88 407773.85 602365.61 408262.1 601777.31 408601.64 C 601189.02 408941.18 600521.91 409120.36 599842.67 409120.3 C 599163.42 409120.4 598496.33 408941.18 597908.03 408601.64 C 597319.73 408262.1 596830.46 407773.86 596490.72 407185.67 C 596150.97 406597.49 595972.22 405930.29 595972.06 405251.03 C 595971.96 404571.63 596151.03 403903.45 596490.72 403315.06 C 596830.4 402726.67 597319.64 402238.76 597908.03 401899.08 C 598496.42 401559.4 599163.28 401380.35 599842.67 401380.42 z M 739168.5 401380.42 C 739847.9 401380.32 740516.08 401559.4 741104.47 401899.08 C 741692.85 402238.76 742180.77 402726.67 742520.45 403315.06 C 742860.12 403903.45 743039.17 404571.63 743039.11 405251.03 C 743038.94 405930.29 742860.18 406597.49 742520.45 407185.67 C 742180.71 407773.85 741691.44 408262.1 741103.14 408601.64 C 740514.85 408941.18 739847.75 409120.36 739168.5 409120.3 C 738489.25 409120.4 737822.17 408941.18 737233.87 408601.64 C 736645.57 408262.1 736156.3 407773.86 735816.56 407185.67 C 735476.81 406597.49 735298.06 405930.29 735297.9 405251.03 C 735297.8 404571.63 735476.87 403903.45 735816.56 403315.06 C 736156.24 402726.67 736645.48 402238.76 737233.87 401899.08 C 737822.26 401559.4 738489.11 401380.35 739168.5 401380.42 z M 674525.51 412878.91 A 1290.0587 1290.0587 0 0 1 675814.82 414168.23 A 1290.0587 1290.0587 0 0 1 674525.51 415458.87 A 1290.0587 1290.0587 0 0 1 673234.86 414168.23 A 1290.0587 1290.0587 0 0 1 674525.51 412878.91 z M 674525.51 419873.47 A 1290.0618 1290.0618 0 0 1 675814.82 421164.12 A 1290.0618 1290.0618 0 0 1 674525.51 422453.43 A 1290.0618 1290.0618 0 0 1 673234.86 421164.12 A 1290.0618 1290.0618 0 0 1 674525.51 419873.47 z M 674525.51 426869.36 A 1290.0618 1290.0618 0 0 1 675814.82 428158.67 A 1290.0618 1290.0618 0 0 1 674525.51 429449.32 A 1290.0618 1290.0618 0 0 1 673234.86 428158.67 A 1290.0618 1290.0618 0 0 1 674525.51 426869.36 z M 599842.67 433270.59 C 600522.06 433270.49 601190.25 433449.56 601778.64 433789.25 C 602367.02 434128.93 602854.94 434616.83 603194.62 435205.23 C 603534.29 435793.62 603713.34 436461.8 603713.28 437141.2 C 603713.38 437820.59 603534.29 438487.44 603194.62 439075.84 C 602854.94 439664.23 602367.02 440153.47 601778.64 440493.15 C 601190.25 440832.84 600522.06 441011.87 599842.67 441011.81 C 599163.27 441011.91 598496.42 440832.83 597908.03 440493.15 C 597319.64 440153.47 596830.4 439664.23 596490.72 439075.84 C 596151.03 438487.44 595971.99 437820.59 595972.06 437141.2 C 595971.96 436461.8 596151.03 435793.62 596490.72 435205.23 C 596830.4 434616.83 597319.64 434128.93 597908.03 433789.25 C 598496.42 433449.57 599163.27 433270.53 599842.67 433270.59 z M 739168.5 433270.59 C 739847.9 433270.49 740516.08 433449.56 741104.47 433789.25 C 741692.85 434128.93 742180.77 434616.83 742520.45 435205.23 C 742860.12 435793.62 743039.17 436461.8 743039.11 437141.2 C 743039.21 437820.6 742860.12 438487.44 742520.45 439075.84 C 742180.77 439664.23 741692.85 440153.47 741104.47 440493.15 C 740516.08 440832.84 739847.9 441011.87 739168.5 441011.81 C 738489.1 441011.91 737822.26 440832.83 737233.87 440493.15 C 736645.48 440153.47 736156.24 439664.23 735816.56 439075.84 C 735476.87 438487.44 735297.83 437820.6 735297.9 437141.2 C 735297.8 436461.8 735476.87 435793.62 735816.56 435205.23 C 736156.24 434616.83 736645.48 434128.93 737233.87 433789.25 C 737822.26 433449.57 738489.1 433270.53 739168.5 433270.59 z M 674525.51 433863.92 A 1290.0648 1290.0648 0 0 1 675814.82 435153.23 A 1290.0648 1290.0648 0 0 1 674525.51 436443.88 A 1290.0648 1290.0648 0 0 1 673234.86 435153.23 A 1290.0648 1290.0648 0 0 1 674525.51 433863.92 z M 674525.51 440858.48 A 1290.0618 1290.0618 0 0 1 675814.82 442149.12 A 1290.0618 1290.0618 0 0 1 674525.51 443438.44 A 1290.0618 1290.0618 0 0 1 673234.86 442149.12 A 1290.0618 1290.0618 0 0 1 674525.51 440858.48 z M 674525.51 447853.03 A 1290.0648 1290.0648 0 0 1 675814.82 449143.68 A 1290.0648 1290.0648 0 0 1 674525.51 450434.33 A 1290.0648 1290.0648 0 0 1 673234.86 449143.68 A 1290.0648 1290.0648 0 0 1 674525.51 447853.03 z M 674525.51 454848.93 A 1290.0618 1290.0618 0 0 1 675814.82 456138.24 A 1290.0618 1290.0618 0 0 1 674525.51 457428.89 A 1290.0618 1290.0618 0 0 1 673234.86 456138.24 A 1290.0618 1290.0618 0 0 1 674525.51 454848.93 z M 674525.51 461843.48 A 1290.0648 1290.0648 0 0 1 675814.82 463134.13 A 1290.0648 1290.0648 0 0 1 674525.51 464423.44 A 1290.0648 1290.0648 0 0 1 673234.86 463134.13 A 1290.0648 1290.0648 0 0 1 674525.51 461843.48 z M 599842.67 465160.77 C 600522.06 465160.67 601190.25 465339.73 601778.64 465679.42 C 602367.02 466019.1 602854.94 466507.01 603194.62 467095.4 C 603534.29 467683.77 603713.34 468351.97 603713.28 469031.37 C 603713.38 469710.75 603534.29 470377.63 603194.62 470966.01 C 602854.94 471554.36 602367.02 472043.62 601778.64 472383.32 C 601190.25 472723 600522.06 472902.04 599842.67 472901.98 C 599163.28 472902.08 598496.42 472723 597908.03 472383.32 C 597319.64 472043.63 596830.4 471554.37 596490.72 470966.01 C 596151.03 470377.63 595971.99 469710.75 595972.06 469031.37 C 595971.96 468351.97 596151.03 467683.77 596490.72 467095.4 C 596830.4 466507.01 597319.64 466019.1 597908.03 465679.42 C 598496.42 465339.74 599163.27 465160.71 599842.67 465160.77 z M 739168.5 465160.77 C 739847.9 465160.67 740516.08 465339.73 741104.47 465679.42 C 741692.85 466019.1 742180.77 466507.01 742520.45 467095.4 C 742860.12 467683.77 743039.17 468351.97 743039.11 469031.37 C 743039.21 469710.75 742860.12 470377.62 742520.45 470966.01 C 742180.77 471554.36 741692.85 472043.62 741104.47 472383.32 C 740516.08 472723 739847.9 472902.04 739168.5 472901.98 C 738489.11 472902.08 737822.26 472723 737233.87 472383.32 C 736645.48 472043.63 736156.24 471554.37 735816.56 470966.01 C 735476.87 470377.62 735297.83 469710.75 735297.9 469031.37 C 735297.8 468351.97 735476.87 467683.77 735816.56 467095.4 C 736156.24 466507.01 736645.48 466019.1 737233.87 465679.42 C 737822.26 465339.74 738489.1 465160.71 739168.5 465160.77 z M 674525.51 468838.04 A 1290.0618 1290.0618 0 0 1 675814.82 470128.69 A 1290.0618 1290.0618 0 0 1 674525.51 471419.33 A 1290.0618 1290.0618 0 0 1 673234.86 470128.69 A 1290.0618 1290.0618 0 0 1 674525.51 468838.04 z M 674525.51 475833.93 A 1290.0648 1290.0648 0 0 1 675814.82 477123.25 A 1290.0648 1290.0648 0 0 1 674525.51 478413.89 A 1290.0648 1290.0648 0 0 1 673234.86 477123.25 A 1290.0648 1290.0648 0 0 1 674525.51 475833.93 z " />
+  <g
+     id="g1129"
+     transform="translate(41749.16,43931.058)">
+    <text
+       xml:space="preserve"
+       style="font-size:14563.3px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07"
+       x="601830.06"
+       y="358616.12"
+       id="text1619"><tspan
+         sodipodi:role="line"
+         id="tspan1617"
+         style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07"
+         x="601830.06"
+         y="358616.12">ADC </tspan></text>
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:1548.07;stroke-opacity:1"
+       id="rect951"
+       width="72243.289"
+       height="46442.113"
+       x="365593.56"
+       y="-640780.62"
+       ry="5179.3247"
+       transform="rotate(90)" />
+    <g
+       id="g1103">
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
+         x="646166.62"
+         y="372228.38"
+         id="text1367"><tspan
+           sodipodi:role="line"
+           id="tspan1365"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke-width:1548.07"
+           x="646166.62"
+           y="372228.38">VDD</tspan></text>
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
+         x="646166.62"
+         y="379223.38"
+         id="text1367-5"><tspan
+           sodipodi:role="line"
+           id="tspan1365-0"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke-width:1548.07"
+           x="646166.62"
+           y="379223.38">GND</tspan></text>
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
+         x="646166.62"
+         y="386218.34"
+         id="text1367-3"><tspan
+           sodipodi:role="line"
+           id="tspan1365-6"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke-width:1548.07"
+           x="646166.62"
+           y="386218.34">SCL</tspan></text>
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
+         x="646166.62"
+         y="393213.34"
+         id="text1367-1"><tspan
+           sodipodi:role="line"
+           id="tspan1365-06"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke-width:1548.07"
+           x="646166.62"
+           y="393213.34">SDA</tspan></text>
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
+         x="646166.62"
+         y="400208.31"
+         id="text1367-32"><tspan
+           sodipodi:role="line"
+           id="tspan1365-061"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke-width:1548.07"
+           x="646166.62"
+           y="400208.31">ADDR</tspan></text>
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
+         x="646166.62"
+         y="407203.31"
+         id="text1367-55"><tspan
+           sodipodi:role="line"
+           id="tspan1365-4"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke-width:1548.07"
+           x="646166.62"
+           y="407203.31">ALRT</tspan></text>
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
+         x="646166.62"
+         y="414198.28"
+         id="text1367-7"><tspan
+           sodipodi:role="line"
+           id="tspan1365-65"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke-width:1548.07"
+           x="646166.62"
+           y="414198.28">A0</tspan></text>
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
+         x="646166.62"
+         y="421193.28"
+         id="text1367-6"><tspan
+           sodipodi:role="line"
+           id="tspan1365-9"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke-width:1548.07"
+           x="646166.62"
+           y="421193.28">A1</tspan></text>
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
+         x="646166.62"
+         y="428188.25"
+         id="text1367-37"><tspan
+           sodipodi:role="line"
+           id="tspan1365-45"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke-width:1548.07"
+           x="646166.62"
+           y="428188.25">A2</tspan></text>
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1548.07;stroke-opacity:1"
+         x="646166.62"
+         y="435183.25"
+         id="text1367-2"><tspan
+           sodipodi:role="line"
+           id="tspan1365-5"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5461.25px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke-width:1548.07"
+           x="646166.62"
+           y="435183.25">A3</tspan></text>
+    </g>
+  </g>
 </svg>
