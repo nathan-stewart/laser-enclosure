@@ -21,6 +21,7 @@
           - screen
           - python3-pip
           - git
+          - vim
           - python3-opencv
           - xserver-xorg
           - xinit
