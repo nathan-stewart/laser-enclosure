@@ -18,61 +18,64 @@ except ImportError:
     smbus = None
     print("smbus not found. MCP23017 readings will be skipped.", file=sys.stderr)
 
+# Define DHT11 sensor
+DHT_TYPE = Adafruit_DHT.DHT11 if Adafruit_DHT else None
+
 # Setup
 GPIO.setmode(GPIO.BCM)
 
 # Define RPi GPIO pins
-RPi_GPIO_PINS = {
-    "m7": 17,
-    "m8": 18,
-    "lid": 27,
-    "k1": 22, # laser
-    "k2": 23, # high pressure air assist
-    "k3": 24, # CO2 Extinguisher
-    "k4": 25, # Lights
-    "k5": 5,  # Low Pressure Air Assist
-    "k6": 6,  # Dehumidifier Fan
-    "k7": 12, # Dehumidifier Heat
-    "k8": 13, # Exhaust Fan
+RPi_INPUT_PINS = {
+    "i_m7": 17,
+    "i_m8": 18,
+    "i_lid": 27,
+    "i_dht11": 4, # DHT11 sensor data pin
 }
 
-# Define DHT11 sensor
-DHT_PIN = 4  # Example DHT11 data pin
-DHT_TYPE = Adafruit_DHT.DHT11 if Adafruit_DHT else None
+RPi_OUTPUT_PINS = {
+    "o_k1_laser": 22, # laser
+    "o_k2_hpa": 23, # high pressure air assist
+    "o_k3_fire": 24, # CO2 Extinguisher
+    "o_k4_light": 25, # Lights
+    "o_k5_lpa": 5,  # Low Pressure Air Assist
+    "o_k6_dry_fan": 6,  # Dehumidifier Fan
+    "o_k7_dry_heat": 12, # Dehumidifier Heat
+    "o_k8_exhaust": 13, # Exhaust Fan
+}
 
 # Define MCP23017 expanders and their pins
 # Mapping of logical names to (I2C device address, GPIO pin on the device)
 MCP23017_PINS = {
-    "button_1"     : (0x20, 0),
-    "led_1"        : (0x20, 1),
-    "button_2"     : (0x20, 2),
-    "led_2"        : (0x20, 3),
-    "button_3"     : (0x20, 4),
-    "led_3"        : (0x20, 5),
-    "button_4"     : (0x20, 6),
-    "led_4"        : (0x20, 7),
-    "button_estop" : (0x20, 8),
-    "button_fire"  : (0x20, 9),
-    "encoder_a"    : (0x21, 0),
-    "encoder_b"    : (0x21, 1),
-    "toggle_x"     : (0x21, 2),
-    "toggle_z"     : (0x21, 3),
-    "toggle_coarse": (0x21, 4),
-    "toggle_fine"  : (0x21, 5),
-    "button_rel"   : (0x21, 6),
+    "i_fp1"       : (0x20, 0),
+    "o_fp1"       : (0x20, 1),
+    "i_fp2"       : (0x20, 2),
+    "o_fp2"       : (0x20, 3),
+    "i_fp3"       : (0x20, 4),
+    "o_fp3"       : (0x20, 5),
+    "i_fp4"       : (0x20, 6),
+    "o_fp4"       : (0x20, 7),
+    "i_btn_estop" : (0x20, 8),
+    "i_btn_fire"  : (0x20, 9),
+    "i_enc_a"     : (0x21, 0),
+    "i_enc_b"     : (0x21, 1),
+    "i_ignore_enc": (0x21, 2),
+    "i_axis_x"    : (0x21, 3),
+    "i_axis_z"    : (0x21, 4),
+    "i_coarse"    : (0x21, 5),
+    "i_fine"      : (0x21, 6),
 }
 
 # Identify unique MCP23017 addresses
 MCP23017_ADDRESSES = list(set([addr for addr, pin in MCP23017_PINS.values()]))
 I2C_BUS_NUM = 1 # Use I2C bus 1
 
-# Configure RPi GPIOs (based on your original script, assuming these are RPi GPIOs)
-# NOTE: The original script used keys "button", "relay", "lid", "estop" which are not in the new RPi_GPIO_PINS map.
-# Please clarify which RPi GPIO pins these correspond to. For now, I'll comment them out or use placeholders.
 try:
-    GPIO.setup(RPi_GPIO_PINS["lid"], GPIO.IN, pull_up_down=GPIO.PUD_UP)
-    GPIO.setup(RPi_GPIO_PINS["m7"], GPIO.IN, pull_up_down=GPIO.PUD_UP)
-    GPIO.setup(RPi_GPIO_PINS["m8"], GPIO.IN, pull_up_down=GPIO.PUD_UP)
+    # initial state -verify intention
+    for pin in RPi_INPUT_PINS:
+        GPIO.setup(RPi_INPUT_PINS[pin], GPIO.IN, pull_up_down=GPIO.PUD_UP)
+    for pin in RPi_OUTPUT_PINS:
+        GPIO.setup(RPi_OUTPUT_PINS[pin], GPIO.OUT, initial=GPIO.LOW) # Set outputs to LOW initially
+
     print("RPi GPIOs configured.")
 except KeyError as e:
     print(f"Configuration error: RPi_GPIO_PINS dictionary is missing key {e}. Please update RPi_GPIO_PINS.", file=sys.stderr)
@@ -220,7 +223,7 @@ def monitor_inputs():
         # Monitor DHT11
         if Adafruit_DHT and DHT_TYPE is not None: # Check if DHT library is available
             try:
-                humidity, temperature = Adafruit_DHT.read_retry(DHT_TYPE, DHT_PIN)
+                humidity, temperature = Adafruit_DHT.read_retry(DHT_TYPE, RPi_INPUT_PINS['i_dht11'])
                 temp_changed = temperature is not None and temperature != dht11_state['temperature']
                 hum_changed = humidity is not None and humidity != dht11_state['humidity']
 
