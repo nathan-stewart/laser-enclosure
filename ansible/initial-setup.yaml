@@ -24,6 +24,8 @@
           - vim
           - python3-opencv
           - xserver-xorg
+          - libzmq3-dev
+          - python3-zmq
           - xinit
           - ffmpeg
           - v4l2loopback-dkms
