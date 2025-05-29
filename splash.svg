@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="210mm"
+   height="297mm"
+   viewBox="0 0 210 297"
+   version="1.1"
+   id="svg1054"
+   inkscape:version="1.2.2 (b0a8486541, 2022-12-01)"
+   sodipodi:docname="splash.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1056"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     showgrid="false"
+     inkscape:zoom="0.77058782"
+     inkscape:cx="518.43539"
+     inkscape:cy="372.44295"
+     inkscape:window-width="1920"
+     inkscape:window-height="1019"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs1051" />
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <rect
+       style="fill:#020202;fill-opacity:1;stroke:#000000;stroke-width:0.1"
+       id="rect1196"
+       width="211.66667"
+       height="127"
+       x="0.050000001"
+       y="0.050000001"
+       inkscape:export-filename="makeomatic.png"
+       inkscape:export-xdpi="95.949997"
+       inkscape:export-ydpi="95.949997" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Bitwise;-inkscape-font-specification:'Bitwise, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.4;stroke-dasharray:0.799999, 0.4;stroke-dashoffset:0;stroke-opacity:1"
+       x="6.7502241"
+       y="30.192045"
+       id="text5467"><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Bitwise;-inkscape-font-specification:'Bitwise, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke-width:0.4"
+         x="6.7502241"
+         y="30.192045"
+         id="tspan13060">Makeomatic 750</tspan></text>
+    <path
+       style="fill:#ffffff;fill-opacity:1;stroke-width:0.999999"
+       d="m 150.44875,33.482861 c 0.14318,-0.11332 0.1705,-0.26298 0.24835,-1.36042 0.0481,-0.6782 0.10493,-1.25935 0.12626,-1.29145 0.0979,-0.14737 0.32098,0.0214 1.55759,1.17853 1.15836,1.08391 1.35262,1.23687 1.57076,1.23687 0.25037,0 0.34391,-0.0971 0.34391,-0.35714 0,-0.0698 -0.52667,-0.66469 -1.17038,-1.32188 -1.26745,-1.29402 -1.41293,-1.47748 -1.27403,-1.60664 0.0578,-0.0537 0.81592,-0.0965 2.23212,-0.12586 2.31567,-0.048 2.4031,-0.064 2.4031,-0.439 0,-0.36328 -0.0381,-0.36943 -2.28471,-0.36943 -1.1533,0 -2.09691,-0.0255 -2.09691,-0.0565 0,-0.13971 0.31455,-0.43643 1.27573,-1.20337 3.40833,-2.71961 14.26512,-12.085066 14.60868,-12.601986 0.17231,-0.25925 0.20991,-0.82288 0.071,-1.06425 -0.1105,-0.192 -0.82093,-0.49688 -1.15996,-0.49778 -0.30484,-8.3e-4 -0.44875,0.13032 -8.70326,7.929886 -2.51987,2.38101 -5.12909,4.81287 -5.79826,5.40415 -1.16982,1.03365 -1.22451,1.07172 -1.42036,0.98874 -0.15506,-0.0657 -0.20392,-0.13998 -0.20461,-0.31109 -5.9e-4,-0.12363 -0.0527,-1.07605 -0.11608,-2.11649 -0.0633,-1.04044 -0.11575,-2.04488 -0.11646,-2.23211 -0.001,-0.39727 -0.15859,-0.5876 -0.45792,-0.55483 -0.26993,0.0296 -0.30851,0.18746 -0.31799,1.30186 -0.004,0.50376 -0.031,1.60877 -0.0594,2.45558 -0.0492,1.46925 -0.0586,1.53964 -0.20632,1.53964 -0.17184,0 -0.72279,-0.44352 -2.38906,-1.92323 -1.18498,-1.05231 -1.35684,-1.13804 -1.55137,-0.77385 -0.13931,0.2608 -0.0143,0.42882 1.03203,1.38745 1.3898,1.27327 2.25645,2.1935 2.13387,2.26579 -0.0562,0.0331 -1.04628,0.0607 -2.20026,0.0614 -1.29431,5.5e-4 -2.15614,0.0299 -2.2495,0.0764 -0.18633,0.0927 -0.20286,0.44844 -0.0284,0.61068 0.10104,0.094 0.3359,0.11434 1.31785,0.11434 1.89755,0 3.0973,0.0761 3.0973,0.19642 0,0.0557 -0.56569,0.63874 -1.25708,1.29559 -1.1642,1.10604 -1.25525,1.21196 -1.23233,1.43362 0.0219,0.21215 0.0542,0.24197 0.28382,0.26247 0.22514,0.0201 0.33684,-0.0418 0.853,-0.47293 0.32667,-0.27283 0.96344,-0.79619 1.41504,-1.16304 1.12237,-0.91171 1.1112,-0.91965 1.1112,0.79001 0,1.15041 0.0147,1.29648 0.13693,1.36269 0.19546,0.10586 0.2934,0.0958 0.47607,-0.0487 z"
+       id="path5332" />
+  </g>
+</svg>
