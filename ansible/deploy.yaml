@@ -1,0 +1,37 @@
+- hosts: laser_enclosure
+  become: yes
+  tasks:
+    - name: Ensure Python3 and pip are installed
+      apt:
+        name:
+          - python3
+          - python3-pip
+        state: present
+        update_cache: yes
+
+    - name: Install required Python packages
+      pip:
+        name:
+          - pyqt5
+          - opencv-python
+          - pyzmq
+
+    - name: Copy application files
+      copy:
+        src: /path/to/your/local/laser-enclosure/
+        dest: /home/pi/laser-enclosure/
+        owner: pi
+        group: pi
+        mode: 0755
+
+    - name: Create desktop shortcut (optional)
+      copy:
+        content: |
+          [Desktop Entry]
+          Name=Laser Enclosure Front Panel
+          Exec=python3 /home/pi/laser-enclosure/src/front_panel.py
+          Type=Application
+        dest: /home/pi/Desktop/front_panel.desktop
+        owner: pi
+        group: pi
+        mode: 0755
