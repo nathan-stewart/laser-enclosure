@@ -168,6 +168,37 @@ def read_mcp23017_pin(device_address, pin):
             return None
     return None # Return None if bus not initialized or device not detected
 
+def write_mcp23017_pin(device_address, pin, state):
+    """Write to a specific pin on an MCP23017."""
+    if i2c_bus and mcp23017_devices.get(device_address, False):
+        try:
+            # Determine which register to write (OLATA or OLATB)
+            if pin < 8:
+                register = 0x14  # OLATA
+            elif pin < 16:
+                register = 0x15  # OLATB
+                pin -= 8  # Adjust pin number for GPIOB
+            else:
+                print(f"Invalid pin number {pin} for MCP23017.", file=sys.stderr)
+                return False
+
+            # Read current register value
+            current_value = i2c_bus.read_byte_data(device_address, register)
+
+            # Update the specific pin state
+            if state:
+                new_value = current_value | (1 << pin)  # Set pin HIGH
+            else:
+                new_value = current_value & ~(1 << pin)  # Set pin LOW
+
+            # Write updated value back to the register
+            i2c_bus.write_byte_data(device_address, register, new_value)
+            return True
+        except Exception as e:
+            print(f"Error writing MCP23017 at 0x{device_address:02X}, pin {pin}: {e}", file=sys.stderr)
+            return False
+    return False  # Return False if bus not initialized or device not detected
+
 def monitor_inputs():
     """Monitor all inputs (RPi GPIO, DHT11, MCP23017) and publish state changes."""
     global rpi_gpio_states, mcp23017_states, dht11_state
