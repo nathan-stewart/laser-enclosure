@@ -18,19 +18,29 @@
     - name: Install required packages
       apt:
         name:
+          - xserver-xorg
+          - xinit
           - screen
-          - python3-pip
           - git
           - vim
+          - plymouth
+          - python3-pip
           - python3-opencv
-          - xserver-xorg
-          - libzmq3-dev
           - python3-zmq
-          - xinit
+          - python3-pyqt5
+          - python3-rpi-lgpio
           - ffmpeg
           - v4l2loopback-dkms
           - v4l2loopback-utils
         update_cache: true
+
+    - name: Create Python virtual environment
+      command: python3 -m venv /home/kiosk/venv
+
+    - name: Install DHT11 Python library in virtual environment
+      pip:
+        name: Adafruit_CircuitPython_DHT
+        virtualenv: /home/kiosk/venv
 
     # Ensure Wayland is not used (skip removing Wayland libraries)
     - name: Disable Wayland by ensuring X11 is used
@@ -220,3 +230,66 @@
         name: meerkat.service
         enabled: true
         state: started
+
+    # Ensure the kiosk user exists
+    - name: Create kiosk user
+      user:
+        name: kiosk
+        state: present
+        shell: /bin/bash
+        home: /home/kiosk
+        create_home: true
+
+    # Install Plymouth
+    - name: Install Plymouth
+      apt:
+        name: plymouth
+        state: present
+        update_cache: true
+
+    # Create directory for custom Plymouth theme
+    - name: Create directory for custom Plymouth theme
+      file:
+        path: /usr/share/plymouth/themes/custom-splash
+        state: directory
+        mode: '0755'
+
+    # Copy splash.png to Plymouth theme directory
+    - name: Copy splash.png to Plymouth theme directory
+      copy:
+        src: /home/nps/projects/laser-enclosure/assets/splash.png
+        dest: /usr/share/plymouth/themes/custom-splash/splash.png
+        mode: '0644'
+
+    # Create Plymouth theme file
+    - name: Create Plymouth theme file
+      copy:
+        dest: /usr/share/plymouth/themes/custom-splash/custom-splash.plymouth
+        mode: '0644'
+        content: |
+          [Plymouth Theme]
+          Name=Custom Splash
+          Description=Custom boot splash screen
+          ModuleName=script
+
+          [script]
+          ImageDir=/usr/share/plymouth/themes/custom-splash
+          ScriptFile=/usr/share/plymouth/themes/custom-splash/custom-splash.script
+
+    # Create Plymouth script file
+    - name: Create Plymouth script file
+      copy:
+        dest: /usr/share/plymouth/themes/custom-splash/custom-splash.script
+        mode: '0644'
+        content: |
+          # Plymouth script for custom splash screen
+          image_background = Image("splash.png");
+          image_background.SetBackground();
+
+    # Set Plymouth theme to custom-splash
+    - name: Set Plymouth theme to custom-splash
+      command: plymouth-set-default-theme -R custom-splash
+
+    # Update initramfs to apply Plymouth changes
+    - name: Update initramfs
+      command: update-initramfs -u
