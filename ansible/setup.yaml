@@ -32,6 +32,7 @@
           - ffmpeg
           - v4l2loopback-dkms
           - v4l2loopback-utils
+          - watchdog
         update_cache: true
 
     - name: Create Python virtual environment
@@ -109,6 +110,7 @@
           hdmi_mode=87
           hdmi_cvt=800 480 60 6 0 0 0
           hdmi_drive=1
+          dtoverlay=vc4-kms-v3d
 
     # Configure touchscreen transformation matrix
     - name: Add touchscreen transformation matrix
@@ -283,7 +285,7 @@
         mode: '0644'
         content: |
           # Plymouth script for custom splash screen
-          image_background = Image("splash.png");
+          image_background = Image("/usr/share/plymouth/themes/custom-splash/splash.png");
           image_background.SetBackground();
 
     # Set Plymouth theme to custom-splash
@@ -293,3 +295,10 @@
     # Update initramfs to apply Plymouth changes
     - name: Update initramfs
       command: update-initramfs -u
+
+    # Enable and start watchdog service
+    - name: Enable and start watchdog service
+      systemd:
+        name: watchdog
+        enabled: yes
+        state: started
