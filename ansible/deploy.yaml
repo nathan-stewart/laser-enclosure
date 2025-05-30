@@ -1,4 +1,4 @@
-- hosts: laser_enclosure
+- hosts: laser.lan
   become: yes
   tasks:
     - name: Ensure Python3 and pip are installed
