@@ -99,12 +99,20 @@
         enabled: true
         state: started
 
-    # Configure HDMI settings
-    - name: Add HDMI configuration to /boot/firmware/config.txt
-      blockinfile:
-        path: /boot/firmware/config.txt
-        marker: "# {mark} ANSIBLE MANAGED BLOCK HDMI CONFIGURATION"
-        block: |
+    # Configure config.txt for Raspberry Pisu
+    - name: Overwrite /boot/firmware/config.txt with custom settings
+      copy:
+        dest: /boot/firmware/config.txt
+        mode: '0644'
+        content: |
+          dtparam=i2c_arm=on
+          auto_initramfs=1
+          arm_64bit=1
+          arm_boost=1
+          disable_overscan=1
+          disable_splash=0
+          framebuffer_swap=0
+          camera_auto_detect=1
           hdmi_force_hotplug=1
           hdmi_group=2
           hdmi_mode=87
@@ -308,6 +316,7 @@
       lineinfile:
         path: /boot/firmware/cmdline.txt
         line: "console=tty1 root=PARTUUID=21b139d1-02 rootfstype=ext4 fsck.repair=yes rootwait cfg80211.ieee80211_regdom=US quiet splash"
+
         create: yes
         backrefs: no
         regexp: '^.*$'
