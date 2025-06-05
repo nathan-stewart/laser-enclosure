@@ -1,40 +1,19 @@
-- hosts: laser.lan
+- hosts: laser
   become: yes
   tasks:
-    - name: Ensure Python3 and pip are installed
+    - name: Install required packages
       apt:
         name:
           - python3
           - python3-pip
+          - python3-zmq
+          - python3-pyqt5
+          - python3-rpi-lgpio
+          - python3-opencv
+          - watchdog
+
         state: present
         update_cache: yes
-
-    - name: Install required Python packages
-      pip:
-        name:
-          - pyqt5
-          - opencv-python
-          - pyzmq
-
-    - name: Copy application files
-      copy:
-        src: /path/to/your/local/laser-enclosure/
-        dest: /home/pi/laser-enclosure/
-        owner: pi
-        group: pi
-        mode: 0755
-
-    - name: Create desktop shortcut (optional)
-      copy:
-        content: |
-          [Desktop Entry]
-          Name=Laser Enclosure Front Panel
-          Exec=python3 /home/pi/laser-enclosure/src/front_panel.py
-          Type=Application
-        dest: /home/pi/Desktop/front_panel.desktop
-        owner: pi
-        group: pi
-        mode: 0755
 
     # Create directory for kiosk user services
     - name: Create directory for kiosk user services
@@ -116,3 +95,19 @@
         name: panel.service
         enabled: true
         state: started
+
+    # Enable and start watchdog service
+    - name: Enable and start watchdog service
+      systemd:
+        name: watchdog
+        enabled: yes
+        state: started
+
+    # Set kernel command line for Plymouth splash
+    - name: Set kernel command line for Plymouth splash
+      lineinfile:
+        path: /boot/firmware/cmdline.txt
+        line: "console=tty1 root=PARTUUID=21b139d1-02 rootfstype=ext4 fsck.repair=yes rootwait cfg80211.ieee80211_regdom=US quiet splash"
+        create: yes
+        backrefs: no
+        regexp: '^.*$'
