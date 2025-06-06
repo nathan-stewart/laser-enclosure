@@ -106,7 +106,7 @@
     # Set kernel command line for Plymouth splash
     - name: Set kernel command line for Plymouth splash
       lineinfile:
-        path: /boot/firmware/cmdline.txt
+        path: /boot/cmdline.txt
         line: "console=tty1 root=PARTUUID=21b139d1-02 rootfstype=ext4 fsck.repair=yes rootwait cfg80211.ieee80211_regdom=US quiet splash"
         create: yes
         backrefs: no

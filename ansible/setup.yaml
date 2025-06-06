@@ -29,9 +29,6 @@
           - python3-zmq
           - python3-pyqt5
           - python3-rpi-lgpio
-          - ffmpeg
-          - v4l2loopback-dkms
-          - v4l2loopback-utils
           - watchdog
         update_cache: true
 
@@ -100,9 +97,9 @@
         state: started
 
     # Configure config.txt for Raspberry Pisu
-    - name: Overwrite /boot/firmware/config.txt with custom settings
+    - name: Overwrite /boot/config.txt with custom settings
       copy:
-        dest: /boot/firmware/config.txt
+        dest: /boot/config.txt
         mode: '0644'
         content: |
           dtparam=i2c_arm=on
@@ -131,115 +128,6 @@
           EndSection
         dest: /etc/X11/xorg.conf.d/99-touchscreen-calibration.conf
         mode: '0644'
-
-    # Placeholder for additional tasks
-    - name: Setup camera stuff (placeholder)
-      debug:
-        msg: "Add camera setup steps here"
-
-    # Create camera-loop service file
-    - name: Create camera-loop service file
-      copy:
-        content: |
-          [Unit]
-          Description=Loop /dev/video0 to /dev/video10 and /dev/video11
-          After=multi-user.target
-
-          [Service]
-          ExecStart=/usr/bin/ffmpeg -f v4l2 -input_format mjpeg -framerate 10 -video_size 800x480 -i /dev/video0 \
-          -filter_complex "[0:v]split=2[out1][out2]" \
-          -map "[out1]" -f v4l2 -vcodec mjpeg /dev/video10 \
-          -map "[out2]" -f v4l2 -vcodec mjpeg /dev/video11
-          Restart=always
-          RestartSec=2
-          User=pi
-          WorkingDirectory=/home/pi
-
-          [Install]
-          WantedBy=multi-user.target
-        dest: /etc/systemd/system/camera-loop.service
-        mode: '0644'
-
-    # Enable and start camera-loop service
-    - name: Enable and start camera-loop service
-      systemd:
-        name: camera-loop.service
-        enabled: true
-        state: started
-
-    # Download Meerkat tarball
-    - name: Download Meerkat tarball
-      get_url:
-        url: https://github.com/meerk40t/meerk40t/releases/download/0.9.7030/MeerK40t_Pi64.tar
-        dest: /tmp/MeerK40t_Pi64.tar
-        mode: '0644'
-
-    # Extract MeerK40t binary to /usr/local/bin
-    - name: Extract MeerK40t binary to /usr/local/bin
-      unarchive:
-        src: /tmp/MeerK40t_Pi64.tar
-        dest: /usr/local/bin
-        remote_src: true
-        extra_opts:
-          - --strip-components=1
-          - --wildcards
-          - MeerK40t_Pi64/MeerK40t
-
-    # Create Meerkat service file
-    - name: Create Meerkat service file
-      copy:
-        content: |
-          [Unit]
-          Description=Meerkat Service
-          After=network.target
-
-          [Service]
-          ExecStart=/usr/local/bin/MeerK40t --config /etc/meerkat/config.yaml
-          Restart=always
-          RestartSec=2
-          User=root
-          WorkingDirectory=/etc/meerkat
-
-          [Install]
-          WantedBy=multi-user.target
-        dest: /etc/systemd/system/meerkat.service
-        mode: '0644'
-
-    # Create Meerkat configuration directory
-    - name: Create Meerkat configuration directory
-      file:
-        path: /etc/meerkat
-        state: directory
-        mode: '0755'
-
-    # Create Meerkat config.yaml
-    - name: Create Meerkat config.yaml
-      copy:
-        dest: /etc/meerkat/config.yaml
-        mode: '0644'
-        content: |
-          server:
-            host: 0.0.0.0
-            port: 7020
-
-          broadcast:
-            enabled: true
-            port: 7020
-            interval: 5  # Every 5 seconds broadcast "hey I'm here" on the network
-
-          device:
-            type: grbl
-            usb_index: 0
-
-          logging:
-            level: info
-
-    # Enable and start Meerkat service
-    - name: Enable and start Meerkat service
-      systemd:
-        name: meerkat.service
-        enabled: true
-        state: started
 
     # Ensure the kiosk user exists
     - name: Create kiosk user
@@ -300,10 +188,6 @@
     - name: Set Plymouth theme to custom-splash
       command: plymouth-set-default-theme -R custom-splash
 
-    # Update initramfs to apply Plymouth changes
-    - name: Update initramfs
-      command: update-initramfs -u
-
     # Enable and start watchdog service
     - name: Enable and start watchdog service
       systemd:
@@ -311,11 +195,9 @@
         enabled: yes
         state: started
 
-    # Set kernel command line for Plymouth splash and VTs
-    - name: Set kernel command line for Plymouth splash and VTs
+    - name: Ensure 'splash' is present in cmdline.txt
       lineinfile:
-        path: /boot/firmware/cmdline.txt
-        line: "console=tty1 root=PARTUUID=YOUR-UUID rootfstype=ext4 fsck.repair=yes rootwait quiet splash"
-        create: yes
+        path: /boot/cmdline.txt
+        regexp: '\bsplash\b'
+        line: "{{ lookup('file', '/boot/cmdline.txt') | regex_replace('(\\s)?splash', '') | trim }} splash"
         backrefs: no
-        regexp: '^.*$'
