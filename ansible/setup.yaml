@@ -139,18 +139,6 @@
     - name: Set Plymouth theme to custom-splash
       command: plymouth-set-default-theme -R custom-splash
 
-    - name: Remove any existing 'splash' from cmdline.txt
-      replace:
-        path: /boot/cmdline.txt
-        regexp: '\s*splash'
-        replace: ''
-
-    - name: Add 'splash' to end of cmdline.txt
-      lineinfile:
-        path: /boot/cmdline.txt
-        line: "{{ lookup('pipe', 'cat /boot/cmdline.txt') | trim }} splash"
-        state: present
-
     - name: Ensure 'splash' is present exactly once in /boot/cmdline.txt
       lineinfile:
         path: /boot/cmdline.txt
