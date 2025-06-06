@@ -1,0 +1,25 @@
+- name: Deploy Meerkat Service
+  hosts: laser
+  become: true
+  tasks:
+
+  - name: Install Meerk40t via pip
+    pip:
+      name: meerk40t
+      state: latest
+
+  - name: Deploy Meerkat systemd service
+    copy:
+      src: ../meerkat/meerkat.service     # Adjust path as needed
+      dest: /etc/systemd/system/meerkat.service
+      mode: '0644'
+
+  - name: Reload systemd
+    systemd:
+      daemon_reload: yes
+
+  - name: Enable and restart Meerkat service
+    systemd:
+      name: meerkat.service
+      enabled: yes
+      state: restarted
