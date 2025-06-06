@@ -32,8 +32,16 @@
           - watchdog
         update_cache: true
 
-    - name: Create Python virtual environment
+    - name: Check if kiosk venv exists
+      stat:
+        path: /home/kiosk/venv/bin/activate
+      register: venv_stat
+
+    - name: Create Python virtual environment if needed
       command: python3 -m venv /home/kiosk/venv
+      args:
+        creates: /home/kiosk/venv/bin/activate
+      when: not venv_stat.stat.exists
 
     - name: Install DHT11 Python library in virtual environment
       pip:
@@ -89,62 +97,57 @@
         home: /home/kiosk
         create_home: true
 
-    # Install Plymouth
-    - name: Install Plymouth
-      apt:
-        name: plymouth
-        state: present
-        update_cache: true
+    - name: Get current Plymouth theme
+      command: plymouth-set-default-theme
+      register: plymouth_theme
+      changed_when: false
 
-    # Create directory for custom Plymouth theme
-    - name: Create directory for custom Plymouth theme
-      file:
-        path: /usr/share/plymouth/themes/custom-splash
-        state: directory
-        mode: '0755'
+    - block:
+        - name: Create directory for custom Plymouth theme
+          file:
+            path: /usr/share/plymouth/themes/custom-splash
+            state: directory
+            mode: '0755'
 
-    # Copy splash.png to Plymouth theme directory
-    - name: Copy splash.png to Plymouth theme directory
-      copy:
-        src: /home/nps/projects/laser-enclosure/assets/splash.png
-        dest: /usr/share/plymouth/themes/custom-splash/splash.png
-        mode: '0644'
+        - name: Copy splash.png to Plymouth theme directory
+          copy:
+            src: /home/nps/projects/laser-enclosure/assets/splash.png
+            dest: /usr/share/plymouth/themes/custom-splash/splash.png
+            mode: '0644'
 
-    # Create Plymouth theme file
-    - name: Create Plymouth theme file
-      copy:
-        dest: /usr/share/plymouth/themes/custom-splash/custom-splash.plymouth
-        mode: '0644'
-        content: |
-          [Plymouth Theme]
-          Name=Custom Splash
-          Description=Custom boot splash screen
-          ModuleName=script
+        - name: Create Plymouth theme file
+          copy:
+            dest: /usr/share/plymouth/themes/custom-splash/custom-splash.plymouth
+            mode: '0644'
+            content: |
+              [Plymouth Theme]
+              Name=Custom Splash
+              Description=Custom boot splash screen
+              ModuleName=script
 
-          [script]
-          ImageDir=/usr/share/plymouth/themes/custom-splash
-          ScriptFile=/usr/share/plymouth/themes/custom-splash/custom-splash.script
+              [script]
+              ImageDir=/usr/share/plymouth/themes/custom-splash
+              ScriptFile=/usr/share/plymouth/themes/custom-splash/custom-splash.script
 
-    # Create Plymouth script file
-    - name: Create Plymouth script file
-      copy:
-        dest: /usr/share/plymouth/themes/custom-splash/custom-splash.script
-        mode: '0644'
-        content: |
-          # Plymouth script for custom splash screen
-          image_background = Image("/usr/share/plymouth/themes/custom-splash/splash.png");
-          image_background.SetBackground();
+        - name: Create Plymouth script file
+          copy:
+            dest: /usr/share/plymouth/themes/custom-splash/custom-splash.script
+            mode: '0644'
+            content: |
+              # Plymouth script for custom splash screen
+              image_background = Image("/usr/share/plymouth/themes/custom-splash/splash.png");
+              image_background.SetBackground();
 
-    # Set Plymouth theme to custom-splash
-    - name: Set Plymouth theme to custom-splash
-      command: plymouth-set-default-theme -R custom-splash
+        - name: Set Plymouth theme to custom-splash
+          command: plymouth-set-default-theme -R custom-splash
 
-    - name: Ensure 'splash' is present exactly once in /boot/cmdline.txt
-      lineinfile:
-        path: /boot/cmdline.txt
-        regexp: '^(.*?)(\s*splash)?\s*$'
-        line: '\\1 splash'
-        backrefs: yes
+        - name: Ensure 'splash' is present exactly once in /boot/cmdline.txt
+          lineinfile:
+            path: /boot/cmdline.txt
+            regexp: '^(.*?)(\s*splash)?\s*$'
+            line: '\1 splash'
+            backrefs: yes
+      when: plymouth_theme.stdout.strip() != "custom-splash"
 
     # Enable and start watchdog service
     - name: Enable and start watchdog service
@@ -152,5 +155,4 @@
         name: watchdog
         enabled: yes
         state: started
-
 

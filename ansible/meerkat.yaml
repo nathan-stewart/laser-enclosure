@@ -3,14 +3,27 @@
   become: true
   tasks:
 
-  - name: Install Meerk40t via pip
+  - name: Install Meerk40t via pip in kiosk venv
     pip:
       name: meerk40t
       state: latest
+      virtualenv: /home/kiosk/venv
 
   - name: Deploy Meerkat systemd service
     copy:
-      src: ../meerkat/meerkat.service     # Adjust path as needed
+      content: |
+        [Unit]
+        Description=Meerk40t Laser Cutter Control
+        After=network.target
+
+        [Service]
+        ExecStart=/home/kiosk/venv/bin/meerk40t --no-gui
+        Restart=always
+        User=kiosk
+        WorkingDirectory=/home/kiosk
+
+        [Install]
+        WantedBy=multi-user.target
       dest: /etc/systemd/system/meerkat.service
       mode: '0644'
 
