@@ -3,36 +3,43 @@
   become: true
   tasks:
 
-  - name: Install Meerk40t via pip in kiosk venv
-    pip:
-      name: meerk40t
-      state: latest
-      virtualenv: /home/kiosk/venv
+    - name: Check if Meerk40t is already installed in kiosk venv
+      command: /home/kiosk/venv/bin/pip show meerk40t
+      register: meerk40t_installed
+      ignore_errors: yes
 
-  - name: Deploy Meerkat systemd service
-    copy:
-      content: |
-        [Unit]
-        Description=Meerk40t Laser Cutter Control
-        After=network.target
+    - block:
+        - name: Install Meerk40t via pip in kiosk venv
+          pip:
+            name: meerk40t
+            state: latest
+            virtualenv: /home/kiosk/venv
 
-        [Service]
-        ExecStart=/home/kiosk/venv/bin/meerk40t --no-gui
-        Restart=always
-        User=kiosk
-        WorkingDirectory=/home/kiosk
+        - name: Deploy Meerkat systemd service
+          copy:
+            content: |
+              [Unit]
+              Description=Meerk40t Laser Cutter Control
+              After=network.target
 
-        [Install]
-        WantedBy=multi-user.target
-      dest: /etc/systemd/system/meerkat.service
-      mode: '0644'
+              [Service]
+              ExecStart=/home/kiosk/venv/bin/meerk40t --no-gui
+              Restart=always
+              User=kiosk
+              WorkingDirectory=/home/kiosk
 
-  - name: Reload systemd
-    systemd:
-      daemon_reload: yes
+              [Install]
+              WantedBy=multi-user.target
+            dest: /etc/systemd/system/meerkat.service
+            mode: '0644'
 
-  - name: Enable and restart Meerkat service
-    systemd:
-      name: meerkat.service
-      enabled: yes
-      state: restarted
+        - name: Reload systemd
+          systemd:
+            daemon_reload: yes
+
+        - name: Enable and restart Meerkat service
+          systemd:
+            name: meerkat.service
+            enabled: yes
+            state: restarted
+      when: meerk40t_installed.rc != 0

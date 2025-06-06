@@ -1,5 +1,5 @@
 # install.yaml
 - import_playbook: setup.yaml
-- import_playbook: camera.yaml
 - import_playbook: meerkat.yaml
+- import_playbook: camera.yaml
 - import_playbook: deploy.yaml
