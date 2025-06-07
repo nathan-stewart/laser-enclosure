@@ -51,7 +51,7 @@
           After=network.target
 
           [Service]
-          ExecStart=/home/kiosk/venv/bin/python /home/kiosk/services/gpio_service.py
+          ExecStart=/usr/bin/python3 /home/kiosk/services/gpio_service.py
           Restart=always
           RestartSec=2
           User=kiosk
@@ -71,7 +71,7 @@
           After=network.target
 
           [Service]
-          ExecStart=/home/kiosk/venv/bin/python /home/kiosk/services/panel_service.py
+          ExecStart=/usr/bin/python3 /home/kiosk/services/panel_service.py
           Restart=always
           RestartSec=2
           User=kiosk

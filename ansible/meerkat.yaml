@@ -3,43 +3,103 @@
   become: true
   tasks:
 
-    - name: Check if Meerk40t is already installed in kiosk venv
-      command: /home/kiosk/venv/bin/pip show meerk40t
-      register: meerk40t_installed
-      ignore_errors: yes
+  - block:
+      - name: Install dependencies for Meerk40t
+        apt:
+          name:
+          - libopencv-dev
+          - python3-pil
+          - python3-opencv
+          - python3-ezdxf
+          state: present
+          update_cache: yes
+          
+      - name: Install Meerk40t from pip
+        pip:
+          name: /home/kiosk/meerk40t
+          executable: pip3
+          extra_args: -e
+          extra_args: --break-system-packages
 
-    - block:
-        - name: Install Meerk40t via pip in kiosk venv
-          pip:
-            name: meerk40t
-            state: latest
-            virtualenv: /home/kiosk/venv
+      - name: Deploy Meerkat systemd service
+        copy:
+          content: |
+            [Unit]
+            Description=Meerk40t Laser Cutter Control
+            After=network.target
 
-        - name: Deploy Meerkat systemd service
-          copy:
-            content: |
-              [Unit]
-              Description=Meerk40t Laser Cutter Control
-              After=network.target
+            [Service]
+            ExecStart=/usr/local/bin/meerk40t --no-gui -m web
+            Restart=always
+            User=kiosk
+            WorkingDirectory=/home/kiosk
 
-              [Service]
-              ExecStart=/home/kiosk/venv/bin/meerk40t --no-gui
-              Restart=always
-              User=kiosk
-              WorkingDirectory=/home/kiosk
+            [Install]
+            WantedBy=multi-user.target
+          dest: /etc/systemd/system/meerkat.service
+          mode: '0644'
 
-              [Install]
-              WantedBy=multi-user.target
-            dest: /etc/systemd/system/meerkat.service
-            mode: '0644'
+      - name: Reload systemd
+        systemd:
+          daemon_reload: yes
 
-        - name: Reload systemd
-          systemd:
-            daemon_reload: yes
+      - name: Enable and restart Meerkat service
+        systemd:
+          name: meerkat.service
+          enabled: yes
+          state: restarted
 
-        - name: Enable and restart Meerkat service
-          systemd:
-            name: meerkat.service
-            enabled: yes
-            state: restarted
-      when: meerk40t_installed.rc != 0
+
+- name: Setup Meerkat Kiosk Mode
+  hosts: laser
+  become: true
+  tasks:
+
+  - name: Install minimal X and Chromium
+    apt:
+      name:
+        - xserver-xorg
+        - xinit
+        - x11-xserver-utils
+        - libopenblas0 
+        - libopenjp2-7
+        - chromium-browser
+        - matchbox-window-manager
+      state: present
+      update_cache: yes
+
+  - name: Create .xinitrc for kiosk user
+    copy:
+      dest: /home/kiosk/.xinitrc
+      content: |
+        #!/bin/sh
+        matchbox-window-manager &
+        chromium-browser --noerrdialogs --kiosk http://localhost:5000
+      owner: kiosk
+      group: kiosk
+      mode: '0755'
+
+  - name: Create kiosk systemd service to launch X on boot
+    copy:
+      dest: /etc/systemd/system/kiosk.service
+      content: |
+        [Unit]
+        Description=Start X in kiosk mode
+        After=multi-user.target
+
+        [Service]
+        User=kiosk
+        Environment=XDG_RUNTIME_DIR=/run/user/1000
+        ExecStart=/usr/bin/startx
+        Restart=always
+
+        [Install]
+        WantedBy=multi-user.target
+      mode: '0644'
+
+  - name: Enable kiosk service
+    systemd:
+      name: kiosk.service
+      enabled: yes
+      state: started
+

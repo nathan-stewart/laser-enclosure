@@ -5,6 +5,11 @@ import json
 from threading import Thread
 import sys
 
+import threading
+
+last_gpio_checkin = time.time()
+gpio_checkin_lock = threading.Lock()
+
 # Import libraries for DHT11 and MCP23017, handle potential absence
 try:
     import Adafruit_DHT
