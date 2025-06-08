@@ -32,21 +32,13 @@
           - watchdog
         update_cache: true
 
-    - name: Check if kiosk venv exists
-      stat:
-        path: /home/kiosk/venv/bin/activate
-      register: venv_stat
-
-    - name: Create Python virtual environment if needed
-      command: python3 -m venv /home/kiosk/venv
-      args:
-        creates: /home/kiosk/venv/bin/activate
-      when: not venv_stat.stat.exists
-
-    - name: Install DHT11 Python library in virtual environment
+    - name: Install Python libraries system wide
       pip:
-        name: Adafruit_CircuitPython_DHT
-        virtualenv: /home/kiosk/venv
+        name: 
+        - Adafruit_CircuitPython_DHT
+        - adafruit-circuitpython-ads1x15
+        - adafruit-circuitpython-mcp230xx
+        extra_args: --break-system-packages
 
     # Ensure Wayland is not used (skip removing Wayland libraries)
     - name: Disable Wayland by ensuring X11 is used

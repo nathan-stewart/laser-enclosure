@@ -1,91 +1,103 @@
+#!/usr/bin/env python3
 import zmq
-import RPi.GPIO as GPIO
 import time
 import json
-from threading import Thread
 import sys
-
+import os
 import threading
+from RPi import GPIO
+import Adafruit_DHT
+import smbus
+import adafruit-circuitpython-ads1x15
+from pinmap import RPi_INPUT_PINS, RPi_OUTPUT_PINS, MCP23017_PINS
+import pinmap
 
-last_gpio_checkin = time.time()
-gpio_checkin_lock = threading.Lock()
+INPUT_TIMEOUT = 1.0 # seconds
+ENV_TIMEOUT = 60.0  # seconds
+heartbeat_lock = threading.Lock()
 
-# Import libraries for DHT11 and MCP23017, handle potential absence
-try:
-    import Adafruit_DHT
-except ImportError:
-    Adafruit_DHT = None
-    print("Adafruit_DHT not found. DHT11 readings will be skipped.", file=sys.stderr)
+I2C_BUS_NUM = 1 # Use I2C bus 1
 
-try:
-    import smbus
-except ImportError:
-    smbus = None
-    print("smbus not found. MCP23017 readings will be skipped.", file=sys.stderr)
+# Identify unique MCP23017 addresses
+MCP23017_ADDRESSES = list(
+    set([addr for addr, pin in MCP23017_PINS.values()]))
+
+ADS1115_ADDRESSES = list(
+    set([addr for addr, pin in pinmap.ADS1115_PINS.values()])) 
+
+
+# Shared heartbeat timestamps
+last_input_poll = time.time()
+last_sensor_poll = time.time()
+
+
+def configure_gpio():
+    GPIO.setmode(GPIO.BCM)
+    try:
+        for pin in RPi_INPUT_PINS:
+        GPIO.setup(RPi_INPUT_PINS[pin], GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        for pin in RPi_OUTPUT_PINS:
+            # Set outputs to LOW initially
+            GPIO.setup(RPi_OUTPUT_PINS[pin], GPIO.OUT, initial=GPIO.LOW) 
+
+        print("RPi GPIOs configured.")
+    except KeyError as e:
+        print(f"Configuration error: RPi_GPIO_PINS dictionary is missing key {e}. Please update RPi_GPIO_PINS.", file=sys.stderr)
+        # Decide how to handle this error: exit, continue with partial config, etc.
+        # For now, we'll print and continue, but the missing pins won't be monitored.        
+
+def pet_watchdog():
+    """Periodically pet the hardware watchdog."""
+    watchdog_path = "/dev/watchdog"
+    try:
+        with open(watchdog_path, "w") as wd:
+            print("Watchdog device opened.")
+            wd.write("1\n")
+            wd.flush()
+    except Exception as e:
+        print(f"Watchdog error: {e}", file=sys.stderr)
+
+def poll_input():
+    global last_input_poll
+    while True:
+        monitor_40Hz()
+        with heartbeat_lock:
+            last_input_poll = time.time()
+        time.sleep(0.1)
+
+def poll_env():
+    global last_sensor_poll
+    while True:
+        if monitor_1Hz():
+            with heartbeat_lock:
+                last_sensor_poll = time.time()
+        time.sleep(10)
+
+def pet_watchdog_thread():
+    while True:
+        now = time.time()
+        with heartbeat_lock:
+            fast_ok = (now - last_input_poll) < INPUT_TIMEOUT
+            #env_ok  = (now - last_env_poll) < ENV_TIMEOUT
+
+        if fast_ok:  # Only care about critical path
+            pet_watchdog()
+        else:
+            print("⚠️ Fast polling failure — watchdog not petted")
+
+        time.sleep(1)
 
 # Define DHT11 sensor
 DHT_TYPE = Adafruit_DHT.DHT11 if Adafruit_DHT else None
 
 # Setup
-GPIO.setmode(GPIO.BCM)
+configure_gpio()
 
-# Define RPi GPIO pins
-RPi_INPUT_PINS = {
-    "i_m7": 17,
-    "i_m8": 18,
-    "i_lid": 27,
-    "i_dht11": 4, # DHT11 sensor data pin
-}
-
-RPi_OUTPUT_PINS = {
-    "o_k1_laser": 22, # laser
-    "o_k2_hpa": 23, # high pressure air assist
-    "o_k3_fire": 24, # CO2 Extinguisher
-    "o_k4_light": 25, # Lights
-    "o_k5_lpa": 5,  # Low Pressure Air Assist
-    "o_k6_dry_fan": 6,  # Dehumidifier Fan
-    "o_k7_dry_heat": 12, # Dehumidifier Heat
-    "o_k8_exhaust": 13, # Exhaust Fan
-}
-
-# Define MCP23017 expanders and their pins
-# Mapping of logical names to (I2C device address, GPIO pin on the device)
-MCP23017_PINS = {
-    "i_fp1"       : (0x20, 0),
-    "o_fp1"       : (0x20, 1),
-    "i_fp2"       : (0x20, 2),
-    "o_fp2"       : (0x20, 3),
-    "i_fp3"       : (0x20, 4),
-    "o_fp3"       : (0x20, 5),
-    "i_fp4"       : (0x20, 6),
-    "o_fp4"       : (0x20, 7),
-    "i_btn_estop" : (0x20, 8),
-    "i_btn_fire"  : (0x20, 9),
-    "i_enc_a"     : (0x21, 0),
-    "i_enc_b"     : (0x21, 1),
-    "i_ignore_enc": (0x21, 2),
-    "i_axis_x"    : (0x21, 3),
-    "i_axis_z"    : (0x21, 4),
-    "i_coarse"    : (0x21, 5),
-    "i_fine"      : (0x21, 6),
-}
-
-# Identify unique MCP23017 addresses
-MCP23017_ADDRESSES = list(set([addr for addr, pin in MCP23017_PINS.values()]))
-I2C_BUS_NUM = 1 # Use I2C bus 1
-
-try:
-    # initial state -verify intention
-    for pin in RPi_INPUT_PINS:
-        GPIO.setup(RPi_INPUT_PINS[pin], GPIO.IN, pull_up_down=GPIO.PUD_UP)
-    for pin in RPi_OUTPUT_PINS:
-        GPIO.setup(RPi_OUTPUT_PINS[pin], GPIO.OUT, initial=GPIO.LOW) # Set outputs to LOW initially
-
-    print("RPi GPIOs configured.")
-except KeyError as e:
-    print(f"Configuration error: RPi_GPIO_PINS dictionary is missing key {e}. Please update RPi_GPIO_PINS.", file=sys.stderr)
-    # Decide how to handle this error: exit, continue with partial config, etc.
-    # For now, we'll print and continue, but the missing pins won't be monitored.
+# Start watchdog thread
+watchdog_thread = threading.Thread(target=pet_watchdog_thread, daemon=True)
+watchdog_thread.start()
+last_input_poll = time.time()
+input_checkin_lock = threading.Lock()
 
 
 # ZMQ setup
@@ -104,7 +116,7 @@ print("ZeroMQ replier bound to tcp://*:5557")
 # State tracking
 # Initialize RPi GPIO states
 rpi_gpio_states = {}
-for name, pin in RPi_GPIO_PINS.items():
+for name, pin in RPi_INPUT_PINS.items(), RPi_OUTPUT_PINS.items():
      try:
          rpi_gpio_states[name] = GPIO.input(pin)
      except Exception as e:
@@ -204,19 +216,24 @@ def write_mcp23017_pin(device_address, pin, state):
             return False
     return False  # Return False if bus not initialized or device not detected
 
-def monitor_inputs():
+def read_ads1115_pin(device_address, pin):
+    """Read the state of a specific pin on an ADS1115 (not implemented)."""
+    # Placeholder for ADS1115 pin reading logic
+    return 
+
+def monitor_40Hz():
     """Monitor all inputs (RPi GPIO, DHT11, MCP23017) and publish state changes."""
     global rpi_gpio_states, mcp23017_states, dht11_state
 
     while True:
         # Monitor RPi GPIOs
-        for name, pin in RPi_GPIO_PINS.items():
+        for name, pin in RPi_INPUT_PINS.items():
             try:
                 current_state = GPIO.input(pin)
-                if current_state != rpi_gpio_states.get(name): # Use .get for safety
+                if current_state != rpi_gpio_states.get(name): 
                     rpi_gpio_states[name] = current_state
                     msg = {
-                        "topic": f"input/rpi_gpio/{name}",
+                        "topic": f"input/{name}",
                         "state": "active" if current_state == 0 else "inactive", # Assuming active low
                     }
                     pub.send_json(msg)
@@ -226,7 +243,7 @@ def monitor_inputs():
                      print(f"Error reading RPi GPIO {name} (pin {pin}): {e}", file=sys.stderr)
                      rpi_gpio_states[name] = None # Mark as unknown state
                      msg = {
-                         "topic": f"input/rpi_gpio/{name}",
+                         "topic": f"input/{name}",
                          "state": "error",
                          "error": str(e)
                      }
@@ -241,7 +258,7 @@ def monitor_inputs():
                     if current_state is not None and current_state != mcp23017_states.get(name): # Use .get for safety
                         mcp23017_states[name] = current_state
                         msg = {
-                            "topic": f"input/mcp23017/{name}",
+                            "topic": f"input/{name}",
                             "state": "active" if current_state == 0 else "inactive", # Assuming active low
                         }
                         pub.send_json(msg)
@@ -255,9 +272,18 @@ def monitor_inputs():
                       }
                       pub.send_json(msg)
 
+def monitor_1Hz():
+    """Monitor sensors and publish state changes."""
+    global last_sensor_poll
 
+    # This function can be expanded to include other environmental sensors as needed
+    # For now, we just return True to indicate that monitoring was performed
+    if time.time() - last_sensor_poll > ENV_TIMEOUT:
+        print("Environmental monitoring timeout exceeded.")
+        return True  # Indicate that we should recheck the environment
         # Monitor DHT11
-        if Adafruit_DHT and DHT_TYPE is not None: # Check if DHT library is available
+        # Check if DHT library is available
+        if Adafruit_DHT and DHT_TYPE is not None: 
             try:
                 humidity, temperature = Adafruit_DHT.read_retry(DHT_TYPE, RPi_INPUT_PINS['i_dht11'])
                 temp_changed = temperature is not None and temperature != dht11_state['temperature']
@@ -305,6 +331,10 @@ def monitor_inputs():
 
 
         time.sleep(0.1) # Polling interval
+
+
+    # Here you could add logic to check for other environmental conditions
+    return False  # No changes detected or monitoring not needed
 
 def handle_commands():
     """Handle incoming commands via ZMQ REP socket."""
