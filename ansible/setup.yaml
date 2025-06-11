@@ -37,7 +37,7 @@
         name: 
         - Adafruit_CircuitPython_DHT
         - adafruit-circuitpython-ads1x15
-        - adafruit-circuitpython-mcp230xx
+        - adafruit-circuitpython-mcp230xx 
         extra_args: --break-system-packages
 
     # Ensure Wayland is not used (skip removing Wayland libraries)
@@ -68,7 +68,6 @@
           hdmi_drive=2
           dtoverlay=vc4-kms-v3d
 
-    # Configure touchscreen transformation matrix
     - name: Add touchscreen transformation matrix
       copy:
         content: |
@@ -89,57 +88,63 @@
         home: /home/kiosk
         create_home: true
 
-    - name: Get current Plymouth theme
-      command: plymouth-set-default-theme
-      register: plymouth_theme
-      changed_when: false
+    - name: Create directory for custom Plymouth theme
+      file:
+        path: /usr/share/plymouth/themes/custom-splash
+        state: directory
+        mode: '0755'
 
-    - block:
-        - name: Create directory for custom Plymouth theme
-          file:
-            path: /usr/share/plymouth/themes/custom-splash
-            state: directory
-            mode: '0755'
+    - name: Copy splash.png to Plymouth theme directory
+      copy:
+        src: /home/nps/projects/laser-enclosure/assets/splash.png
+        dest: /usr/share/plymouth/themes/custom-splash/splash.png
+        mode: '0644'
 
-        - name: Copy splash.png to Plymouth theme directory
-          copy:
-            src: /home/nps/projects/laser-enclosure/assets/splash.png
-            dest: /usr/share/plymouth/themes/custom-splash/splash.png
-            mode: '0644'
+    - name: Create Plymouth theme file
+      copy:
+        dest: /usr/share/plymouth/themes/custom-splash/custom-splash.plymouth
+        mode: '0644'
+        content: |
+          [Plymouth Theme]
+          Name=Custom Splash
+          Description=Custom boot splash screen
+          ModuleName=script
 
-        - name: Create Plymouth theme file
-          copy:
-            dest: /usr/share/plymouth/themes/custom-splash/custom-splash.plymouth
-            mode: '0644'
-            content: |
-              [Plymouth Theme]
-              Name=Custom Splash
-              Description=Custom boot splash screen
-              ModuleName=script
+          [script]
+          ImageDir=/usr/share/plymouth/themes/custom-splash
+          ScriptFile=/usr/share/plymouth/themes/custom-splash/custom-splash.script
 
-              [script]
-              ImageDir=/usr/share/plymouth/themes/custom-splash
-              ScriptFile=/usr/share/plymouth/themes/custom-splash/custom-splash.script
+    - name: Create Plymouth script file
+      copy:
+        dest: /usr/share/plymouth/themes/custom-splash/custom-splash.script
+        mode: '0644'
+        content: |
+          # Plymouth script for custom splash screen
+          # custom-splash.script
+          image = Image("splash.png");
+          screen_width = Window.GetWidth();
+          screen_height = Window.GetHeight();
 
-        - name: Create Plymouth script file
-          copy:
-            dest: /usr/share/plymouth/themes/custom-splash/custom-splash.script
-            mode: '0644'
-            content: |
-              # Plymouth script for custom splash screen
-              image_background = Image("/usr/share/plymouth/themes/custom-splash/splash.png");
-              image_background.SetBackground();
+          image.SetX((screen_width - image.GetWidth()) / 2);
+          image.SetY((screen_height - image.GetHeight()) / 2);
 
-        - name: Set Plymouth theme to custom-splash
-          command: plymouth-set-default-theme -R custom-splash
+          image.Show();
 
-        - name: Ensure 'splash' is present exactly once in /boot/cmdline.txt
-          lineinfile:
-            path: /boot/cmdline.txt
-            regexp: '^(.*?)(\s*splash)?\s*$'
-            line: '\1 splash'
-            backrefs: yes
-      when: plymouth_theme.stdout.strip() != "custom-splash"
+          while (1) {
+              Plymouth.Refresh();
+              sleep(0.1);
+          }
+
+
+    - name: Set Plymouth theme to custom-splash
+      command: plymouth-set-default-theme -R custom-splash
+
+    - name: Ensure 'splash' is present exactly once in /boot/cmdline.txt
+      lineinfile:
+        path: /boot/cmdline.txt
+        regexp: '^(.*?)(\s*splash)?\s*$'
+        line: '\1 splash'
+        backrefs: yes
 
     # Enable and start watchdog service
     - name: Enable and start watchdog service

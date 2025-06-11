@@ -6,17 +6,17 @@ import sys
 import os
 import threading
 from RPi import GPIO
+import busio
+import board
 import Adafruit_DHT
-import smbus
-import adafruit-circuitpython-ads1x15
+from adafruit-circuitpython-ads1x15 import ADS1115, AnalogIn
+from adafruit-circuitpython-mcp230xx import MCP23017
 from pinmap import RPi_INPUT_PINS, RPi_OUTPUT_PINS, MCP23017_PINS
 import pinmap
 
-INPUT_TIMEOUT = 1.0 # seconds
+INPUT_TIMEOUT = 0.5 # seconds
 ENV_TIMEOUT = 60.0  # seconds
 heartbeat_lock = threading.Lock()
-
-I2C_BUS_NUM = 1 # Use I2C bus 1
 
 # Identify unique MCP23017 addresses
 MCP23017_ADDRESSES = list(
@@ -29,6 +29,30 @@ ADS1115_ADDRESSES = list(
 # Shared heartbeat timestamps
 last_input_poll = time.time()
 last_sensor_poll = time.time()
+
+
+# ZMQ setup
+ctx = zmq.Context()
+
+# PUB socket (status updates)
+pub = ctx.socket(zmq.PUB)
+pub.bind("tcp://*:5556")
+print("ZeroMQ publisher bound to tcp://*:5556")
+
+# REP socket (commands from GUI)
+rep = ctx.socket(zmq.REP)
+rep.bind("tcp://*:5557")
+print("ZeroMQ replier bound to tcp://*:5557")
+
+# State tracking
+# Initialize RPi GPIO states
+rpi_gpio_states = {}
+for name, pin in RPi_INPUT_PINS.items(), RPi_OUTPUT_PINS.items():
+     try:
+         rpi_gpio_states[name] = GPIO.input(pin)
+     except Exception as e:
+         print(f"Could not read initial state for RPi GPIO {name} (pin {pin}): {e}", file=sys.stderr)
+         rpi_gpio_states[name] = None # Indicate unknown state
 
 
 def configure_gpio():
@@ -45,6 +69,41 @@ def configure_gpio():
         print(f"Configuration error: RPi_GPIO_PINS dictionary is missing key {e}. Please update RPi_GPIO_PINS.", file=sys.stderr)
         # Decide how to handle this error: exit, continue with partial config, etc.
         # For now, we'll print and continue, but the missing pins won't be monitored.        
+
+# no need to lock i2c -  only referenced from the  40hz thread and config 
+def configure_expanders():
+    """Configure MCP23017 expanders if available."""
+    global mcp23017_devices
+    mcp23017_devices = {}
+    for address in MCP23017_ADDRESSES:
+        try:
+            mcp = MCP23017(busio.I2C(board.SCL, board.SDA), address=address)
+            # Read a known register to check if device is present
+            if mcp.read_i2c_block_data(0x00, 0x00):
+                mcp.read_i2c_block_data(0x00, 0x00)
+                mcp23017_devices[address] = mcp
+                print(f"MCP23017 configured at address 0x{address:02X}.")
+                
+                
+        except Exception as e:
+            print(f"Error configuring MCP23017: {e}", file=sys.stderr)
+
+    return mcp23017_devices
+
+def configure_adc():
+    """Configure ADC devices (ADS1115) if available."""
+    global ads_devices
+    ads_devices = {}
+    try:
+        for address in ADS1115_ADDRESSES:
+            ads = ADS1115(busio.I2C(board.SCL, board.SDA), address=address)
+            ads_devices[address] = ads
+            print(f"ADS1115 configured at address 0x{address:02X}.")
+    except Exception as e:
+        print(f"Error configuring ADS1115: {e}", file=sys.stderr)
+        ads_devices = {}  # Reset if configuration fails
+
+    return ads_devices  # Return the configured devices for use elsewhere
 
 def pet_watchdog():
     """Periodically pet the hardware watchdog."""
@@ -91,7 +150,11 @@ def pet_watchdog_thread():
 DHT_TYPE = Adafruit_DHT.DHT11 if Adafruit_DHT else None
 
 # Setup
+i2c = busio.I2C(board.SCL, board.SDA)
+
 configure_gpio()
+configure_expanders()
+configure_adc()
 
 # Start watchdog thread
 watchdog_thread = threading.Thread(target=pet_watchdog_thread, daemon=True)
@@ -99,29 +162,6 @@ watchdog_thread.start()
 last_input_poll = time.time()
 input_checkin_lock = threading.Lock()
 
-
-# ZMQ setup
-ctx = zmq.Context()
-
-# PUB socket (status updates)
-pub = ctx.socket(zmq.PUB)
-pub.bind("tcp://*:5556")
-print("ZeroMQ publisher bound to tcp://*:5556")
-
-# REP socket (commands from GUI)
-rep = ctx.socket(zmq.REP)
-rep.bind("tcp://*:5557")
-print("ZeroMQ replier bound to tcp://*:5557")
-
-# State tracking
-# Initialize RPi GPIO states
-rpi_gpio_states = {}
-for name, pin in RPi_INPUT_PINS.items(), RPi_OUTPUT_PINS.items():
-     try:
-         rpi_gpio_states[name] = GPIO.input(pin)
-     except Exception as e:
-         print(f"Could not read initial state for RPi GPIO {name} (pin {pin}): {e}", file=sys.stderr)
-         rpi_gpio_states[name] = None # Indicate unknown state
 
 # Initialize MCP23017 states (assuming all pins are inputs initially)
 mcp23017_states = {name: 0 for name in MCP23017_PINS.keys()}
@@ -133,11 +173,8 @@ dht11_state = {'temperature': None, 'humidity': None}
 i2c_bus = None
 mcp23017_devices = {}
 
-if smbus:
+if busio.I2C(board.SCL, board.SDA).try_lock():
     try:
-        i2c_bus = smbus.SMBus(I2C_BUS_NUM)
-        print(f"I2C bus {I2C_BUS_NUM} initialized.")
-
         for address in MCP23017_ADDRESSES:
             try:
                 # Try to read a known register to check if the device is present
@@ -216,11 +253,21 @@ def write_mcp23017_pin(device_address, pin, state):
             return False
     return False  # Return False if bus not initialized or device not detected
 
-def read_ads1115_pin(device_address, pin):
-    """Read the state of a specific pin on an ADS1115 (not implemented)."""
-    # Placeholder for ADS1115 pin reading logic
-    return 
-
+def read_ads1115_channel(device_address, channel):
+    """Read analog value from ADS1115 at device_address, channel 0-3."""
+    if not ADS_AVAILABLE:
+        print("ADS1115 library not available.", file=sys.stderr)
+        return None
+    ads = get_ads1115(device_address)
+    if not ads:
+        return None
+    try:
+        chan = AnalogIn(ads, getattr(AnalogIn, f"P{channel}"))
+        return {"value": chan.value, "voltage": chan.voltage}
+    except Exception as e:
+        print(f"Error reading ADS1115 at 0x{device_address:02X}, channel {channel}: {e}", file=sys.stderr)
+        return None
+    
 def monitor_40Hz():
     """Monitor all inputs (RPi GPIO, DHT11, MCP23017) and publish state changes."""
     global rpi_gpio_states, mcp23017_states, dht11_state
@@ -271,6 +318,13 @@ def monitor_40Hz():
                           "error": f"Device 0x{device_address:02X} not available"
                       }
                       pub.send_json(msg)
+        for sensor in pinmap.ADS1115_PINS.keys():
+            channel = pinmap.ADS1115_PINS[sensor][1]
+            device_address = pinmap.ADS1115_PINS[sensor][0]
+            if device_address not in ADS1115_ADDRESSES:
+                print(f"ADS1115 device at 0x{device_address:02X} not configured or detected for sensor {sensor}.", file=sys.stderr)
+                continue
+            ads_value = read_ads1115_channel(device_address, channel)
 
 def monitor_1Hz():
     """Monitor sensors and publish state changes."""

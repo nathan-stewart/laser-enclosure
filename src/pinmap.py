@@ -31,13 +31,11 @@ MCP23017_PINS = {
     "o_fp4"       : (0x20, 7),
     "i_btn_estop" : (0x20, 8),
     "i_btn_fire"  : (0x20, 9),
-    "i_enc_a"     : (0x21, 0),
-    "i_enc_b"     : (0x21, 1),
-    "i_ignore_enc": (0x21, 2),
-    "i_axis_x"    : (0x21, 3),
-    "i_axis_z"    : (0x21, 4),
-    "i_coarse"    : (0x21, 5),
-    "i_fine"      : (0x21, 6),
+    "i_ignore_enc": (0x21, 0),
+    "i_axis_x"    : (0x21, 1),
+    "i_axis_z"    : (0x21, 2),
+    "i_coarse"    : (0x21, 3),
+    "i_fine"      : (0x21, 4),
 }
 
 ADS1115_PINS = {
