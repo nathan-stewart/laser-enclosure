@@ -9,357 +9,183 @@ from RPi import GPIO
 import busio
 import board
 import Adafruit_DHT
-from adafruit-circuitpython-ads1x15 import ADS1115, AnalogIn
-from adafruit-circuitpython-mcp230xx import MCP23017
+from adafruit_circuitpython_ads1x15 import ADS1115, AnalogIn
+from hal_mcp23017 import MCP23017Handler
 from pinmap import RPi_INPUT_PINS, RPi_OUTPUT_PINS, MCP23017_PINS
 import pinmap
-import hal_mcp23017 as mcp23017
 
-INPUT_TIMEOUT = 0.5 # seconds
+# Constants
+INPUT_TIMEOUT = 0.5  # seconds
 ENV_TIMEOUT = 60.0  # seconds
 heartbeat_lock = threading.Lock()
 
-# Identify unique MCP23017 addresses
-MCP23017_ADDRESSES = list(
-    set([addr for addr, pin in MCP23017_PINS.values()]))
-
-ADS1115_ADDRESSES = list(
-    set([addr for addr, pin in pinmap.ADS1115_PINS.values()])) 
-
+# Identify unique MCP23017 and ADS1115 addresses
+MCP23017_ADDRESSES = list(set([addr for addr, pin in MCP23017_PINS.values()]))
+ADS1115_ADDRESSES = list(set([addr for addr, pin in pinmap.ADS1115_PINS.values()]))
 
 # Shared heartbeat timestamps
 last_input_poll = time.time()
 last_sensor_poll = time.time()
 
-
 # ZMQ setup
 ctx = zmq.Context()
-
-# PUB socket (status updates)
 pub = ctx.socket(zmq.PUB)
 pub.bind("tcp://*:5556")
 print("ZeroMQ publisher bound to tcp://*:5556")
 
-# REP socket (commands from GUI)
 rep = ctx.socket(zmq.REP)
 rep.bind("tcp://*:5557")
 print("ZeroMQ replier bound to tcp://*:5557")
 
 # State tracking
-# Initialize RPi GPIO states
 rpi_gpio_states = {}
-for name, pin in RPi_INPUT_PINS.items(), RPi_OUTPUT_PINS.items():
-     try:
-         rpi_gpio_states[name] = GPIO.input(pin)
-     except Exception as e:
-         print(f"Could not read initial state for RPi GPIO {name} (pin {pin}): {e}", file=sys.stderr)
-         rpi_gpio_states[name] = None # Indicate unknown state
-
+mcp23017_states = {name: 0 for name in MCP23017_PINS.keys()}
+dht11_state = {'temperature': None, 'humidity': None}
 
 def configure_gpio():
+    """Configure Raspberry Pi GPIO pins."""
     GPIO.setmode(GPIO.BCM)
     try:
         for pin in RPi_INPUT_PINS:
-        GPIO.setup(RPi_INPUT_PINS[pin], GPIO.IN, pull_up_down=GPIO.PUD_UP)
+            GPIO.setup(RPi_INPUT_PINS[pin], GPIO.IN, pull_up_down=GPIO.PUD_UP)
         for pin in RPi_OUTPUT_PINS:
-            # Set outputs to LOW initially
-            GPIO.setup(RPi_OUTPUT_PINS[pin], GPIO.OUT, initial=GPIO.LOW) 
-
+            GPIO.setup(RPi_OUTPUT_PINS[pin], GPIO.OUT, initial=GPIO.LOW)
         print("RPi GPIOs configured.")
     except KeyError as e:
-        print(f"Configuration error: RPi_GPIO_PINS dictionary is missing key {e}. Please update RPi_GPIO_PINS.", file=sys.stderr)
-        # Decide how to handle this error: exit, continue with partial config, etc.
-        # For now, we'll print and continue, but the missing pins won't be monitored.        
+        print(f"Configuration error: RPi_GPIO_PINS dictionary is missing key {e}.", file=sys.stderr)
+configure_gpio()
 
 def configure_adc():
-    """Configure ADC devices (ADS1115) if available."""
-    global ads_devices
+    """Detect and configure ADS1115 devices."""
     ads_devices = {}
     try:
-        for address in ADS1115_ADDRESSES:
-            ads = ADS1115(busio.I2C(board.SCL, board.SDA), address=address)
-            ads_devices[address] = ads
-            print(f"ADS1115 configured at address 0x{address:02X}.")
+        for name, (address, channel) in pinmap.ADS1115_PINS.items():
+            if address not in ads_devices:
+                try:
+                    # Initialize the ADS1115 device if not already done
+                    ads = ADS1115(busio.I2C(board.SCL, board.SDA), address=address)
+
+                    # Test device presence by reading a known channel
+                    test_channel = AnalogIn(ads, ADS1115.P0)
+                    _ = test_channel.value  # Ensure the device is functional
+
+                    # Add the device to the list of active devices
+                    ads_devices[address] = ads
+                    print(f"ADS1115 configured at address 0x{address:02X}.")
+                except Exception as e:
+                    print(f"ADS1115 at address 0x{address:02X} not present or failed to initialize: {e}", file=sys.stderr)
     except Exception as e:
-        print(f"Error configuring ADS1115: {e}", file=sys.stderr)
-        ads_devices = {}  # Reset if configuration fails
+        print(f"Error during ADS1115 configuration: {e}", file=sys.stderr)
+    return ads_devices
 
-    return ads_devices  # Return the configured devices for use elsewhere
+# Call the function during initialization
+ads_devices = configure_adc()
 
-def pet_watchdog():
-    """Periodically pet the hardware watchdog."""
-    watchdog_path = "/dev/watchdog"
-    try:
-        with open(watchdog_path, "w") as wd:
-            print("Watchdog device opened.")
-            wd.write("1\n")
-            wd.flush()
-    except Exception as e:
-        print(f"Watchdog error: {e}", file=sys.stderr)
-
-def poll_input():
-    global last_input_poll
-    while True:
-        monitor_40Hz()
-        with heartbeat_lock:
-            last_input_poll = time.time()
-        time.sleep(0.1)
-
-def poll_env():
-    global last_sensor_poll
-    while True:
-        if monitor_1Hz():
-            with heartbeat_lock:
-                last_sensor_poll = time.time()
-        time.sleep(10)
-
-def pet_watchdog_thread():
-    while True:
-        now = time.time()
-        with heartbeat_lock:
-            fast_ok = (now - last_input_poll) < INPUT_TIMEOUT
-            #env_ok  = (now - last_env_poll) < ENV_TIMEOUT
-
-        if fast_ok:  # Only care about critical path
-            pet_watchdog()
-        else:
-            print("⚠️ Fast polling failure — watchdog not petted")
-
-        time.sleep(1)
-
-# Define DHT11 sensor
-DHT_TYPE = Adafruit_DHT.DHT11 if Adafruit_DHT else None
-
-# Setup
-i2c = busio.I2C(board.SCL, board.SDA)
-
-configure_gpio()
-configure_expanders()
-configure_adc()
-
-# Start watchdog thread
-watchdog_thread = threading.Thread(target=pet_watchdog_thread, daemon=True)
-watchdog_thread.start()
-last_input_poll = time.time()
-input_checkin_lock = threading.Lock()
-
-
-# Initialize MCP23017 states (assuming all pins are inputs initially)
-mcp23017_states = {name: 0 for name in MCP23017_PINS.keys()}
-
-# Initialize DHT11 state
-dht11_state = {'temperature': None, 'humidity': None}
-
-# I2C Bus and MCP23017 initialization
-i2c_bus = None
-mcp23017_devices = {}
-
-if busio.I2C(board.SCL, board.SDA).try_lock():
+def configure_mcp_devices():
+    """Detect and configure MCP23017 devices."""
+    active_devices = []
     try:
         for address in MCP23017_ADDRESSES:
             try:
-                # Try to read a known register to check if the device is present
-                i2c_bus.read_byte_data(address, 0x00) # IODIRA register
-                mcp23017_devices[address] = True
-                print(f"MCP23017 detected at address 0x{address:02X}.")
-                # Configure all pins as inputs with pull-ups (example configuration)
-                try:
-                    i2c_bus.write_byte_data(address, 0x00, 0xFF) # IODIRA all input
-                    i2c_bus.write_byte_data(address, 0x01, 0xFF) # IODIRB all input
-                    i2c_bus.write_byte_data(address, 0x0C, 0xFF) # GPPUA all pull-up
-                    i2c_bus.write_byte_data(address, 0x0D, 0xFF) # GPPUB all pull-up
-                    print(f"MCP23017 at 0x{address:02X} configured for input with pull-ups.")
-                except Exception as e:
-                     print(f"Error configuring MCP23017 at 0x{address:02X}: {e}", file=sys.stderr)
-
+                mcp = MCP23017Handler([address])  # Initialize handler for this address
+                active_devices.append((address, mcp))
+                print(f"MCP23017 configured at address 0x{address:02X}.")
             except Exception as e:
-                mcp23017_devices[address] = False
-                print(f"No MCP23017 detected at address 0x{address:02X} or communication error: {e}", file=sys.stderr)
-
+                print(f"Error configuring MCP23017 at address 0x{address:02X}: {e}", file=sys.stderr)
     except Exception as e:
-        print(f"Error initializing I2C bus {I2C_BUS_NUM}: {e}", file=sys.stderr)
-        i2c_bus = None # Ensure bus is None if initialization fails
+        print(f"Error during MCP23017 configuration: {e}", file=sys.stderr)
+    return active_devices
 
-def read_ads1115_channel(device_address, channel):
-    """Read analog value from ADS1115 at device_address, channel 0-3."""
-    if not ADS_AVAILABLE:
-        print("ADS1115 library not available.", file=sys.stderr)
-        return None
-    ads = get_ads1115(device_address)
-    if not ads:
-        return None
-    try:
-        chan = AnalogIn(ads, getattr(AnalogIn, f"P{channel}"))
-        return {"value": chan.value, "voltage": chan.voltage}
-    except Exception as e:
-        print(f"Error reading ADS1115 at 0x{device_address:02X}, channel {channel}: {e}", file=sys.stderr)
-        return None
-    
-def monitor_40Hz():
-    """Monitor all inputs (RPi GPIO, DHT11, MCP23017) and publish state changes."""
-    global rpi_gpio_states, mcp23017_states, dht11_state
+# Call the function during initialization
+mcp_devices = configure_mcp_devices()
+
+def monitor_inputs():
+    """Monitor input pins (RPi GPIO, MCP23017) and publish state changes."""
+    global last_input_poll
 
     while True:
-        # Monitor RPi GPIOs
+        # Monitor RPi GPIO pins
         for name, pin in RPi_INPUT_PINS.items():
             try:
                 current_state = GPIO.input(pin)
-                if current_state != rpi_gpio_states.get(name): 
+                if current_state != rpi_gpio_states.get(name):
                     rpi_gpio_states[name] = current_state
                     msg = {
                         "topic": f"input/{name}",
-                        "state": "active" if current_state == 0 else "inactive", # Assuming active low
+                        "state": "active" if current_state == 0 else "inactive",
                     }
                     pub.send_json(msg)
             except Exception as e:
-                 # Handle cases where a pin might not have been configured correctly
-                 if rpi_gpio_states.get(name) is not None: # Only report if it was previously working
-                     print(f"Error reading RPi GPIO {name} (pin {pin}): {e}", file=sys.stderr)
-                     rpi_gpio_states[name] = None # Mark as unknown state
-                     msg = {
-                         "topic": f"input/{name}",
-                         "state": "error",
-                         "error": str(e)
-                     }
-                     pub.send_json(msg)
+                if rpi_gpio_states.get(name) is not None:
+                    print(f"Error reading RPi GPIO {name} (pin {pin}): {e}", file=sys.stderr)
+                    rpi_gpio_states[name] = None
+                    msg = {
+                        "topic": f"input/{name}",
+                        "state": "error",
+                        "error": str(e),
+                    }
+                    pub.send_json(msg)
 
-
-        # Monitor MCP23017 pins
-        if smbus and i2c_bus and mcp23017_devices: # Check if I2C is available and devices were detected
+        # Monitor MCP23017 pins for active devices
+        for address, mcp in mcp_devices:
             for name, (device_address, pin) in MCP23017_PINS.items():
-                 if mcp23017_devices.get(device_address, False): # Check if this specific device was detected
-                    current_state = read_mcp23017_pin(device_address, pin)
-                    if current_state is not None and current_state != mcp23017_states.get(name): # Use .get for safety
-                        mcp23017_states[name] = current_state
-                        msg = {
-                            "topic": f"input/{name}",
-                            "state": "active" if current_state == 0 else "inactive", # Assuming active low
-                        }
-                        pub.send_json(msg)
-                 elif mcp23017_states.get(name) is not None: # Report error only if it was previously working
-                      print(f"MCP23017 device at 0x{device_address:02X} not available for pin {name}.", file=sys.stderr)
-                      mcp23017_states[name] = None # Mark as unknown state
-                      msg = {
-                          "topic": f"input/mcp23017/{name}",
-                          "state": "error",
-                          "error": f"Device 0x{device_address:02X} not available"
-                      }
-                      pub.send_json(msg)
-        for sensor in pinmap.ADS1115_PINS.keys():
-            channel = pinmap.ADS1115_PINS[sensor][1]
-            device_address = pinmap.ADS1115_PINS[sensor][0]
-            if device_address not in ADS1115_ADDRESSES:
-                print(f"ADS1115 device at 0x{device_address:02X} not configured or detected for sensor {sensor}.", file=sys.stderr)
-                continue
-            ads_value = read_ads1115_channel(device_address, channel)
+                if device_address == address:
+                    try:
+                        current_state = mcp.read_pin(pin)
+                        if current_state is not None and current_state != mcp23017_states.get(name):
+                            mcp23017_states[name] = current_state
+                            msg = {
+                                "topic": f"input/{name}",
+                                "state": "active" if current_state == 0 else "inactive",
+                            }
+                            pub.send_json(msg)
+                    except Exception as e:
+                        if mcp23017_states.get(name) is not None:
+                            print(f"Error reading MCP23017 {name} (address 0x{device_address:02X}, pin {pin}): {e}", file=sys.stderr)
+                            mcp23017_states[name] = None
+                            msg = {
+                                "topic": f"input/{name}",
+                                "state": "error",
+                                "error": str(e),
+                            }
+                            pub.send_json(msg)
+        # Scan ADS1115 devices for analog input changes
+        for address, ads in ads_devices.items():
+            try:
+                # Example: Read from channel P0
+                channel = AnalogIn(ads, ADS1115.P0)
+                value = channel.value
+                msg = {
+                    "topic": f"adc/{address:02X}/P0",
+                    "value": value,
+                }
+                pub.send_json(msg)
+            except Exception as e:
+                print(f"Error reading ADS1115 at address 0x{address:02X}: {e}", file=sys.stderr)
+
+        time.sleep(0.025)  # 40Hz polling interval
 
 def monitor_1Hz():
     """Monitor sensors and publish state changes."""
-    global last_sensor_poll
+    global last_sensor_poll, dht11_state
 
-    # This function can be expanded to include other environmental sensors as needed
-    # For now, we just return True to indicate that monitoring was performed
-    if time.time() - last_sensor_poll > ENV_TIMEOUT:
-        print("Environmental monitoring timeout exceeded.")
-        return True  # Indicate that we should recheck the environment
-        # Monitor DHT11
-        # Check if DHT library is available
-        if Adafruit_DHT and DHT_TYPE is not None: 
-            try:
-                humidity, temperature = Adafruit_DHT.read_retry(DHT_TYPE, RPi_INPUT_PINS['i_dht11'])
-                temp_changed = temperature is not None and temperature != dht11_state['temperature']
-                hum_changed = humidity is not None and humidity != dht11_state['humidity']
-
-                if temp_changed or hum_changed:
-                    dht11_state['temperature'] = temperature
-                    dht11_state['humidity'] = humidity
-                    msg = {
-                        "topic": "sensor/dht11",
-                        "temperature": temperature,
-                        "humidity": humidity,
-                        "timestamp": time.time()
-                    }
-                    pub.send_json(msg)
-                    if temperature is None or humidity is None:
-                         print("Failed to get DHT11 reading.", file=sys.stderr)
-                         # Optionally publish an error state
-                         # msg = {"topic": "sensor/dht11", "state": "error", "message": "Failed to read"}
-                         # pub.send_json(msg)
-
-            except Exception as e:
-                # Only report error if it was previously working
-                if dht11_state['temperature'] is not None or dht11_state['humidity'] is not None:
-                    print(f"Error reading DHT11: {e}", file=sys.stderr)
-                    dht11_state = {'temperature': None, 'humidity': None} # Mark as unknown state
-                    msg = {
-                        "topic": "sensor/dht11",
-                        "state": "error",
-                        "error": str(e),
-                        "timestamp": time.time()
-                    }
-                    pub.send_json(msg)
-        elif dht11_state['temperature'] is not None or dht11_state['humidity'] is not None:
-             # Report error if DHT was previously working but now library is gone or type is None
-             print("DHT11 reading skipped (library not available or type not set).", file=sys.stderr)
-             dht11_state = {'temperature': None, 'humidity': None} # Mark as unknown state
-             msg = {
-                 "topic": "sensor/dht11",
-                 "state": "error",
-                 "error": "DHT11 library not available",
-                 "timestamp": time.time()
-             }
-             pub.send_json(msg)
-
-
-        time.sleep(0.1) # Polling interval
-
-
-    # Here you could add logic to check for other environmental conditions
-    return False  # No changes detected or monitoring not needed
-
-def handle_commands():
-    """Handle incoming commands via ZMQ REP socket."""
     while True:
         try:
-            message = rep.recv_json()
-            print(f"Received command: {message}")
-            if message.get("command") == "relay":
-                # Assuming "relay" command controls an RPi GPIO pin
-                relay_pin_name = message.get("target") # e.g., "air_assist"
-                action = message.get("action") # "on" or "off"
+            humidity, temperature = Adafruit_DHT.read_retry(Adafruit_DHT.DHT11, RPi_INPUT_PINS['i_dht11'])
+            temp_changed = temperature is not None and temperature != dht11_state['temperature']
+            hum_changed = humidity is not None and humidity != dht11_state['humidity']
 
-                # You need to map the target name (e.g., "air_assist") to an RPi GPIO pin name in RPi_GPIO_PINS
-                # For example, if "air_assist" corresponds to the pin named "relay" in RPi_GPIO_PINS:
-                target_rpi_pin_name = None # Find the corresponding RPi GPIO pin name
-                # Example mapping (you need to define this based on your setup)
-                if relay_pin_name == "air_assist":
-                    # Assuming "air_assist" is controlled by the pin named "relay" in RPi_GPIO_PINS
-                    target_rpi_pin_name = "relay" # This key needs to exist in RPi_GPIO_PINS
+            if temp_changed or hum_changed:
+                dht11_state['temperature'] = temperature
+                dht11_state['humidity'] = humidity
+                msg = {
+                    "topic": "sensor/dht11",
+                    "temperature": temperature,
+                    "humidity": humidity,
+                    "timestamp": time.time()
+                }
+                pub.send_json(msg)
+        except Exception as e:
+            print(f"Error reading DHT11: {e}", file=sys.stderr)
 
-                if target_rpi_pin_name and target_rpi_pin_name in RPi_GPIO_PINS:
-                    pin = RPi_GPIO_PINS[target_rpi_pin_name]
-                    if action == "on":
-                        GPIO.output(pin, GPIO.HIGH) # Assuming HIGH turns the relay on
-                        rep.send_json({"status": "ok", "action": "set_high", "pin": target_rpi_pin_name})
-                        print(f"Set RPi GPIO {target_rpi_pin_name} (pin {pin}) HIGH.")
-                    elif action == "off":
-                        GPIO.output(pin, GPIO.LOW) # Assuming LOW turns the relay off
-                        rep.send_json({"status": "ok", "action": "set_low", "pin": target_rpi_pin_name})
-                        print(f"Set RPi GPIO {target_rpi_pin_name} (pin {pin}) LOW.")
-                    else:
-                        rep.send_json({"status": "error", "message": "unknown action"})
-                        print(f"Received unknown action for relay command: {action}", file=sys.stderr)
-                else:
-                    rep.send_json({"status": "error", "message": "unknown target"})
-                    print(f"Received unknown target for relay command: {relay_pin_name}", file=sys.stderr)
-
-            # Add handling for other commands here (e.g., controlling LEDs on MCP23017)
-            # elif message.get("command") == "set_led":
-            #     led_name = message.get("target")
-            #     state = message.get("state") # "on" or "off"
-            #     # Find the MCP23017 address and pin for the LED
-            #     if led_name in MCP23017_PINS:
-            #          address, pin = MCP23017_PINS[led_name]
-            #          if i2c_bus and mcp23017_devices.get(address, False):
-            #              try:
-            #                  # Need to implement write logic for MCP23017
+        time.sleep(1.0)  # 1Hz polling interval
