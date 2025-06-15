@@ -14,6 +14,10 @@ from hal_mcp23017 import MCP23017Handler
 from pinmap import RPi_INPUT_PINS, RPi_OUTPUT_PINS, MCP23017_PINS
 import pinmap
 
+from sdnotify import SystemdNotifier
+notifier = SystemdNotifier()
+
+i2c_bus1 = busio.I2C(board.SCL, board.SDA)
 # Constants
 INPUT_TIMEOUT = 0.5  # seconds
 ENV_TIMEOUT = 60.0  # seconds
@@ -24,8 +28,8 @@ MCP23017_ADDRESSES = list(set([addr for addr, pin in MCP23017_PINS.values()]))
 ADS1115_ADDRESSES = list(set([addr for addr, pin in pinmap.ADS1115_PINS.values()]))
 
 # Shared heartbeat timestamps
-last_input_poll = time.time()
-last_sensor_poll = time.time()
+last_40hz_poll = time.time()
+last_1hz_poll = time.time()
 
 # ZMQ setup
 ctx = zmq.Context()
@@ -36,6 +40,37 @@ print("ZeroMQ publisher bound to tcp://*:5556")
 rep = ctx.socket(zmq.REP)
 rep.bind("tcp://*:5557")
 print("ZeroMQ replier bound to tcp://*:5557")
+
+def handle_commands():
+    while True:
+        try:
+            msg = rep.recv_json()
+            # Example command structure: {"cmd": "set", "pin": "o_k1_laser", "state": True}
+            cmd = msg.get("cmd")
+            if cmd == "set":
+                pin = msg["pin"]
+                state = msg["state"]
+                if pin in RPi_OUTPUT_PINS:
+                    GPIO.output(RPi_OUTPUT_PINS[pin], GPIO.HIGH if state else GPIO.LOW)
+                    rep.send_json({"status": "ok"})
+                elif pin in MCP23017_PINS:
+                    addr, mcp_pin = MCP23017_PINS[pin]
+                    for _, handler in mcp_devices:
+                        if handler.addresses[0] == addr:
+                            success = handler.write_pin(addr, mcp_pin, state)
+                            rep.send_json({"status": "ok" if success else "fail"})
+                            break
+                    else:
+                        rep.send_json({"status": "unknown mcp"})
+                else:
+                    rep.send_json({"status": "unknown pin"})
+            else:
+                rep.send_json({"status": "unsupported command"})
+        except Exception as e:
+            rep.send_json({"status": "error", "error": str(e)})
+
+# Add this thread
+threading.Thread(target=handle_commands, daemon=True).start()
 
 # State tracking
 rpi_gpio_states = {}
@@ -55,7 +90,7 @@ def configure_gpio():
         print(f"Configuration error: RPi_GPIO_PINS dictionary is missing key {e}.", file=sys.stderr)
 configure_gpio()
 
-def configure_adc():
+def configure_adc(i2c_bus):
     """Detect and configure ADS1115 devices."""
     ads_devices = {}
     try:
@@ -63,7 +98,7 @@ def configure_adc():
             if address not in ads_devices:
                 try:
                     # Initialize the ADS1115 device if not already done
-                    ads = ADS1115(busio.I2C(board.SCL, board.SDA), address=address)
+                    ads = ADS1115(i2c_bus,  address=address)
 
                     # Test device presence by reading a known channel
                     test_channel = AnalogIn(ads, ADS1115.P0)
@@ -79,15 +114,15 @@ def configure_adc():
     return ads_devices
 
 # Call the function during initialization
-ads_devices = configure_adc()
+ads_devices = configure_adc(i2c_bus1)
 
-def configure_mcp_devices():
+def configure_mcp_devices(i2c_bus):
     """Detect and configure MCP23017 devices."""
     active_devices = []
     try:
         for address in MCP23017_ADDRESSES:
             try:
-                mcp = MCP23017Handler([address])  # Initialize handler for this address
+                mcp = MCP23017Handler(i2c_bus,[address])  # Initialize handler for this address
                 active_devices.append((address, mcp))
                 print(f"MCP23017 configured at address 0x{address:02X}.")
             except Exception as e:
@@ -97,77 +132,84 @@ def configure_mcp_devices():
     return active_devices
 
 # Call the function during initialization
-mcp_devices = configure_mcp_devices()
+mcp_devices = configure_mcp_devices(i2c_bus1)
 
-def monitor_inputs():
-    """Monitor input pins (RPi GPIO, MCP23017) and publish state changes."""
-    global last_input_poll
-
-    while True:
-        # Monitor RPi GPIO pins
-        for name, pin in RPi_INPUT_PINS.items():
-            try:
-                current_state = GPIO.input(pin)
-                if current_state != rpi_gpio_states.get(name):
-                    rpi_gpio_states[name] = current_state
-                    msg = {
-                        "topic": f"input/{name}",
-                        "state": "active" if current_state == 0 else "inactive",
-                    }
-                    pub.send_json(msg)
-            except Exception as e:
-                if rpi_gpio_states.get(name) is not None:
-                    print(f"Error reading RPi GPIO {name} (pin {pin}): {e}", file=sys.stderr)
-                    rpi_gpio_states[name] = None
-                    msg = {
-                        "topic": f"input/{name}",
-                        "state": "error",
-                        "error": str(e),
-                    }
-                    pub.send_json(msg)
-
-        # Monitor MCP23017 pins for active devices
-        for address, mcp in mcp_devices:
-            for name, (device_address, pin) in MCP23017_PINS.items():
-                if device_address == address:
-                    try:
-                        current_state = mcp.read_pin(pin)
-                        if current_state is not None and current_state != mcp23017_states.get(name):
-                            mcp23017_states[name] = current_state
-                            msg = {
-                                "topic": f"input/{name}",
-                                "state": "active" if current_state == 0 else "inactive",
-                            }
-                            pub.send_json(msg)
-                    except Exception as e:
-                        if mcp23017_states.get(name) is not None:
-                            print(f"Error reading MCP23017 {name} (address 0x{device_address:02X}, pin {pin}): {e}", file=sys.stderr)
-                            mcp23017_states[name] = None
-                            msg = {
-                                "topic": f"input/{name}",
-                                "state": "error",
-                                "error": str(e),
-                            }
-                            pub.send_json(msg)
-        # Scan ADS1115 devices for analog input changes
-        for address, ads in ads_devices.items():
-            try:
-                # Example: Read from channel P0
-                channel = AnalogIn(ads, ADS1115.P0)
-                value = channel.value
+def read_gpio():
+    for name, pin in RPi_INPUT_PINS.items():
+        try:
+            current_state = GPIO.input(pin)
+            if current_state != rpi_gpio_states.get(name):
+                rpi_gpio_states[name] = current_state
                 msg = {
-                    "topic": f"adc/{address:02X}/P0",
-                    "value": value,
+                    "topic": f"input/{name}",
+                    "state": "active" if current_state == 0 else "inactive",
                 }
                 pub.send_json(msg)
-            except Exception as e:
-                print(f"Error reading ADS1115 at address 0x{address:02X}: {e}", file=sys.stderr)
+        except Exception as e:
+            if rpi_gpio_states.get(name) is not None:
+                print(f"Error reading RPi GPIO {name} (pin {pin}): {e}", file=sys.stderr)
+                rpi_gpio_states[name] = None
+                msg = {
+                    "topic": f"input/{name}",
+                    "state": "error",
+                    "error": str(e),
+                }
+                pub.send_json(msg)
 
+def read_expanders():
+    # Monitor MCP23017 pins for active devices
+    for address, mcp in mcp_devices:
+        for name, (device_address, pin) in MCP23017_PINS.items():
+            if device_address == address:
+                try:
+                    current_state = mcp.read_pin(pin)
+                    if current_state is not None and current_state != mcp23017_states.get(name):
+                        mcp23017_states[name] = current_state
+                        msg = {
+                            "topic": f"input/{name}",
+                            "state": "active" if current_state == 0 else "inactive",
+                        }
+                        pub.send_json(msg)
+                except Exception as e:
+                    if mcp23017_states.get(name) is not None:
+                        print(f"Error reading MCP23017 {name} (address 0x{device_address:02X}, pin {pin}): {e}", file=sys.stderr)
+                        mcp23017_states[name] = None
+                        msg = {
+                            "topic": f"input/{name}",
+                            "state": "error",
+                            "error": str(e),
+                        }
+                        pub.send_json(msg)
+
+def read_adc():
+    for name, (address, channel) in pinmap.ADS1115_PINS.items():
+        try:
+            ads = ads_devices[address]
+            chan = getattr(ADS1115, f'P{channel}')
+            value = AnalogIn(ads, chan).value
+            msg = {
+                "topic": f"adc/{name}",
+                "value": value,
+            }
+            pub.send_json(msg)
+        except Exception as e:
+            print(f"Error reading ADS1115 {name} at 0x{address:02X}: {e}", file=sys.stderr)
+
+def monitor_40Hz():
+    """Monitor input pins (RPi GPIO, MCP23017) and publish state changes."""
+    global last_40hz_poll
+
+    while True:
+        read_gpio()
+        read_expanders()
+        read_adc()
+        with heartbeat_lock:
+            last_40hz_poll = time.time()
         time.sleep(0.025)  # 40Hz polling interval
 
 def monitor_1Hz():
     """Monitor sensors and publish state changes."""
-    global last_sensor_poll, dht11_state
+    global last_1hz_poll, dht11_state
 
     while True:
         try:
@@ -187,5 +229,27 @@ def monitor_1Hz():
                 pub.send_json(msg)
         except Exception as e:
             print(f"Error reading DHT11: {e}", file=sys.stderr)
-
+        with heartbeat_lock:
+            last_1hz_poll = time.time()
         time.sleep(1.0)  # 1Hz polling interval
+
+if __name__ == "__main__":
+    threading.Thread(target=monitor_40Hz,
+                     daemon=True).start()
+    threading.Thread(target=monitor_1Hz, 
+                     daemon=True).start()
+    try:
+        while True:
+            with heartbeat_lock:
+                elapsed = time.time() - last_40hz_poll
+            if elapsed < INPUT_TIMEOUT:
+                # Placeholder for petting actual WDT
+                print("Watchdog pet.")
+                notifier.notify("WATCHDOG=1")
+            else:
+                print(f"Watchdog skipped! Last update {elapsed:.2f}s ago.")
+            time.sleep(1.0)
+
+    except KeyboardInterrupt:
+        GPIO.cleanup()
+        print("HAL shutdown gracefully.")

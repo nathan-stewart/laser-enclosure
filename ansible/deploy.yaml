@@ -11,51 +11,55 @@
           - python3-rpi-lgpio
           - python3-opencv
           - watchdog
-
         state: present
         update_cache: yes
 
-    # Create directory for kiosk user services
-    - name: Create directory for kiosk user services
+    # Ensure /opt/hal directory exists
+    - name: Create /opt/hal directory
       file:
-        path: /home/kiosk/services
+        path: /opt/hal
         state: directory
         owner: kiosk
         group: kiosk
         mode: '0755'
 
-    # Copy GPIO service file
-    - name: Copy GPIO service file
+    # Copy hal.py to /opt/hal
+    - name: Copy hal.py to /opt/hal
       copy:
-        dest: /home/kiosk/services/hal.py
         src: /home/nps/projects/laser-enclosure/src/hal.py
+        dest: /opt/hal/hal.py
         owner: kiosk
         group: kiosk
         mode: '0755'
 
-    # Create GPIO systemd service file
-    - name: Create GPIO systemd service file
+    # Create HAL GPIO and Sensor systemd service file
+    - name: Create HAL GPIO and Sensor systemd service file
       copy:
         content: |
           [Unit]
-          Description=GPIO Service
+          Description=HAL GPIO and Sensor Service
           After=network.target
 
           [Service]
-          ExecStart=/usr/bin/python3 /home/kiosk/services/hal.py
-          Restart=always
+          ExecStart=/usr/bin/python3 /opt/hal/hal.py
+          Restart=on-failure
           RestartSec=2
-          User=kiosk
-          WorkingDirectory=/home/kiosk/services
+          WatchdogSec=5s
+          NotifyAccess=all
+          StandardOutput=journal
+          StandardError=journal
+          TimeoutStartSec=10
 
           [Install]
           WantedBy=multi-user.target
-        dest: /etc/systemd/system/hal.service
+        dest: /etc/systemd/system/hal-opt.service
         mode: '0644'
 
-    # Enable and start GPIO service
-    - name: Enable and start GPIO service
+    # Enable and start HAL GPIO and Sensor service
+    - name: Enable and start HAL GPIO and Sensor service
       systemd:
-        name: hal.service
+        name: hal-opt.service
         enabled: true
         state: started
+
+

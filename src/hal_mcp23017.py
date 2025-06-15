@@ -1,14 +1,13 @@
-import busio
 import board
 import sys
 from adafruit_mcp230xx.mcp23017 import MCP23017
 
 class MCP23017Handler:
-    def __init__(self, addresses):
+    def __init__(self, i2c_bus, addresses):
         """
         Initialize the MCP23017 handler with the given I2C addresses.
         """
-        self.i2c_bus = busio.I2C(board.SCL, board.SDA)
+        self.i2c_bus = i2c_bus
         self.devices = {}
         self.addresses = addresses
         self._initialize_devices()

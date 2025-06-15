@@ -28,6 +28,7 @@
           - python3-zmq
           - python3-pyqt5
           - python3-rpi-lgpio
+          - python3-sdnotify
           - watchdog
         update_cache: true
 
