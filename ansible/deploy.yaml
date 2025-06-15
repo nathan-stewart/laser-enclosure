@@ -52,13 +52,13 @@
 
           [Install]
           WantedBy=multi-user.target
-        dest: /etc/systemd/system/hal-opt.service
+        dest: /etc/systemd/system/hal.service
         mode: '0644'
 
     # Enable and start HAL GPIO and Sensor service
     - name: Enable and start HAL GPIO and Sensor service
       systemd:
-        name: hal-opt.service
+        name: hal.service
         enabled: true
         state: started
 

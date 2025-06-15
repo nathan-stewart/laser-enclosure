@@ -8,7 +8,7 @@ import threading
 from RPi import GPIO
 import busio
 import board
-import Adafruit_DHT
+import adafruit_dht
 from adafruit_circuitpython_ads1x15 import ADS1115, AnalogIn
 from hal_mcp23017 import MCP23017Handler
 from pinmap import RPi_INPUT_PINS, RPi_OUTPUT_PINS, MCP23017_PINS
@@ -30,6 +30,11 @@ ADS1115_ADDRESSES = list(set([addr for addr, pin in pinmap.ADS1115_PINS.values()
 # Shared heartbeat timestamps
 last_40hz_poll = time.time()
 last_1hz_poll = time.time()
+
+dht11 = None
+ads1115 = None
+mcp23017 = None
+
 
 # ZMQ setup
 ctx = zmq.Context()
@@ -75,7 +80,7 @@ threading.Thread(target=handle_commands, daemon=True).start()
 # State tracking
 rpi_gpio_states = {}
 mcp23017_states = {name: 0 for name in MCP23017_PINS.keys()}
-dht11_state = {'temperature': None, 'humidity': None}
+
 
 def configure_gpio():
     """Configure Raspberry Pi GPIO pins."""
@@ -207,13 +212,30 @@ def monitor_40Hz():
             last_40hz_poll = time.time()
         time.sleep(0.025)  # 40Hz polling interval
 
+def configure_dht11():
+    """Configure DHT11 sensor."""
+    try:
+        # Initialize the DHT11 sensor
+        return adafruit_dht.DHT11(RPi_INPUT_PINS['i_dht11'])
+    except Exception as e:
+        return None
+    
+dht11_state = {'temperature': None, 'humidity': None}
+dht11 = configure_dht11()
+if dht11 is None:
+    print("DHT11 sensor not configured. Check wiring and pin assignment.", file=sys.stderr)
+else:
+    print("DHT11 sensor found.")
+
+
 def monitor_1Hz():
     """Monitor sensors and publish state changes."""
     global last_1hz_poll, dht11_state
 
     while True:
         try:
-            humidity, temperature = Adafruit_DHT.read_retry(Adafruit_DHT.DHT11, RPi_INPUT_PINS['i_dht11'])
+            temperature = dht_device.temperature
+            humidity = dht_device.humidity
             temp_changed = temperature is not None and temperature != dht11_state['temperature']
             hum_changed = humidity is not None and humidity != dht11_state['humidity']
 
