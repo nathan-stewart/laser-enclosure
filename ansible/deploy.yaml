@@ -48,8 +48,13 @@
           NotifyAccess=all
           StandardOutput=journal
           StandardError=journal
+          StartLimitIntervalSec=60
+          StartLimitBurst=5
           TimeoutStartSec=10
-
+          KillSignal=SIGINT
+          User=kiosk
+          Group=kiosk 
+          
           [Install]
           WantedBy=multi-user.target
         dest: /etc/systemd/system/hal.service

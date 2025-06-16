@@ -72,10 +72,11 @@ def handle_commands():
             else:
                 rep.send_json({"status": "unsupported command"})
         except Exception as e:
-            rep.send_json({"status": "error", "error": str(e)})
+            try:
+                rep.send_json({"status": "error", "error": str(e)})
+            except:
+                 print(f"Error handling ZMQ command and replying: {e}", file=sys.stderr)
 
-# Add this thread
-threading.Thread(target=handle_commands, daemon=True).start()
 
 # State tracking
 rpi_gpio_states = {}
@@ -96,27 +97,28 @@ def configure_gpio():
 configure_gpio()
 
 def configure_adc(i2c_bus):
-    """Detect and configure ADS1115 devices."""
+    ads_by_address = {}
     ads_devices = {}
-    try:
-        for name, (address, channel) in pinmap.ADS1115_PINS.items():
-            if address not in ads_devices:
-                try:
-                    # Initialize the ADS1115 device if not already done
-                    ads = ADS1115(i2c_bus,  address=address)
-
-                    # Test device presence by reading a known channel
-                    test_channel = AnalogIn(ads, ADS1115.P0)
-                    _ = test_channel.value  # Ensure the device is functional
-
-                    # Add the device to the list of active devices
-                    ads_devices[address] = ads
-                    print(f"ADS1115 configured at address 0x{address:02X}.")
-                except Exception as e:
-                    print(f"ADS1115 at address 0x{address:02X} not present or failed to initialize: {e}", file=sys.stderr)
-    except Exception as e:
-        print(f"Error during ADS1115 configuration: {e}", file=sys.stderr)
+    for name, (address, channel) in pinmap.ADS1115_PINS.items():
+        try:
+            if address not in ads_by_address:
+                ads = ADS1115(i2c_bus, address=address)
+                ads_by_address[address] = ads
+                print(f"ADS1115 configured at address 0x{address:02X}.")
+            else:
+                ads = ads_by_address[address]
+            chan = getattr(ADS1115, f'P{channel}')
+            analog_in = AnalogIn(ads, chan)
+            ads_devices[name] = {
+                'ads': ads,
+                'analog_in': analog_in,
+                'address': address,
+                'channel': channel
+            }
+        except Exception as e:
+            print(f"ADS1115 {name} at address 0x{address:02X} channel {channel} not present or failed to initialize: {e}", file=sys.stderr)
     return ads_devices
+
 
 # Call the function during initialization
 ads_devices = configure_adc(i2c_bus1)
@@ -187,18 +189,16 @@ def read_expanders():
                         pub.send_json(msg)
 
 def read_adc():
-    for name, (address, channel) in pinmap.ADS1115_PINS.items():
+    for name, adc_info in ads_devices.items():
         try:
-            ads = ads_devices[address]
-            chan = getattr(ADS1115, f'P{channel}')
-            value = AnalogIn(ads, chan).value
+            value = adc_info['analog_in'].value
             msg = {
                 "topic": f"adc/{name}",
                 "value": value,
             }
             pub.send_json(msg)
         except Exception as e:
-            print(f"Error reading ADS1115 {name} at 0x{address:02X}: {e}", file=sys.stderr)
+            print(f"Error reading ADS1115 {name} at 0x{adc_info['address']:02X}: {e}", file=sys.stderr)
 
 def monitor_40Hz():
     """Monitor input pins (RPi GPIO, MCP23017) and publish state changes."""
@@ -234,21 +234,22 @@ def monitor_1Hz():
 
     while True:
         try:
-            temperature = dht_device.temperature
-            humidity = dht_device.humidity
-            temp_changed = temperature is not None and temperature != dht11_state['temperature']
-            hum_changed = humidity is not None and humidity != dht11_state['humidity']
+            if dht11:
+                temperature = dht11.temperature
+                humidity = dht11.humidity
+                temp_changed = temperature is not None and temperature != dht11_state['temperature']
+                hum_changed = humidity is not None and humidity != dht11_state['humidity']
 
-            if temp_changed or hum_changed:
-                dht11_state['temperature'] = temperature
-                dht11_state['humidity'] = humidity
-                msg = {
-                    "topic": "sensor/dht11",
-                    "temperature": temperature,
-                    "humidity": humidity,
-                    "timestamp": time.time()
-                }
-                pub.send_json(msg)
+                if temp_changed or hum_changed:
+                    dht11_state['temperature'] = temperature
+                    dht11_state['humidity'] = humidity
+                    msg = {
+                        "topic": "sensor/dht11",
+                        "temperature": temperature,
+                        "humidity": humidity,
+                        "timestamp": time.time()
+                    }
+                    pub.send_json(msg)
         except Exception as e:
             print(f"Error reading DHT11: {e}", file=sys.stderr)
         with heartbeat_lock:
@@ -256,10 +257,9 @@ def monitor_1Hz():
         time.sleep(1.0)  # 1Hz polling interval
 
 if __name__ == "__main__":
-    threading.Thread(target=monitor_40Hz,
-                     daemon=True).start()
-    threading.Thread(target=monitor_1Hz, 
-                     daemon=True).start()
+    threading.Thread(target=handle_commands, daemon=True).start()
+    threading.Thread(target=monitor_40Hz, daemon=True).start()
+    threading.Thread(target=monitor_1Hz, daemon=True).start()
     try:
         while True:
             with heartbeat_lock:
