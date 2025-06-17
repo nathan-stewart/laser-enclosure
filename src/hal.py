@@ -277,6 +277,11 @@ def monitor_1Hz():
         stop_event.wait(1.0)  # 1Hz polling interval
 
 if __name__ == "__main__":
+    # Initial state scan before threads
+    read_gpio()
+    read_expanders()
+    read_adc()
+
     threading.Thread(target=handle_commands, daemon=True).start()
     threading.Thread(target=monitor_40Hz, daemon=True).start()
     threading.Thread(target=monitor_1Hz, daemon=True).start()
@@ -286,7 +291,6 @@ if __name__ == "__main__":
                 elapsed = time.time() - last_40hz_poll
             if elapsed < INPUT_TIMEOUT:
                 # Placeholder for petting actual WDT
-                print("Watchdog pet.")
                 notifier.notify("WATCHDOG=1")
             else:
                 print(f"Watchdog skipped! Last update {elapsed:.2f}s ago.")
