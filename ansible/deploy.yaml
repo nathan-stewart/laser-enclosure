@@ -31,8 +31,6 @@
         mode: '0755'
       loop:
         - hal.py
-        - front_panel.py
-        - hal_mcp23017.py
         - pinmap.py
 
     # Create HAL GPIO and Sensor systemd service file

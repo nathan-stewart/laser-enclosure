@@ -11,11 +11,11 @@ import board
 import adafruit_dht
 from adafruit_ads1x15.analog_in import AnalogIn
 from adafruit_ads1x15.ads1115 import ADS1115
-from hal_mcp23017 import MCP23017Handler
-from pinmap import RPi_INPUT_PINS, RPi_OUTPUT_PINS, MCP23017_PINS
+from adafruit_mcp230xx.mcp23017 import MCP23017
 import pinmap
-
+from pinmap import RPi_INPUT_PINS, RPi_OUTPUT_PINS, MCP23017_PINS
 from sdnotify import SystemdNotifier
+
 notifier = SystemdNotifier()
 
 i2c_bus1 = busio.I2C(board.SCL, board.SDA)
@@ -23,6 +23,7 @@ i2c_bus1 = busio.I2C(board.SCL, board.SDA)
 INPUT_TIMEOUT = 0.5  # seconds
 ENV_TIMEOUT = 60.0  # seconds
 heartbeat_lock = threading.Lock()
+stop_event = threading.Event()
 
 # Identify unique MCP23017 and ADS1115 addresses
 MCP23017_ADDRESSES = list(set([addr for addr, pin in MCP23017_PINS.values()]))
@@ -51,7 +52,6 @@ def handle_commands():
     while True:
         try:
             msg = rep.recv_json()
-            # Example command structure: {"cmd": "set", "pin": "o_k1_laser", "state": True}
             cmd = msg.get("cmd")
             if cmd == "set":
                 pin = msg["pin"]
@@ -61,10 +61,14 @@ def handle_commands():
                     rep.send_json({"status": "ok"})
                 elif pin in MCP23017_PINS:
                     addr, mcp_pin = MCP23017_PINS[pin]
-                    for _, handler in mcp_devices:
-                        if handler.addresses[0] == addr:
-                            success = handler.write_pin(addr, mcp_pin, state)
-                            rep.send_json({"status": "ok" if success else "fail"})
+                    for device_addr, mcp in mcp_devices:
+                        if device_addr == addr:
+                            try:
+                                mcp.setup(mcp_pin, mcp.OUT)
+                                mcp.output(mcp_pin, 1 if state else 0)
+                                rep.send_json({"status": "ok"})
+                            except Exception as e:
+                                rep.send_json({"status": "fail", "error": str(e)})
                             break
                     else:
                         rep.send_json({"status": "unknown mcp"})
@@ -76,7 +80,7 @@ def handle_commands():
             try:
                 rep.send_json({"status": "error", "error": str(e)})
             except:
-                 print(f"Error handling ZMQ command and replying: {e}", file=sys.stderr)
+                print(f"Error handling ZMQ command and replying: {e}", file=sys.stderr)
 
 
 # State tracking
@@ -130,7 +134,11 @@ def configure_mcp_devices(i2c_bus):
     try:
         for address in MCP23017_ADDRESSES:
             try:
-                mcp = MCP23017Handler(i2c_bus,[address])  # Initialize handler for this address
+                mcp = MCP23017(i2c_bus, address=address)
+                # Set all pins as inputs with pull-ups enabled
+                for pin in range(16):
+                    mcp.setup(pin, mcp.IN)
+                    mcp.pullups |= (1 << pin)
                 active_devices.append((address, mcp))
                 print(f"MCP23017 configured at address 0x{address:02X}.")
             except Exception as e:
@@ -170,7 +178,7 @@ def read_expanders():
         for name, (device_address, pin) in MCP23017_PINS.items():
             if device_address == address:
                 try:
-                    current_state = mcp.read_pin(pin)
+                    current_state = mcp.input(pin)
                     if current_state is not None and current_state != mcp23017_states.get(name):
                         mcp23017_states[name] = current_state
                         msg = {
@@ -205,7 +213,7 @@ def monitor_40Hz():
     """Monitor input pins (RPi GPIO, MCP23017) and publish state changes."""
     global last_40hz_poll
 
-    while True:
+    while not stop_event.is_set():
         read_gpio()
         read_expanders()
         read_adc()
@@ -233,7 +241,7 @@ def monitor_1Hz():
     """Monitor sensors and publish state changes."""
     global last_1hz_poll, dht11_state
 
-    while True:
+    while not stop_event.is_set():
         try:
             if dht11:
                 temperature = dht11.temperature
@@ -274,5 +282,7 @@ if __name__ == "__main__":
             time.sleep(1.0)
 
     except KeyboardInterrupt:
+        stop_event.set()  # Signal threads to stop
+        time.sleep(0.1)  # Give threads a moment to exit
         GPIO.cleanup()
         print("HAL shutdown gracefully.")
