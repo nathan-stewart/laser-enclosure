@@ -219,7 +219,7 @@ def monitor_40Hz():
         read_adc()
         with heartbeat_lock:
             last_40hz_poll = time.time()
-        time.sleep(0.025)  # 40Hz polling interval
+        stop_event.wait(0.025)  # 40Hz polling interval
 
 def configure_dht11():
     """Configure DHT11 sensor."""
@@ -228,7 +228,7 @@ def configure_dht11():
         return adafruit_dht.DHT11(RPi_INPUT_PINS['i_dht11'])
     except Exception as e:
         return None
-    
+
 dht11_state = {'temperature': None, 'humidity': None}
 dht11 = configure_dht11()
 if dht11 is None:
@@ -263,7 +263,7 @@ def monitor_1Hz():
             print(f"Error reading DHT11: {e}", file=sys.stderr)
         with heartbeat_lock:
             last_1hz_poll = time.time()
-        time.sleep(1.0)  # 1Hz polling interval
+        stop_event.wait(1.0)  # 1Hz polling interval
 
 if __name__ == "__main__":
     threading.Thread(target=handle_commands, daemon=True).start()
