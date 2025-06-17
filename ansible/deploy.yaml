@@ -13,24 +13,27 @@
           - watchdog
         state: present
         update_cache: yes
-
-    # Ensure /opt/hal directory exists
-    - name: Create /opt/hal directory
+    
+    - name: Ensure /opt/kiosk directory exists
       file:
-        path: /opt/hal
+        path: /opt/kiosk
         state: directory
         owner: kiosk
         group: kiosk
         mode: '0755'
-
-    # Copy hal.py to /opt/hal
-    - name: Copy hal.py to /opt/hal
+      
+    - name: Copy kiosk source files to /opt/kiosk
       copy:
-        src: /home/nps/projects/laser-enclosure/src/hal.py
-        dest: /opt/hal/hal.py
+        src: "/home/nps/projects/laser-enclosure/src/{{ item }}"
+        dest: "/opt/kiosk/{{ item }}"
         owner: kiosk
         group: kiosk
         mode: '0755'
+      loop:
+        - hal.py
+        - front_panel.py
+        - hal_mcp23017.py
+        - pinmap.py
 
     # Create HAL GPIO and Sensor systemd service file
     - name: Create HAL GPIO and Sensor systemd service file
@@ -41,7 +44,7 @@
           After=network.target
 
           [Service]
-          ExecStart=/usr/bin/python3 /opt/hal/hal.py
+          ExecStart=/usr/bin/python3 /opt/kiosk/hal.py
           Restart=on-failure
           RestartSec=2
           WatchdogSec=5s
@@ -54,7 +57,7 @@
           KillSignal=SIGINT
           User=kiosk
           Group=kiosk 
-          WorkingDirectory=/opt/hal
+          WorkingDirectory=/opt/kiosk
           
           [Install]
           WantedBy=multi-user.target
