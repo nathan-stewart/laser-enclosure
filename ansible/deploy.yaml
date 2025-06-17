@@ -13,7 +13,7 @@
           - watchdog
         state: present
         update_cache: yes
-    
+
     - name: Ensure /opt/kiosk directory exists
       file:
         path: /opt/kiosk
@@ -21,7 +21,7 @@
         owner: kiosk
         group: kiosk
         mode: '0755'
-      
+
     - name: Copy kiosk source files to /opt/kiosk
       copy:
         src: "/home/nps/projects/laser-enclosure/src/{{ item }}"
@@ -32,6 +32,8 @@
       loop:
         - hal.py
         - pinmap.py
+        - zmq_send.py
+        - zmq_recv.py
 
     # Create HAL GPIO and Sensor systemd service file
     - name: Create HAL GPIO and Sensor systemd service file
@@ -54,9 +56,9 @@
           TimeoutStartSec=10
           KillSignal=SIGINT
           User=kiosk
-          Group=kiosk 
+          Group=kiosk
           WorkingDirectory=/opt/kiosk
-          
+
           [Install]
           WantedBy=multi-user.target
         dest: /etc/systemd/system/hal.service

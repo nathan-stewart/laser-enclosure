@@ -74,12 +74,23 @@ def handle_commands():
                         rep.send_json({"status": "unknown mcp"})
                 else:
                     rep.send_json({"status": "unknown pin"})
+            elif cmd == "get_state":
+                # Respond with the current state
+                rep.send_json({
+                    "input": rpi_gpio_states,
+                    "adc": {name: adc_info['last_value'] for name, adc_info in ads_devices.items()},
+                    "sensor": {
+                        "temperature": dht11_state.get("temperature"),
+                        "humidity": dht11_state.get("humidity")
+                    },
+                    "expander": expander_states  # This should be updated by your polling thread
+                })
             else:
                 rep.send_json({"status": "unsupported command"})
         except Exception as e:
             try:
                 rep.send_json({"status": "error", "error": str(e)})
-            except:
+            except Exception:
                 print(f"Error handling ZMQ command and replying: {e}", file=sys.stderr)
 
 
