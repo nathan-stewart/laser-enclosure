@@ -9,7 +9,8 @@ from RPi import GPIO
 import busio
 import board
 import adafruit_dht
-from adafruit_circuitpython_ads1x15 import ADS1115, AnalogIn
+from adafruit_ads1x15.analog_in import AnalogIn
+from adafruit_ads1x15.ads1115 import ADS1115
 from hal_mcp23017 import MCP23017Handler
 from pinmap import RPi_INPUT_PINS, RPi_OUTPUT_PINS, MCP23017_PINS
 import pinmap

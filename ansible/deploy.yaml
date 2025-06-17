@@ -54,6 +54,7 @@
           KillSignal=SIGINT
           User=kiosk
           Group=kiosk 
+          WorkingDirectory=/opt/hal
           
           [Install]
           WantedBy=multi-user.target

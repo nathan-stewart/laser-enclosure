@@ -83,6 +83,7 @@
     - name: Create kiosk user
       user:
         name: kiosk
+        groups: gpio,i2c,video,input,dialout,plugdev
         state: present
         shell: /bin/bash
         home: /home/kiosk
