@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import zmq
 import json
 import time
@@ -29,6 +30,7 @@ def get_initial_state():
     try:
         req.send_json({"cmd": "get_state"})
         response = req.recv_json()
+        print("Initial state received:", response)  # Debug print
         with lock:
             state.update(response)
     except Exception as e:

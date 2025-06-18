@@ -5,7 +5,6 @@ RPi_INPUT_PINS = {
     "i_m7": 17,
     "i_m8": 18,
     "i_lid": 27,
-    "i_dht11": 4, # DHT11 sensor data pin
 }
 
 RPi_OUTPUT_PINS = {

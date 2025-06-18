@@ -75,6 +75,7 @@ def handle_commands():
                 else:
                     rep.send_json({"status": "unknown pin"})
             elif cmd == "get_state":
+                print("State requested via ZMQ")
                 # Respond with the current state
                 rep.send_json({
                     "input": rpi_gpio_states,
@@ -105,8 +106,11 @@ def configure_gpio():
     try:
         for pin in RPi_INPUT_PINS:
             GPIO.setup(RPi_INPUT_PINS[pin], GPIO.IN, pull_up_down=GPIO.PUD_UP)
+            rpi_gpio_states[pin] = GPIO.input(RPi_INPUT_PINS[pin])
         for pin in RPi_OUTPUT_PINS:
             GPIO.setup(RPi_OUTPUT_PINS[pin], GPIO.OUT, initial=GPIO.LOW)
+            rpi_gpio_states[pin] = GPIO.LOW
+            
         print("RPi GPIOs configured.")
     except KeyError as e:
         print(f"Configuration error: RPi_GPIO_PINS dictionary is missing key {e}.", file=sys.stderr)
@@ -169,7 +173,7 @@ def read_gpio():
                 rpi_gpio_states[name] = current_state
                 msg = {
                     "topic": f"input/{name}",
-                    "state": "active" if current_state == 0 else "inactive",
+                    "state": 1 if current_state == 0 else 0,
                 }
                 pub.send_json(msg)
         except Exception as e:
