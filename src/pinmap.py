@@ -1,10 +1,11 @@
 # RPi GPIO pins
+import board
 import RPi.GPIO as GPIO
 
 RPi_INPUT_PINS = {
-    "i_m7": 17,
-    "i_m8": 18,
-    "i_lid": 27,
+    "i_m7": board.D17,
+    "i_m8": board.D18,
+    "i_lid": board.D27,
 }
 
 RPi_OUTPUT_PINS = {
@@ -40,4 +41,8 @@ MCP23017_PINS = {
 ADS1115_PINS = {
     "i_air" : (0x48, 0),  # Example pin on ASD1115 1
     "i_co2" : (0x49, 1),  # Example pin on ASD1115 2
+}
+
+DHT11_PINS = {
+    "i_dht11" : board.D4,  # DHT11 sensor pin
 }
