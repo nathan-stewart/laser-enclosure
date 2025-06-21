@@ -78,8 +78,11 @@ def configure_gpio():
         for name in RPi_INPUT_PINS:
             GPIO.setup(RPi_INPUT_PINS[name], GPIO.IN, pull_up_down=GPIO.PUD_UP)
             log.debug(f"RPi GPIO input pin {name} configured on BCM pin {RPi_INPUT_PINS[name]}.")
+        log.debug(f"{RPi_OUTPUT_PINS}")
         for name in RPi_OUTPUT_PINS:
             GPIO.setup(RPi_OUTPUT_PINS[name], GPIO.OUT, initial=GPIO.LOW)
+            current_state[name] = GPIO.input(RPi_OUTPUT_PINS[name])
+            log.debug(f"RPi GPIO output pin {name} configured on BCM pin {RPi_OUTPUT_PINS[name]}.")
         log.info("RPi GPIOs configured.")
     except KeyError as e:
         log.error(f"Configuration error: RPi_GPIO_PINS dictionary is missing key {e}.")
@@ -131,8 +134,8 @@ def configure_dht11():
     """Configure DHT11 sensor."""
     try:
         # Initialize the DHT11 sensor
-        dht11 = adafruit_dht.DHT11(DHT11_PINS['i_dht11']) 
-        
+        dht11 = adafruit_dht.DHT11(DHT11_PINS['i_dht11'])
+
         log.info("DHT11 sensor found.")
         return dht11
     except Exception as e:
@@ -310,6 +313,8 @@ if __name__ == "__main__":
     read_gpio()
     read_expanders()
     read_adc()
+    log.info(f"{current_state}")
+    log.info("HAL initialized, starting threads...")
 
     threading.Thread(target=handle_commands, daemon=True).start()
     threading.Thread(target=monitor_inputs, daemon=True).start()
@@ -335,4 +340,4 @@ if __name__ == "__main__":
     except Exception as e:
         log.exception("Unhandled exception in main loop")
         stop_event.set()
-   
+
