@@ -2,15 +2,6 @@
 import sys
 import logging
 import argparse
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-log = logging.getLogger("hal")
-
 import zmq
 import time
 import json
@@ -40,6 +31,9 @@ last_40Hz_poll = time.time()
 last_30s_poll = time.time()
 error_threshold = 5
 
+pub = None
+rep = None
+
 MCP23017_ADDRESSES = list(set([addr for addr, pin in MCP23017_PINS.values()]))
 ADS1115_ADDRESSES = list(set([addr for addr, pin in pinmap.ADS1115_PINS.values()]))
 
@@ -49,12 +43,11 @@ dht11_dev = None
 
 # State tracking
 current_state = {}
-for p in RPi_INPUT_PINS.keys():       current_state[p] = None
-for p in RPi_OUTPUT_PINS.keys():      current_state[p] = None
-for p in pinmap.MCP23017_PINS.keys(): current_state[p] = None
-for p in pinmap.ADS1115_PINS.keys():  current_state[p] = None
-current_state['temperature'] = None
-current_state['humidity']    = None
+for pin_dict in (RPi_INPUT_PINS, RPi_OUTPUT_PINS, pinmap.MCP23017_PINS, pinmap.ADS1115_PINS):
+    for pin_name in pin_dict:
+        current_state[pin_name] = None
+current_state['i_airtemp'] = None
+current_state['i_humidity']    = None
 current_state['error_count'] = {
     "adc": 0,
     "mcp": 0,
@@ -62,17 +55,8 @@ current_state['error_count'] = {
 }
 previous_state = current_state.copy()
 
-# ZMQ setup
-ctx = zmq.Context()
-pub = ctx.socket(zmq.PUB)
-pub.bind("tcp://*:5556")
-log.info("ZeroMQ publisher bound to tcp://*:5556")
-
-rep = ctx.socket(zmq.REP)
-rep.bind("tcp://*:5557")
-log.info("ZeroMQ replier bound to tcp://*:5557")
-
 def configure_gpio():
+    global current_state, log
     """Configure Raspberry Pi GPIO pins."""
     GPIO.setmode(GPIO.BCM)
     try:
@@ -84,11 +68,12 @@ def configure_gpio():
             GPIO.setup(RPi_OUTPUT_PINS[name], GPIO.OUT, initial=GPIO.LOW)
             current_state[name] = GPIO.input(RPi_OUTPUT_PINS[name])
             log.debug(f"RPi GPIO output pin {name} configured on BCM pin {RPi_OUTPUT_PINS[name]}.")
-        log.info("RPi GPIOs configured.")
+        log.debug("RPi GPIOs configured.")
     except KeyError as e:
         log.error(f"Configuration error: RPi_GPIO_PINS dictionary is missing key {e}.")
 
 def configure_adc(i2c_bus):
+    global ads_devices, log
     ads_by_address = {}
     ads_devices = {}
     for name, (address, channel) in pinmap.ADS1115_PINS.items():
@@ -112,6 +97,7 @@ def configure_adc(i2c_bus):
     return ads_devices
 
 def configure_mcp_devices(i2c_bus):
+    global mcp_devices, log
     """Detect and configure MCP23017 devices."""
     active_devices = []
     try:
@@ -132,6 +118,7 @@ def configure_mcp_devices(i2c_bus):
 
 
 def configure_dht11():
+    global dht11_dev, log
     """Configure DHT11 sensor."""
     try:
         # Initialize the DHT11 sensor
@@ -145,6 +132,7 @@ def configure_dht11():
 
 
 def read_gpio():
+    global current_state, log
     for name, pin in RPi_INPUT_PINS.items():
         try:
             current_state[name] = GPIO.input(pin)
@@ -152,6 +140,7 @@ def read_gpio():
             raise RuntimeError(f"GPIO read error on pin {name}: {e}")
 
 def read_expanders():
+    global current_state, mcp_devices, log
     # Monitor MCP23017 pins for active devices
     for address, mcp in mcp_devices:
         for name, (device_address, pin) in MCP23017_PINS.items():
@@ -167,6 +156,7 @@ def read_expanders():
                         log.error(f"MCP23017 read error at address 0x{address:02X}: {e}")
 
 def read_adc():
+    global current_state, ads_devices, log
     for name, adc_info in ads_devices.items():
         try:
             current_state[name] = adc_info['analog_in'].value
@@ -179,11 +169,11 @@ def read_adc():
                 log.error(f"ADC read error at address 0x{adc_info['address']:02X}: {e}")
 
 def read_environment():
-    global dht11_dev, current_state, last_30s_poll
+    global dht11_dev, current_state, last_30s_poll, log
     if dht11_dev:
         try:
-            current_state['temperature'] = dht11_dev.temperature
-            current_state['humidity'] = dht11_dev.humidity
+            current_state['i_airtemp'] = dht11_dev.temperature
+            current_state['i_humidity'] = dht11_dev.humidity
             last_30s_poll = time.time()
             if current_state['error_count']['dht11'] > 0:
                 log.info("Recovered from DHT11 error.")
@@ -195,7 +185,7 @@ def read_environment():
 
 def monitor_inputs():
     """Monitor input pins (RPi GPIO, MCP23017) and publish state changes."""
-    global current_state, last_40Hz_poll
+    global current_state, last_40Hz_poll, previous_state, pub, log
     while not stop_event.is_set():
         read_gpio()
         read_expanders()
@@ -209,7 +199,7 @@ def monitor_inputs():
 
 def monitor_env():
     """Monitor environment and publish state changes."""
-    global last_30s_poll, current_state
+    global last_30s_poll, current_state, previous_state, pub, log
     while not stop_event.is_set():
         read_environment()
         with heartbeat_lock:
@@ -220,18 +210,19 @@ def monitor_env():
         stop_event.wait(wait_30s)  # 30 second polling interval
 
 def build_state_response():
+    global current_state, previous_state, log
     return {
         "state": {
             **{k: v for k, v in current_state.items()
-               if k not in ("temperature", "humidity", "error_count")},
-            "i_airtemp": current_state["temperature"],
-            "i_humidity": current_state["humidity"]
+               if k not in ("i_airtemp", "i_humidity", "error_count")},
+            "i_airtemp": current_state["i_airtemp"],
+            "i_humidity": current_state["i_humidity"]
         },
         "error_count": current_state["error_count"]
     }
 
 def publish_deltas():
-    global current_state, previous_state
+    global current_state, previous_state, pub, log
     deltas = {k: v for k, v in current_state.items() if previous_state.get(k) != v}
     if deltas:
         msg = {
@@ -246,7 +237,7 @@ def publish_deltas():
 
 def set_output(pin, value):
     """Set the state of an output pin."""
-    global current_state
+    global current_state, mcp_devices, ads_devices, dht11_dev, rep, log
     try:
         if pin in RPi_OUTPUT_PINS:
             GPIO.output(RPi_OUTPUT_PINS[pin], GPIO.HIGH if value else GPIO.LOW)
@@ -284,7 +275,7 @@ def set_output(pin, value):
     pub.send_json(msg)
 
 def handle_commands():
-    global current_state, ads_devices, mcp_devices, dht11_dev
+    global current_state, ads_devices, mcp_devices, dht11_dev, rep, log
     while True:
         try:
             msg = rep.recv_json()
@@ -301,9 +292,42 @@ def handle_commands():
             except Exception:
                 log.error(f"Error handling ZMQ command and replying: {e}")
 
+def thread_wrapper(func):
+    try:
+        func()
+    except Exception as e:
+        log.exception(f"Thread {func.__name__} crashed: {e}")
+        stop_event.set()
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="HAL Watcher")
+    parser.add_argument(
+        "--log", "-l",
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        help="Set the logging level (default: INFO)"
+    )
+    args = parser.parse_args()
+
+    logging.basicConfig(
+        level=getattr(logging, args.log),
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[logging.StreamHandler(sys.stdout)]
+    )
+    log = logging.getLogger("HAL_Watcher")
+
+    log.info("Starting HAL ...")
+    # ZMQ setup
+    ctx = zmq.Context()
+    pub = ctx.socket(zmq.PUB)
+    pub.bind("tcp://*:5556")
+    log.info("ZeroMQ publisher bound to tcp://*:5556")
+
+    rep = ctx.socket(zmq.REP)
+    rep.bind("tcp://*:5557")
+    log.info("ZeroMQ replier bound to tcp://*:5557")
+
     configure_gpio()
     ads_devices = configure_adc(i2c_bus1)
     mcp_devices = configure_mcp_devices(i2c_bus1)
@@ -313,12 +337,13 @@ if __name__ == "__main__":
     read_gpio()
     read_expanders()
     read_adc()
-    log.info(f"{current_state}")
-    log.info("HAL initialized, starting threads...")
 
-    threading.Thread(target=handle_commands, daemon=True).start()
-    threading.Thread(target=monitor_inputs, daemon=True).start()
-    threading.Thread(target=monitor_env, daemon=True).start()
+    log.debug(f"{current_state}")
+    log.info("HAL io configured, starting threads...")
+
+    threading.Thread(target=thread_wrapper, args=(handle_commands,), daemon=True).start()
+    threading.Thread(target=thread_wrapper, args=(monitor_inputs,), daemon=True).start()
+    threading.Thread(target=thread_wrapper, args=(monitor_env,), daemon=True).start()
 
     try:
         while not stop_event.is_set():
@@ -330,14 +355,17 @@ if __name__ == "__main__":
                     raise RuntimeError("Heartbeat timeout: No environment read in the last 60 seconds")
                 notifier.notify("WATCHDOG=1")
             stop_event.wait(TIMEOUT_40Hz)
+        GPIO.cleanup()
+        log.info("HAL shut down normally.")
 
     except KeyboardInterrupt:
         stop_event.set()  # Signal threads to stop
         time.sleep(0.1)  # Give threads a moment to exit
         GPIO.cleanup()
-        log.info("HAL shutdown gracefully.")
+        log.info("HAL shut down gracefully.")
 
     except Exception as e:
         log.exception("Unhandled exception in main loop")
         stop_event.set()
+        GPIO.cleanup()
 
