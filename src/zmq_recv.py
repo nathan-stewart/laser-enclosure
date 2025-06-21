@@ -16,13 +16,8 @@ sub.setsockopt_string(zmq.SUBSCRIBE, "")  # Subscribe to all messages
 req = context.socket(zmq.REQ)
 req.connect("tcp://localhost:5557")
 
-# Track last known state
-state = {
-    "input": {},
-    "output": {},
-    "adc": {},
-    "sensor": {}
-}
+# Flat dictionary of all states (inputs, outputs, sensors, etc.)
+state = {}
 lock = threading.Lock()
 
 def get_initial_state():
@@ -30,9 +25,9 @@ def get_initial_state():
     try:
         req.send_json({"cmd": "get_state"})
         response = req.recv_json()
-        print("Initial state received:", response)  # Debug print
+        print("Initial state received.")
         with lock:
-            state.update(response)
+            state.update(response.get("state", {}))
     except Exception as e:
         print("Error retrieving initial state:", e)
 
@@ -43,15 +38,12 @@ def listen():
             msg = sub.recv_json()
             with lock:
                 topic = msg.get("topic", "")
-                if topic.startswith("input/"):
+                if topic.startswith(("input/", "output/", "adc/")):
                     pin = topic.split("/")[1]
-                    state["input"][pin] = msg["state"]
-                elif topic.startswith("adc/"):
-                    pin = topic.split("/")[1]
-                    state["adc"][pin] = msg["value"]
+                    state[pin] = msg.get("state") or msg.get("value")
                 elif topic == "sensor/dht11":
-                    state["sensor"]["temperature"] = msg.get("temperature")
-                    state["sensor"]["humidity"] = msg.get("humidity")
+                    state["i_airtemp"] = msg.get("temperature")
+                    state["i_humidity"] = msg.get("humidity")
         except Exception as e:
             print("Error receiving:", e)
 
@@ -61,18 +53,11 @@ def draw_loop():
         os.system("clear")
         with lock:
             print("==== HAL Live Status ====\n")
-            print("Inputs:")
-            for pin, pin_state in state["input"].items():
-                print(f"  {pin}: {pin_state}")
-            print("\nADC:")
-            for pin, value in state["adc"].items():
-                print(f"  {pin}: {value}")
-            print("\nSensor:")
-            print(f"  Temperature: {state['sensor'].get('temperature')}")
-            print(f"  Humidity: {state['sensor'].get('humidity')}")
+            for pin in sorted(state.keys()):
+                print(f"{pin:>16}: {state[pin]}")
         time.sleep(1)
 
 if __name__ == "__main__":
-    get_initial_state()  # Retrieve initial state on startup
+    get_initial_state()
     threading.Thread(target=listen, daemon=True).start()
     draw_loop()

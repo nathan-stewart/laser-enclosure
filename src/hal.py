@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys
 import logging
+import argparse
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -30,13 +31,13 @@ notifier = SystemdNotifier()
 i2c_bus1 = busio.I2C(board.SCL, board.SDA)
 
 wait_40Hz = 1.0 / 40.0
-wait_5s = 5.0
+wait_30s = 30.0
 TIMEOUT_40Hz = 0.5  # seconds
-TIMEOUT_5s = 60.0  # seconds
+TIMEOUT_30s = 300.0  # seconds
 heartbeat_lock = threading.Lock()
 stop_event = threading.Event()
 last_40Hz_poll = time.time()
-last_5s_poll = time.time()
+last_30s_poll = time.time()
 error_threshold = 5
 
 MCP23017_ADDRESSES = list(set([addr for addr, pin in MCP23017_PINS.values()]))
@@ -178,12 +179,12 @@ def read_adc():
                 log.error(f"ADC read error at address 0x{adc_info['address']:02X}: {e}")
 
 def read_environment():
-    global dht11_dev, current_state, last_5s_poll
+    global dht11_dev, current_state, last_30s_poll
     if dht11_dev:
         try:
             current_state['temperature'] = dht11_dev.temperature
             current_state['humidity'] = dht11_dev.humidity
-            last_5s_poll = time.time()
+            last_30s_poll = time.time()
             if current_state['error_count']['dht11'] > 0:
                 log.info("Recovered from DHT11 error.")
                 current_state['error_count']['dht11'] = 0
@@ -208,26 +209,24 @@ def monitor_inputs():
 
 def monitor_env():
     """Monitor environment and publish state changes."""
-    global last_5s_poll, current_state
+    global last_30s_poll, current_state
     while not stop_event.is_set():
         read_environment()
         with heartbeat_lock:
-            last_5s_poll = time.time()
-            if time.time() - last_5s_poll > TIMEOUT_40Hz:
+            last_30s_poll = time.time()
+            if time.time() - last_30s_poll > TIMEOUT_40Hz:
                 raise RuntimeError("Input read timeout")
         publish_deltas()
-        stop_event.wait(wait_5s)  # 5 second polling interval
+        stop_event.wait(wait_30s)  # 30 second polling interval
 
 def build_state_response():
     return {
-        "input": {k: current_state[k] for k in RPi_INPUT_PINS},
-        "output": {k: current_state[k] for k in RPi_OUTPUT_PINS},
-        "adc": {k: current_state[k] for k in pinmap.ADS1115_PINS},
-        "sensor": {
-            "temperature": current_state["temperature"],
-            "humidity": current_state["humidity"]
+        "state": {
+            **{k: v for k, v in current_state.items()
+               if k not in ("temperature", "humidity", "error_count")},
+            "i_airtemp": current_state["temperature"],
+            "i_humidity": current_state["humidity"]
         },
-        "expander": {k: current_state[k] for k in MCP23017_PINS},
         "error_count": current_state["error_count"]
     }
 
@@ -242,6 +241,7 @@ def publish_deltas():
         }
         pub.send_json(msg)
         log.debug(f"Published state update: {deltas}")
+        log.debug(f"Msg: {msg}")
     previous_state.update(current_state)
 
 def set_output(pin, value):
@@ -326,7 +326,7 @@ if __name__ == "__main__":
             with heartbeat_lock:
                 if time.time() - last_40Hz_poll > TIMEOUT_40Hz:
                     raise RuntimeError("Heartbeat timeout: No input read in the last 0.5 seconds")
-                if time.time() - last_5s_poll > TIMEOUT_5s:
+                if time.time() - last_30s_poll > TIMEOUT_30s:
                     raise RuntimeError("Heartbeat timeout: No environment read in the last 60 seconds")
                 notifier.notify("WATCHDOG=1")
             stop_event.wait(TIMEOUT_40Hz)
