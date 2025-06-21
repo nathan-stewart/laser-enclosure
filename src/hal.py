@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+log = logging.getLogger("hal")
+
 import zmq
 import time
 import json
@@ -55,11 +65,11 @@ previous_state = current_state.copy()
 ctx = zmq.Context()
 pub = ctx.socket(zmq.PUB)
 pub.bind("tcp://*:5556")
-print("ZeroMQ publisher bound to tcp://*:5556")
+log.info("ZeroMQ publisher bound to tcp://*:5556")
 
 rep = ctx.socket(zmq.REP)
 rep.bind("tcp://*:5557")
-print("ZeroMQ replier bound to tcp://*:5557")
+log.info("ZeroMQ replier bound to tcp://*:5557")
 
 def configure_gpio():
     """Configure Raspberry Pi GPIO pins."""
@@ -69,9 +79,9 @@ def configure_gpio():
             GPIO.setup(RPi_INPUT_PINS[name], GPIO.IN, pull_up_down=GPIO.PUD_UP)
         for name in RPi_OUTPUT_PINS:
             GPIO.setup(RPi_OUTPUT_PINS[name], GPIO.OUT, initial=GPIO.LOW)
-        print("RPi GPIOs configured.")
+        log.info("RPi GPIOs configured.")
     except KeyError as e:
-        print(f"Configuration error: RPi_GPIO_PINS dictionary is missing key {e}.", file=sys.stderr)
+        log.error(f"Configuration error: RPi_GPIO_PINS dictionary is missing key {e}.")
 
 def configure_adc(i2c_bus):
     ads_by_address = {}
@@ -81,7 +91,7 @@ def configure_adc(i2c_bus):
             if address not in ads_by_address:
                 ads = ADS1115(i2c_bus, address=address)
                 ads_by_address[address] = ads
-                print(f"ADS1115 configured at address 0x{address:02X}.")
+                log.info(f"ADS1115 configured at address 0x{address:02X}.")
             else:
                 ads = ads_by_address[address]
             chan = getattr(ADS1115, f'P{channel}')
@@ -93,7 +103,7 @@ def configure_adc(i2c_bus):
                 'channel': channel
             }
         except Exception as e:
-            print(f"ADS1115 {name} at address 0x{address:02X} channel {channel} not present or failed to initialize: {e}", file=sys.stderr)
+            log.error(f"ADS1115 {name} at address 0x{address:02X} channel {channel} not present or failed to initialize: {e}")
     return ads_devices
 
 def configure_mcp_devices(i2c_bus):
@@ -108,11 +118,11 @@ def configure_mcp_devices(i2c_bus):
                     mcp.setup(pin, mcp.IN)
                     mcp.pullups |= (1 << pin)
                 active_devices.append((address, mcp))
-                print(f"MCP23017 configured at address 0x{address:02X}.")
+                log.info(f"MCP23017 configured at address 0x{address:02X}.")
             except Exception as e:
-                print(f"Error configuring MCP23017 at address 0x{address:02X}: {e}", file=sys.stderr)
+                log.error(f"Error configuring MCP23017 at address 0x{address:02X}: {e}")
     except Exception as e:
-        print(f"Error during MCP23017 configuration: {e}", file=sys.stderr)
+        log.error(f"Error during MCP23017 configuration: {e}")
     return active_devices
 
 
@@ -120,10 +130,10 @@ def configure_dht11():
     """Configure DHT11 sensor."""
     try:
         # Initialize the DHT11 sensor
-        print("DHT11 sensor found.")
+        log.info("DHT11 sensor found.")
         return adafruit_dht.DHT11(RPi_INPUT_PINS['i_dht11'])
     except Exception as e:
-        print("DHT11 sensor not configured. Check wiring and pin assignment.", file=sys.stderr)
+        log.error("DHT11 sensor not configured. Check wiring and pin assignment.")
         return None
 
 
@@ -142,24 +152,24 @@ def read_expanders():
                 try:
                     current_state[name] = mcp.input(pin)
                     if current_state['error_count']['mcp'] > 0:
-                        print(f"MCP23017 read error recovery at address 0x{address:02X}")
+                        log.info(f"MCP23017 read error recovery at address 0x{address:02X}")
                         current_state['error_count']['mcp'] = 0
                 except Exception as e:
                     current_state['error_count']['mcp'] += 1
                     if current_state['error_count']['mcp'] == error_threshold:
-                        print(f"MCP23017 read error at address 0x{address:02X}: {e}", file=sys.stderr)
+                        log.error(f"MCP23017 read error at address 0x{address:02X}: {e}")
 
 def read_adc():
     for name, adc_info in ads_devices.items():
         try:
             current_state[name] = adc_info['analog_in'].value
             if current_state['error_count']['adc'] > 0:
-                print(f"ADC read error recover at address 0x{adc_info['address']:02X}")
+                log.info(f"ADC read error recover at address 0x{adc_info['address']:02X}")
                 current_state['error_count']['adc'] = 0
         except Exception as e:
             current_state['error_count']['adc'] += 1
             if current_state['error_count']['adc'] == error_threshold:
-                print(f"ADC read error at address 0x{adc_info['address']:02X}: {e}", file=sys.stderr)
+                log.error(f"ADC read error at address 0x{adc_info['address']:02X}: {e}")
 
 def read_environment():
     global dht11_dev, current_state, last_5s_poll
@@ -169,12 +179,12 @@ def read_environment():
             current_state['humidity'] = dht11_dev.humidity
             last_5s_poll = time.time()
             if current_state['error_count']['dht11'] > 0:
-                print("Recovered from DHT11 error.")
+                log.info("Recovered from DHT11 error.")
                 current_state['error_count']['dht11'] = 0
         except RuntimeError as e:
             current_state['error_count']['dht11'] += 1
             if current_state['error_count']['dht11'] == error_threshold:
-                print(f"DHT11 read error: {e}", file=sys.stderr)
+                log.warning(f"DHT11 read error: {e}")
 
 def monitor_inputs():
     """Monitor input pins (RPi GPIO, MCP23017) and publish state changes."""
@@ -225,7 +235,7 @@ def publish_deltas():
             "timestamp": time.time()
         }
         pub.send_json(msg)
-        print(f"[INFO] Published state update: {deltas}")
+        log.debug(f"Published state update: {deltas}")
     previous_state.update(current_state)
 
 def set_output(pin, value):
@@ -246,7 +256,7 @@ def set_output(pin, value):
                         mcp.output(mcp_pin, 1 if value else 0)
                         current_state[pin] = 1 if value else 0
                     except Exception as e:
-                        raise RuntimeError(f"Error setting MCP23017 pin {pin}: {e}", file=sys.stderr)
+                        raise RuntimeError(f"Error setting MCP23017 pin {pin}: {e}")
                     break
         else:
             raise ValueError(f"Unknown pin: {pin}")
@@ -283,7 +293,7 @@ def handle_commands():
             try:
                 rep.send_json({"status": "error", "error": str(e)})
             except Exception:
-                print(f"Error handling ZMQ command and replying: {e}", file=sys.stderr)
+                log.error(f"Error handling ZMQ command and replying: {e}")
 
 
 
@@ -304,15 +314,22 @@ if __name__ == "__main__":
 
     try:
         while not stop_event.is_set():
+            # these are only monitoring the threads, not the devices
             with heartbeat_lock:
-                elapsed = time.time() - last_40Hz_poll
-            if elapsed > TIMEOUT_40Hz:
-                print(f"[WARNING] Sensor polling timeout: {elapsed:.2f} seconds")
-            notifier.notify("WATCHDOG=1")
+                if time.time() - last_40Hz_poll > TIMEOUT_40Hz:
+                    raise RuntimeError("Heartbeat timeout: No input read in the last 0.5 seconds")
+                if time.time() - last_5s_poll > TIMEOUT_5s:
+                    raise RuntimeError("Heartbeat timeout: No environment read in the last 60 seconds")
+                notifier.notify("WATCHDOG=1")
             stop_event.wait(TIMEOUT_40Hz)
 
     except KeyboardInterrupt:
         stop_event.set()  # Signal threads to stop
         time.sleep(0.1)  # Give threads a moment to exit
         GPIO.cleanup()
-        print("HAL shutdown gracefully.")
+        log.info("HAL shutdown gracefully.")
+
+    except Exception as e:
+        log.exception("Unhandled exception in main loop")
+        stop_event.set()
+   
