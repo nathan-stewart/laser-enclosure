@@ -22,15 +22,16 @@ notifier = SystemdNotifier()
 i2c_bus1 = busio.I2C(board.SCL, board.SDA)
 
 wait_40Hz = 1.0 / 40.0
-wait_30s = 30.0
+wait_1Hz = 1.0
 wait_config = 10.0  # seconds
 TIMEOUT_40Hz = 0.5  # seconds
-TIMEOUT_30s = 300.0  # seconds
+TIMEOUT_1Hz = 10.0  # seconds
 heartbeat_lock = threading.Lock()
 stop_event = threading.Event()
 gpio_configured = threading.Event()
+state_lock = threading.Lock()
 last_40Hz_poll = time.time()
-last_30s_poll = time.time()
+last_1Hz_poll = time.time()
 error_threshold = 5
 missing_devices = []
 
@@ -46,18 +47,19 @@ ads_devices = {}
 dht11_dev = None
 
 # State tracking
-current_state = {}
-for pin_dict in (RPi_INPUT_PINS, RPi_OUTPUT_PINS, pinmap.MCP23017_PINS, pinmap.ADS1115_PINS):
-    for pin_name in pin_dict:
-        current_state[pin_name] = None
-current_state['i_airtemp'] = None
-current_state['i_humidity']    = None
-current_state['error_count'] = {
-    "adc": 0,
-    "mcp": 0,
-    "dht11": 0
-}
-previous_state = current_state.copy()
+with state_lock:
+    current_state = {}
+    for pin_dict in (RPi_INPUT_PINS, RPi_OUTPUT_PINS, pinmap.MCP23017_PINS, pinmap.ADS1115_PINS):
+        for pin_name in pin_dict:
+            current_state[pin_name] = None
+    current_state['i_airtemp'] = None
+    current_state['i_humidity']    = None
+    current_state['error_count'] = {
+        "adc": 0,
+        "mcp": 0,
+        "dht11": 0
+    }
+previous_state = None
 
 def configure_gpio():
     global current_state, gpio_configured, log
@@ -206,12 +208,12 @@ def read_adc():
                 log.error(f"ADC read error at address 0x{adc_info['address']:02X}: {e}")
 
 def read_environment():
-    global dht11_dev, current_state, last_30s_poll, log
+    global dht11_dev, current_state, last_1Hz_poll, log
     if dht11_dev:
         try:
             current_state['i_airtemp'] = dht11_dev.temperature
             current_state['i_humidity'] = dht11_dev.humidity
-            last_30s_poll = time.time()
+            last_1Hz_poll = time.time()
             if current_state['error_count']['dht11'] > 0:
                 log.info("Recovered from DHT11 error.")
                 current_state['error_count']['dht11'] = 0
@@ -220,86 +222,71 @@ def read_environment():
             if current_state['error_count']['dht11'] == error_threshold:
                 log.warning(f"DHT11 read error: {e}")
 
-def monitor_inputs():
+def monitor_40Hz():
     """Monitor input pins (RPi GPIO, MCP23017) and publish state changes."""
     global current_state, last_40Hz_poll, previous_state, pub, log
     while not stop_event.is_set():
-        read_gpio()
-        read_expanders()
-        read_adc()
-        with heartbeat_lock:
-            last_40Hz_poll = time.time()
-            if time.time() - last_40Hz_poll > TIMEOUT_40Hz:
-                raise RuntimeError("Input read timeout")
-        publish_deltas()
+        with state_lock:
+            read_gpio()
+            read_expanders()
+            read_adc()
+            with heartbeat_lock:
+                last_40Hz_poll = time.time()
+                if time.time() - last_40Hz_poll > TIMEOUT_40Hz:
+                    raise RuntimeError("Input read timeout")
+            if current_state != previous_state:
+                publish_state()
         stop_event.wait(wait_40Hz) # 40 Hz polling interval
 
-def monitor_env():
+def monitor_1Hz():
     """Monitor environment and publish state changes."""
-    global last_30s_poll, current_state, previous_state, pub, log
+    global last_1Hz_poll, current_state, previous_state, pub, log
     while not stop_event.is_set():
-        read_environment()
-        with heartbeat_lock:
-            last_30s_poll = time.time()
-            if time.time() - last_30s_poll > TIMEOUT_40Hz:
-                raise RuntimeError("Input read timeout")
-        publish_deltas()
-        stop_event.wait(wait_30s)  # 30 second polling interval
+        with state_lock:
+            read_environment()
+            with heartbeat_lock:
+                last_1Hz_poll = time.time()
+                if time.time() - last_1Hz_poll > TIMEOUT_40Hz:
+                    raise RuntimeError("Input read timeout")
+            publish_state()
+            log.debug(f"Current state: {json.dumps(current_state, indent=2)}")
+        stop_event.wait(wait_1Hz)  # 30 second polling interval
 
-def build_state_response():
-    global current_state, previous_state, log
-    rep.send_json( {
-        "state": {
-            **{k: v for k, v in current_state.items()
-               if k not in ("i_airtemp", "i_humidity", "error_count")},
-            "i_airtemp": current_state["i_airtemp"],
-            "i_humidity": current_state["i_humidity"]
-        },
-        "error_count": current_state["error_count"]
+def publish_state():
+    global current_state, rep
+    pub.send_json({
+        "state": current_state.copy()
     })
-
-def publish_deltas():
-    global current_state, previous_state, pub, log
-    deltas = {k: v for k, v in current_state.items() if previous_state.get(k) != v}
-    if deltas:
-        msg = {
-            "topic": "state/update",
-            "deltas": deltas,
-            "timestamp": time.time()
-        }
-        pub.send_json(msg)
-        log.debug(f"Published state update: {deltas}")
-        log.debug(f"Msg: {msg}")
-    previous_state.update(current_state)
 
 def set_output(pin, value):
     """Set the state of an output pin."""
     global current_state, mcp_devices, rep, log
     try:
-        if pin in RPi_OUTPUT_PINS:
-            GPIO.output(RPi_OUTPUT_PINS[pin], GPIO.HIGH if value else GPIO.LOW)
-            current_state[pin] = GPIO.input(RPi_OUTPUT_PINS[pin])
-            if current_state[pin] != (1 if value else 0):
-                raise RuntimeError(f"Failed to set RPi output pin {pin} to {value}")
-        elif pin in MCP23017_PINS:
-            addr, mcp_pin = MCP23017_PINS[pin]
-            for device_addr, mcp in mcp_devices:
-                if device_addr == addr:
-                    try:
-                        mcp.setup(mcp_pin, mcp.OUT)
-                        mcp.output(mcp_pin, 1 if value else 0)
-                        current_state[pin] = 1 if value else 0
-                    except Exception as e:
-                        raise RuntimeError(f"Error setting MCP23017 pin {pin}: {e}")
-                    break
-        else:
-            raise ValueError(f"Unknown pin: {pin}")
+        with state_lock:
+            if pin in RPi_OUTPUT_PINS:
+                GPIO.output(RPi_OUTPUT_PINS[pin], GPIO.HIGH if value else GPIO.LOW)
+                current_state[pin] = GPIO.input(RPi_OUTPUT_PINS[pin])
+                if current_state[pin] != (1 if value else 0):
+                    raise RuntimeError(f"Failed to set RPi output pin {pin} to {value}")
+            elif pin in MCP23017_PINS:
+                addr, mcp_pin = MCP23017_PINS[pin]
+                for device_addr, mcp in mcp_devices:
+                    if device_addr == addr:
+                        try:
+                            mcp.setup(mcp_pin, mcp.OUT)
+                            mcp.output(mcp_pin, 1 if value else 0)
+                            current_state[pin] = 1 if value else 0
+                        except Exception as e:
+                            raise RuntimeError(f"Error setting MCP23017 pin {pin}: {e}")
+                        break
+            else:
+                raise ValueError(f"Unknown pin: {pin}")
 
-        msg = {
-            "status": "ok",
-            "pin": pin,
-            "value": value
-        }
+            msg = {
+                "status": "ok",
+                "pin": pin,
+                "value": value
+            }
 
     except Exception as e:
         msg = {
@@ -312,14 +299,12 @@ def set_output(pin, value):
 
 def handle_commands():
     global current_state, ads_devices, mcp_devices, dht11_dev, rep, log
-    while True:
+    while not stop_event.is_set():
         try:
             msg = rep.recv_json()
             cmd = msg.get("cmd")
             if cmd == "set":
                 set_output(msg["pin"], msg["state"])
-            elif cmd == "get_state":
-                build_state_response()
             else:
                 rep.send_json({"status": "unsupported command"})
         except Exception as e:
@@ -330,7 +315,7 @@ def handle_commands():
 
 def thread_wrapper(func):
     try:
-        log.exception(f"Thread {func.__name__} started")
+        log.info(f"Thread {func.__name__} started")
         func()
     except Exception as e:
         log.exception(f"Thread {func.__name__} crashed: {e}")
@@ -365,11 +350,17 @@ if __name__ == "__main__":
     rep.bind("tcp://*:5557")
     log.info("ZeroMQ replier bound to tcp://*:5557")
 
-    threading.Thread(target=thread_wrapper, args=(configure,), daemon=True).start()
+    threads = []
+    threads.append(threading.Thread(target=thread_wrapper, args=(configure,), daemon=True))    
+    threads.append(threading.Thread(target=thread_wrapper, args=(handle_commands,), daemon=True))
+    threads.append(threading.Thread(target=thread_wrapper, args=(monitor_40Hz,), daemon=True))
+    threads.append(threading.Thread(target=thread_wrapper, args=(monitor_1Hz,), daemon=True))
+    
+    threads[0].start()
     gpio_configured.wait()  # Wait for GPIO configuration to complete
-    threading.Thread(target=thread_wrapper, args=(handle_commands,), daemon=True).start()
-    threading.Thread(target=thread_wrapper, args=(monitor_inputs,), daemon=True).start()
-    threading.Thread(target=thread_wrapper, args=(monitor_env,), daemon=True).start()
+    for thread in threads[1:]:
+        thread.start()
+    log.info("HAL threads started.")
 
     try:
         while not stop_event.is_set():
@@ -377,24 +368,25 @@ if __name__ == "__main__":
             with heartbeat_lock:
                 if time.time() - last_40Hz_poll > TIMEOUT_40Hz:
                     raise RuntimeError("Heartbeat timeout: No input read in the last 0.5 seconds")
-                if time.time() - last_30s_poll > TIMEOUT_30s:
+                if time.time() - last_1Hz_poll > TIMEOUT_1Hz:
                     raise RuntimeError("Heartbeat timeout: No environment read in the last 60 seconds")
                 notifier.notify("WATCHDOG=1")
             stop_event.wait(TIMEOUT_40Hz)
-        GPIO.cleanup()
-        log.info("HAL shut down normally.")
-
+        log.info("HAL shutting down")
+    
     except KeyboardInterrupt:
-        stop_event.set()  # Signal threads to stop
-        time.sleep(0.1)  # Give threads a moment to exit
-        GPIO.cleanup()
-        log.info("HAL shut down gracefully.")
+        log.info("Terminated by user")
 
     except Exception as e:
         log.exception("Unhandled exception in main loop")
-        stop_event.set()
-        GPIO.cleanup()
+
+    stop_event.set()  # Signal threads to stop
+    time.sleep(0.1)  # Give threads a moment to exit
+    GPIO.cleanup()
+    for thread in threads:
+        thread.join()
 
     rep.close()
     pub.close()
     ctx.term()
+    log.info("HAL shutdown complete.")
