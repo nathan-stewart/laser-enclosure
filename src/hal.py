@@ -23,13 +23,17 @@ i2c_bus1 = busio.I2C(board.SCL, board.SDA)
 
 wait_40Hz = 1.0 / 40.0
 wait_30s = 30.0
+wait_config = 10.0  # seconds
 TIMEOUT_40Hz = 0.5  # seconds
 TIMEOUT_30s = 300.0  # seconds
 heartbeat_lock = threading.Lock()
 stop_event = threading.Event()
+gpio_configured = threading.Event()
 last_40Hz_poll = time.time()
 last_30s_poll = time.time()
 error_threshold = 5
+missing_devices = []
+
 
 pub = None
 rep = None
@@ -56,7 +60,7 @@ current_state['error_count'] = {
 previous_state = current_state.copy()
 
 def configure_gpio():
-    global current_state, log
+    global current_state, gpio_configured, log
     """Configure Raspberry Pi GPIO pins."""
     GPIO.setmode(GPIO.BCM)
     try:
@@ -69,52 +73,66 @@ def configure_gpio():
             current_state[name] = GPIO.input(RPi_OUTPUT_PINS[name])
             log.debug(f"RPi GPIO output pin {name} configured on BCM pin {RPi_OUTPUT_PINS[name]}.")
         log.debug("RPi GPIOs configured.")
+        gpio_configured.set()  # Signal that GPIO configuration is complete
     except KeyError as e:
         log.error(f"Configuration error: RPi_GPIO_PINS dictionary is missing key {e}.")
 
 def configure_adc(i2c_bus):
     global ads_devices, log
-    ads_by_address = {}
-    ads_devices = {}
-    for name, (address, channel) in pinmap.ADS1115_PINS.items():
+    for address in ADS1115_ADDRESSES:
         try:
-            if address not in ads_by_address:
-                ads = ADS1115(i2c_bus, address=address)
-                ads_by_address[address] = ads
-                log.info(f"ADS1115 configured at address 0x{address:02X}.")
-            else:
-                ads = ads_by_address[address]
-            chan = getattr(ADS1115, f'P{channel}')
-            analog_in = AnalogIn(ads, chan)
-            ads_devices[name] = {
-                'ads': ads,
-                'analog_in': analog_in,
-                'address': address,
-                'channel': channel
-            }
+            ads = ADS1115(i2c_bus, address=address)
+            # Register both expected channels from this address
+            for name, (addr, chan) in pinmap.ADS1115_PINS.items():
+                if addr == address:
+                    ads_devices[name] = {
+                        'ads': ads,
+                        'analog_in': AnalogIn(ads, getattr(ADS1115, f'P{chan}')),
+                        'address': address,
+                        'channel': chan
+                    }
+            if address in missing_devices:
+                missing_devices.remove(address)
+            log.info(f"ADS1115 detected at address 0x{address:02X}.")
         except Exception as e:
-            log.error(f"ADS1115 {name} at address 0x{address:02X} channel {channel} not present or failed to initialize: {e}")
-    return ads_devices
+            if address not in missing_devices:
+                missing_devices.append(address)
+                log.warning(f"Failed to configure ADS1115 at 0x{address:02X}: {e}")
 
-def configure_mcp_devices(i2c_bus):
+
+def configure_expanders(i2c_bus):
     global mcp_devices, log
-    """Detect and configure MCP23017 devices."""
-    active_devices = []
-    try:
-        for address in MCP23017_ADDRESSES:
-            try:
-                mcp = MCP23017(i2c_bus, address=address)
-                # Set all pins as inputs with pull-ups enabled
-                for pin in range(16):
-                    mcp.setup(pin, mcp.IN)
-                    mcp.pullups |= (1 << pin)
-                active_devices.append((address, mcp))
-                log.info(f"MCP23017 configured at address 0x{address:02X}.")
-            except Exception as e:
+    """Detect and configure MCP23017 devices with pin directions from MCP23017_PINS."""
+    found_addresses = set()
+
+    for name, (address, pin) in MCP23017_PINS.items():
+        if address in found_addresses:
+            continue
+        try:
+            mcp = MCP23017(i2c_bus, address=address)
+            mcp_devices.append((address, mcp))
+            found_addresses.add(address)
+            log.info(f"MCP23017 configured at address 0x{address:02X}.")
+            if address in missing_devices:
+                missing_devices.remove(address)
+        except Exception as e:
+            if address not in missing_devices:
+                missing_devices.append(address)
                 log.error(f"Error configuring MCP23017 at address 0x{address:02X}: {e}")
-    except Exception as e:
-        log.error(f"Error during MCP23017 configuration: {e}")
-    return active_devices
+
+    for name, (address, pin) in MCP23017_PINS.items():
+        for addr, mcp in mcp_devices:
+            if addr == address:
+                try:
+                    if name in pinmap.RPi_OUTPUT_PINS:
+                        # This is unlikely, but just in case
+                        mcp.setup(pin, mcp.OUT)
+                        mcp.output(pin, 0)  # default LOW
+                    else:
+                        mcp.setup(pin, mcp.IN)
+                        mcp.pullups |= (1 << pin)
+                except Exception as e:
+                    log.error(f"Failed to configure MCP23017 pin {name} on address 0x{address:02X}: {e}")
 
 
 def configure_dht11():
@@ -122,13 +140,32 @@ def configure_dht11():
     """Configure DHT11 sensor."""
     try:
         # Initialize the DHT11 sensor
-        dht11 = adafruit_dht.DHT11(DHT11_PINS['i_dht11'])
-
+        dht11_dev = adafruit_dht.DHT11(DHT11_PINS['i_dht11'])
         log.info("DHT11 sensor found.")
-        return dht11
+        if 'dht11' in missing_devices:
+            missing_devices.remove('dht11')
     except Exception as e:
+        if 'dht11' in missing_devices:
+            missing_devices.remove('dht11')
         log.error(f"DHT11 sensor not configured {e}.")
-        return None
+
+def configure():
+    global mcp_devices, ads_devices, dht11_dev, log
+    configure_gpio()
+    while not stop_event.is_set():
+        try:
+            if not mcp_devices:
+                configure_expanders(i2c_bus1)
+            if not ads_devices:
+                configure_adc(i2c_bus1)
+            if not dht11_dev:
+                configure_dht11()
+            if mcp_devices and ads_devices and dht11_dev:
+                log.info("All devices configured successfully.")
+                break
+        except Exception as e:
+            pass
+        stop_event.wait(wait_config)
 
 
 def read_gpio():
@@ -211,7 +248,7 @@ def monitor_env():
 
 def build_state_response():
     global current_state, previous_state, log
-    return {
+    rep.send_json( {
         "state": {
             **{k: v for k, v in current_state.items()
                if k not in ("i_airtemp", "i_humidity", "error_count")},
@@ -219,7 +256,7 @@ def build_state_response():
             "i_humidity": current_state["i_humidity"]
         },
         "error_count": current_state["error_count"]
-    }
+    })
 
 def publish_deltas():
     global current_state, previous_state, pub, log
@@ -237,7 +274,7 @@ def publish_deltas():
 
 def set_output(pin, value):
     """Set the state of an output pin."""
-    global current_state, mcp_devices, ads_devices, dht11_dev, rep, log
+    global current_state, mcp_devices, rep, log
     try:
         if pin in RPi_OUTPUT_PINS:
             GPIO.output(RPi_OUTPUT_PINS[pin], GPIO.HIGH if value else GPIO.LOW)
@@ -263,7 +300,6 @@ def set_output(pin, value):
             "pin": pin,
             "value": value
         }
-        return msg
 
     except Exception as e:
         msg = {
@@ -281,9 +317,9 @@ def handle_commands():
             msg = rep.recv_json()
             cmd = msg.get("cmd")
             if cmd == "set":
-                rep.send_json(set_output(msg["pin"], msg["state"]))
+                set_output(msg["pin"], msg["state"])
             elif cmd == "get_state":
-                rep.send_json(build_state_response())
+                build_state_response()
             else:
                 rep.send_json({"status": "unsupported command"})
         except Exception as e:
@@ -294,6 +330,7 @@ def handle_commands():
 
 def thread_wrapper(func):
     try:
+        log.exception(f"Thread {func.__name__} started")
         func()
     except Exception as e:
         log.exception(f"Thread {func.__name__} crashed: {e}")
@@ -328,19 +365,8 @@ if __name__ == "__main__":
     rep.bind("tcp://*:5557")
     log.info("ZeroMQ replier bound to tcp://*:5557")
 
-    configure_gpio()
-    ads_devices = configure_adc(i2c_bus1)
-    mcp_devices = configure_mcp_devices(i2c_bus1)
-    dht11_dev = configure_dht11()
-
-    # Initial state scan before starting threads
-    read_gpio()
-    read_expanders()
-    read_adc()
-
-    log.debug(f"{current_state}")
-    log.info("HAL io configured, starting threads...")
-
+    threading.Thread(target=thread_wrapper, args=(configure,), daemon=True).start()
+    gpio_configured.wait()  # Wait for GPIO configuration to complete
     threading.Thread(target=thread_wrapper, args=(handle_commands,), daemon=True).start()
     threading.Thread(target=thread_wrapper, args=(monitor_inputs,), daemon=True).start()
     threading.Thread(target=thread_wrapper, args=(monitor_env,), daemon=True).start()
@@ -369,3 +395,6 @@ if __name__ == "__main__":
         stop_event.set()
         GPIO.cleanup()
 
+    rep.close()
+    pub.close()
+    ctx.term()
