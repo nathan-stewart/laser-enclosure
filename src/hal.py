@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import sys
 import logging
 logging.basicConfig(
     level=logging.INFO,
@@ -12,7 +13,6 @@ log = logging.getLogger("hal")
 import zmq
 import time
 import json
-import sys
 import os
 import threading
 from RPi import GPIO
@@ -23,7 +23,7 @@ from adafruit_ads1x15.analog_in import AnalogIn
 from adafruit_ads1x15.ads1115 import ADS1115
 from adafruit_mcp230xx.mcp23017 import MCP23017
 import pinmap
-from pinmap import RPi_INPUT_PINS, RPi_OUTPUT_PINS, MCP23017_PINS
+from pinmap import RPi_INPUT_PINS, RPi_OUTPUT_PINS, MCP23017_PINS, DHT11_PINS
 from sdnotify import SystemdNotifier
 
 notifier = SystemdNotifier()
@@ -77,6 +77,7 @@ def configure_gpio():
     try:
         for name in RPi_INPUT_PINS:
             GPIO.setup(RPi_INPUT_PINS[name], GPIO.IN, pull_up_down=GPIO.PUD_UP)
+            log.debug(f"RPi GPIO input pin {name} configured on BCM pin {RPi_INPUT_PINS[name]}.")
         for name in RPi_OUTPUT_PINS:
             GPIO.setup(RPi_OUTPUT_PINS[name], GPIO.OUT, initial=GPIO.LOW)
         log.info("RPi GPIOs configured.")
@@ -130,10 +131,12 @@ def configure_dht11():
     """Configure DHT11 sensor."""
     try:
         # Initialize the DHT11 sensor
+        dht11 = adafruit_dht.DHT11(DHT11_PINS['i_dht11']) 
+        
         log.info("DHT11 sensor found.")
-        return adafruit_dht.DHT11(RPi_INPUT_PINS['i_dht11'])
+        return dht11
     except Exception as e:
-        log.error("DHT11 sensor not configured. Check wiring and pin assignment.")
+        log.error(f"DHT11 sensor not configured {e}.")
         return None
 
 

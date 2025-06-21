@@ -3,9 +3,9 @@ import board
 import RPi.GPIO as GPIO
 
 RPi_INPUT_PINS = {
-    "i_m7": board.D17,
-    "i_m8": board.D18,
-    "i_lid": board.D27,
+    "i_m7": 17,
+    "i_m8": 18,
+    "i_lid": 27,
 }
 
 RPi_OUTPUT_PINS = {
