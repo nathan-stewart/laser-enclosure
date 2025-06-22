@@ -279,10 +279,8 @@ def monitor_1Hz():
         stop_event.wait(wait_1Hz)  # 30 second polling interval
 
 def publish_state():
-    global current_state, rep
-    pub.send_json({
-        "state": current_state.copy()
-    })
+    global current_state
+    pub.send_multipart([b'hal', json.dumps({"state": current_state}).encode()])
 
 def set_output(pin, value):
     """Set the state of an output pin."""
@@ -321,7 +319,7 @@ def set_output(pin, value):
             "pin": pin,
             "value": value
         }
-    pub.send_json(msg)
+    rep.send(msg)
 
 def handle_commands():
     global current_state, mcp_devices, dht11_dev, rep

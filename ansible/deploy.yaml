@@ -32,7 +32,6 @@
       loop:
         - hal.py
         - pinmap.py
-        - zmq_send.py
         - zmq_recv.py
 
     # Create HAL GPIO and Sensor systemd service file

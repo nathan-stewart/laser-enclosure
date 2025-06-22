@@ -10,7 +10,7 @@ context = zmq.Context()
 # Subscriber socket for live updates
 sub = context.socket(zmq.SUB)
 sub.connect("tcp://localhost:5556")
-sub.setsockopt_string(zmq.SUBSCRIBE, "")  # Subscribe to all messages
+sub.setsockopt(zmq.SUBSCRIBE, b'hal')
 
 # Request socket for initial state
 req = context.socket(zmq.REQ)
@@ -19,18 +19,15 @@ req.connect("tcp://localhost:5557")
 # Flat dictionary of all states (inputs, outputs, sensors, etc.)
 state = {}
 lock = threading.Lock()
-
 def listen():
     """Listen for live updates."""
     while True:
         try:
-            msg = sub.recv_json()
-            with lock:
-                if msg.get("topic") == "state/update":
-                    for k, v in msg.get("deltas", {}).items():
-                        state[k] = v
-                elif msg.get("topic") == "state/full":
-                    state.update(msg.get("state", {}))
+            topic, raw = sub.recv_multipart()
+            if topic == b'hal':
+                data = json.loads(raw)
+                with lock:
+                    state.update(data.get("state", {}))
         except Exception as e:
             print("Error receiving:", e)
 
