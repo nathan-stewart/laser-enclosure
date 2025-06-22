@@ -3,6 +3,7 @@ import sys
 import logging
 import argparse
 import zmq
+import copy
 import time
 import json
 import os
@@ -15,8 +16,9 @@ from adafruit_ads1x15.analog_in import AnalogIn
 from adafruit_ads1x15.ads1115 import ADS1115
 from adafruit_mcp230xx.mcp23017 import MCP23017
 import pinmap
-from pinmap import RPi_INPUT_PINS, RPi_OUTPUT_PINS, MCP23017_PINS, DHT11_PINS
+from pinmap import RPi_INPUT_PINS, RPi_OUTPUT_PINS, MCP23017_PINS, MCP23017_OUTPUT_PINS, DHT11_PINS
 from sdnotify import SystemdNotifier
+from collections import deque
 
 notifier = SystemdNotifier()
 i2c_bus1 = busio.I2C(board.SCL, board.SDA)
@@ -33,7 +35,7 @@ state_lock = threading.Lock()
 last_40Hz_poll = time.time()
 last_1Hz_poll = time.time()
 error_threshold = 5
-missing_devices = []
+DEBOUNCE_LEN = 3
 
 
 pub = None
@@ -42,9 +44,13 @@ rep = None
 MCP23017_ADDRESSES = list(set([addr for addr, pin in MCP23017_PINS.values()]))
 ADS1115_ADDRESSES = list(set([addr for addr, pin in pinmap.ADS1115_PINS.values()]))
 
+missing_devices = []
 mcp_devices = []
 ads_devices = {}
 dht11_dev = None
+
+debounce = {}           # name -> deque
+last_stable_state = {}  # name -> last confirmed value
 
 # State tracking
 with state_lock:
@@ -59,10 +65,10 @@ with state_lock:
         "mcp": 0,
         "dht11": 0
     }
-previous_state = None
+    previous_state = current_state.copy()
 
 def configure_gpio():
-    global current_state, gpio_configured, log
+    global current_state
     """Configure Raspberry Pi GPIO pins."""
     GPIO.setmode(GPIO.BCM)
     try:
@@ -80,7 +86,7 @@ def configure_gpio():
         log.error(f"Configuration error: RPi_GPIO_PINS dictionary is missing key {e}.")
 
 def configure_adc(i2c_bus):
-    global ads_devices, log
+    global ads_devices
     for address in ADS1115_ADDRESSES:
         try:
             ads = ADS1115(i2c_bus, address=address)
@@ -103,10 +109,9 @@ def configure_adc(i2c_bus):
 
 
 def configure_expanders(i2c_bus):
-    global mcp_devices, log
+    global mcp_devices
     """Detect and configure MCP23017 devices with pin directions from MCP23017_PINS."""
     found_addresses = set()
-
     for name, (address, pin) in MCP23017_PINS.items():
         if address in found_addresses:
             continue
@@ -126,8 +131,7 @@ def configure_expanders(i2c_bus):
         for addr, mcp in mcp_devices:
             if addr == address:
                 try:
-                    if name in pinmap.RPi_OUTPUT_PINS:
-                        # This is unlikely, but just in case
+                    if name in MCP23017_OUTPUT_PINS:
                         mcp.setup(pin, mcp.OUT)
                         mcp.output(pin, 0)  # default LOW
                     else:
@@ -138,7 +142,7 @@ def configure_expanders(i2c_bus):
 
 
 def configure_dht11():
-    global dht11_dev, log
+    global dht11_dev
     """Configure DHT11 sensor."""
     try:
         # Initialize the DHT11 sensor
@@ -152,12 +156,25 @@ def configure_dht11():
         log.error(f"DHT11 sensor not configured {e}.")
 
 def configure():
-    global mcp_devices, ads_devices, dht11_dev, log
+    global debounce, last_stable_state
     configure_gpio()
+
+    # initialize debounce tracking
+    for name in list(RPi_INPUT_PINS.keys()):
+        debounce[name] = deque(maxlen=DEBOUNCE_LEN)
+        last_stable_state[name] = None
+
     while not stop_event.is_set():
         try:
             if not mcp_devices:
                 configure_expanders(i2c_bus1)
+                if mcp_devices:
+                    # initialize debounce tracking
+                    for name in MCP23017_PINS.keys():
+                        if name not in debounce:
+                            debounce[name] = deque(maxlen=DEBOUNCE_LEN)
+                            last_stable_state[name] = None
+
             if not ads_devices:
                 configure_adc(i2c_bus1)
             if not dht11_dev:
@@ -165,27 +182,28 @@ def configure():
             if mcp_devices and ads_devices and dht11_dev:
                 log.info("All devices configured successfully.")
                 break
+
         except Exception as e:
             pass
         stop_event.wait(wait_config)
 
-
 def read_gpio():
-    global current_state, log
+    global debounce
     for name, pin in RPi_INPUT_PINS.items():
         try:
-            current_state[name] = GPIO.input(pin)
+            val = GPIO.input(pin)
+            debounce[name].append(val)
         except Exception as e:
             raise RuntimeError(f"GPIO read error on pin {name}: {e}")
 
 def read_expanders():
-    global current_state, mcp_devices, log
-    # Monitor MCP23017 pins for active devices
+    global debounce, current_state
     for address, mcp in mcp_devices:
         for name, (device_address, pin) in MCP23017_PINS.items():
             if device_address == address:
                 try:
-                    current_state[name] = mcp.input(pin)
+                    val = mcp.input(pin)
+                    debounce[name].append(val)
                     if current_state['error_count']['mcp'] > 0:
                         log.info(f"MCP23017 read error recovery at address 0x{address:02X}")
                         current_state['error_count']['mcp'] = 0
@@ -194,8 +212,9 @@ def read_expanders():
                     if current_state['error_count']['mcp'] == error_threshold:
                         log.error(f"MCP23017 read error at address 0x{address:02X}: {e}")
 
+
 def read_adc():
-    global current_state, ads_devices, log
+    global current_state
     for name, adc_info in ads_devices.items():
         try:
             current_state[name] = adc_info['analog_in'].value
@@ -208,12 +227,11 @@ def read_adc():
                 log.error(f"ADC read error at address 0x{adc_info['address']:02X}: {e}")
 
 def read_environment():
-    global dht11_dev, current_state, last_1Hz_poll, log
+    global current_state
     if dht11_dev:
         try:
             current_state['i_airtemp'] = dht11_dev.temperature
             current_state['i_humidity'] = dht11_dev.humidity
-            last_1Hz_poll = time.time()
             if current_state['error_count']['dht11'] > 0:
                 log.info("Recovered from DHT11 error.")
                 current_state['error_count']['dht11'] = 0
@@ -223,31 +241,39 @@ def read_environment():
                 log.warning(f"DHT11 read error: {e}")
 
 def monitor_40Hz():
-    """Monitor input pins (RPi GPIO, MCP23017) and publish state changes."""
-    global current_state, last_40Hz_poll, previous_state, pub, log
+    global current_state, previous_state, last_40Hz_poll
     while not stop_event.is_set():
         with state_lock:
+            with heartbeat_lock:
+                last_40Hz_poll = time.time()
+
             read_gpio()
             read_expanders()
             read_adc()
-            with heartbeat_lock:
-                last_40Hz_poll = time.time()
-                if time.time() - last_40Hz_poll > TIMEOUT_40Hz:
-                    raise RuntimeError("Input read timeout")
-            if current_state != previous_state:
+
+            for pin, history in debounce.items():
+                if len(history) == DEBOUNCE_LEN and all(v == history[0] for v in history):
+                    if last_stable_state[pin] != history[0]:
+                        last_stable_state[pin] = history[0]
+                        current_state[pin] = history[0]
+
+            if previous_state != current_state:
                 publish_state()
-        stop_event.wait(wait_40Hz) # 40 Hz polling interval
+                previous_state = copy.deepcopy(current_state)
+
+        stop_event.wait(wait_40Hz)
+
 
 def monitor_1Hz():
     """Monitor environment and publish state changes."""
-    global last_1Hz_poll, current_state, previous_state, pub, log
+    global last_1Hz_poll, current_state, pub
     while not stop_event.is_set():
         with state_lock:
-            read_environment()
             with heartbeat_lock:
                 last_1Hz_poll = time.time()
-                if time.time() - last_1Hz_poll > TIMEOUT_40Hz:
+                if time.time() - last_1Hz_poll > TIMEOUT_1Hz:
                     raise RuntimeError("Input read timeout")
+            read_environment()
             publish_state()
             log.debug(f"Current state: {json.dumps(current_state, indent=2)}")
         stop_event.wait(wait_1Hz)  # 30 second polling interval
@@ -260,7 +286,7 @@ def publish_state():
 
 def set_output(pin, value):
     """Set the state of an output pin."""
-    global current_state, mcp_devices, rep, log
+    global current_state, mcp_devices, rep
     try:
         with state_lock:
             if pin in RPi_OUTPUT_PINS:
@@ -298,7 +324,7 @@ def set_output(pin, value):
     pub.send_json(msg)
 
 def handle_commands():
-    global current_state, ads_devices, mcp_devices, dht11_dev, rep, log
+    global current_state, mcp_devices, dht11_dev, rep
     while not stop_event.is_set():
         try:
             msg = rep.recv_json()
@@ -351,11 +377,11 @@ if __name__ == "__main__":
     log.info("ZeroMQ replier bound to tcp://*:5557")
 
     threads = []
-    threads.append(threading.Thread(target=thread_wrapper, args=(configure,), daemon=True))    
+    threads.append(threading.Thread(target=thread_wrapper, args=(configure,), daemon=True))
     threads.append(threading.Thread(target=thread_wrapper, args=(handle_commands,), daemon=True))
     threads.append(threading.Thread(target=thread_wrapper, args=(monitor_40Hz,), daemon=True))
     threads.append(threading.Thread(target=thread_wrapper, args=(monitor_1Hz,), daemon=True))
-    
+
     threads[0].start()
     gpio_configured.wait()  # Wait for GPIO configuration to complete
     for thread in threads[1:]:
@@ -373,7 +399,7 @@ if __name__ == "__main__":
                 notifier.notify("WATCHDOG=1")
             stop_event.wait(TIMEOUT_40Hz)
         log.info("HAL shutting down")
-    
+
     except KeyboardInterrupt:
         log.info("Terminated by user")
 

@@ -38,6 +38,8 @@ MCP23017_PINS = {
     "i_fine"      : (0x21, 4),
 }
 
+MCP23017_OUTPUT_PINS = [ x for x in MCP23017_PINS if x.startswith("o_") ]
+
 ADS1115_PINS = {
     "i_air" : (0x48, 0),  # Example pin on ASD1115 1
     "i_co2" : (0x49, 1),  # Example pin on ASD1115 2
