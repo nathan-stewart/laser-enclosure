@@ -65,7 +65,7 @@ with state_lock:
         "mcp": 0,
         "dht11": 0
     }
-    previous_state = current_state.copy()
+    previous_state = copy.deepcopy(current_state)
 
 def configure_gpio():
     global current_state
@@ -257,9 +257,9 @@ def monitor_40Hz():
                         last_stable_state[pin] = history[0]
                         current_state[pin] = history[0]
 
-            if previous_state != current_state:
-                publish_state()
-                previous_state = copy.deepcopy(current_state)
+            # if previous_state != current_state:
+            publish_state()
+            previous_state = copy.deepcopy(current_state)
 
         stop_event.wait(wait_40Hz)
 
@@ -274,7 +274,7 @@ def monitor_1Hz():
                 if time.time() - last_1Hz_poll > TIMEOUT_1Hz:
                     raise RuntimeError("Input read timeout")
             read_environment()
-            publish_state()
+            # publish_state()
             log.debug(f"Current state: {json.dumps(current_state, indent=2)}")
         stop_event.wait(wait_1Hz)  # 30 second polling interval
 
