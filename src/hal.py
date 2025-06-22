@@ -24,16 +24,16 @@ notifier = SystemdNotifier()
 i2c_bus1 = busio.I2C(board.SCL, board.SDA)
 
 wait_40Hz = 1.0 / 40.0
-wait_1Hz = 1.0
+wait_60s = 60.0 
 wait_config = 10.0  # seconds
 TIMEOUT_40Hz = 0.5  # seconds
-TIMEOUT_1Hz = 10.0  # seconds
+TIMEOUT_60s = 180  # seconds
 heartbeat_lock = threading.Lock()
 stop_event = threading.Event()
 gpio_configured = threading.Event()
 state_lock = threading.Lock()
-last_40Hz_poll = time.time()
-last_1Hz_poll = time.time()
+last_40Hz_poll = 0
+last_60s_poll = 0
 error_threshold = 5
 DEBOUNCE_LEN = 3
 
@@ -264,19 +264,19 @@ def monitor_40Hz():
         stop_event.wait(wait_40Hz)
 
 
-def monitor_1Hz():
+def monitor_60s():
     """Monitor environment and publish state changes."""
-    global last_1Hz_poll, current_state, pub
+    global last_60s_poll, current_state, pub
     while not stop_event.is_set():
         with state_lock:
             with heartbeat_lock:
-                last_1Hz_poll = time.time()
-                if time.time() - last_1Hz_poll > TIMEOUT_1Hz:
+                last_60s_poll = time.time()
+                if time.time() - last_60s_poll > TIMEOUT_60s:
                     raise RuntimeError("Input read timeout")
             read_environment()
             # publish_state()
             log.debug(f"Current state: {json.dumps(current_state, indent=2)}")
-        stop_event.wait(wait_1Hz)  # 30 second polling interval
+        stop_event.wait(wait_60s)
 
 def publish_state():
     global current_state
@@ -378,7 +378,7 @@ if __name__ == "__main__":
     threads.append(threading.Thread(target=thread_wrapper, args=(configure,), daemon=True))
     threads.append(threading.Thread(target=thread_wrapper, args=(handle_commands,), daemon=True))
     threads.append(threading.Thread(target=thread_wrapper, args=(monitor_40Hz,), daemon=True))
-    threads.append(threading.Thread(target=thread_wrapper, args=(monitor_1Hz,), daemon=True))
+    threads.append(threading.Thread(target=thread_wrapper, args=(monitor_60s,), daemon=True))
 
     threads[0].start()
     gpio_configured.wait()  # Wait for GPIO configuration to complete
@@ -392,7 +392,7 @@ if __name__ == "__main__":
             with heartbeat_lock:
                 if time.time() - last_40Hz_poll > TIMEOUT_40Hz:
                     raise RuntimeError("Heartbeat timeout: No input read in the last 0.5 seconds")
-                if time.time() - last_1Hz_poll > TIMEOUT_1Hz:
+                if time.time() - last_60s_poll > TIMEOUT_60s:
                     raise RuntimeError("Heartbeat timeout: No environment read in the last 60 seconds")
                 notifier.notify("WATCHDOG=1")
             stop_event.wait(TIMEOUT_40Hz)
