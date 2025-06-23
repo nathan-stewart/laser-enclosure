@@ -9,14 +9,14 @@ RPi_INPUT_PINS = {
 }
 
 RPi_OUTPUT_PINS = {
-    "o_k1_laser": 22, # laser
-    "o_k2_hpa": 23, # high pressure air assist
-    "o_k3_fire": 24, # CO2 Extinguisher
-    "o_k4_light": 25, # Lights
-    "o_k5_lpa": 5,  # Low Pressure Air Assist
-    "o_k6_dry_fan": 6,  # Dehumidifier Fan
-    "o_k7_dry_heat": 12, # Dehumidifier Heat
-    "o_k8_exhaust": 13, # Exhaust Fan
+    "o_k1_laser": 22,    # laser 24v power
+    "o_k2_hpa": 23,      # high pressure air assist
+    "o_k3_fire": 24,     # CO2 Extinguisher
+    "o_k4_lpa": 5,       # Low Pressure Air Assist
+    "o_k5_exhaust": 13,  # Exhaust Fan
+    "o_k6_light": 25,    # Lights
+    "o_k7_dry_fan": 6,   # Dehumidifier Fan
+    "o_k8_dry_heat": 12, # Dehumidifier Heat
 }
 
 # MCP23017 expanders and their pins
