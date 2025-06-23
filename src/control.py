@@ -1,32 +1,24 @@
 #!/usr/bin/env python3
+import sys
+import argparse
 import logging
 import math
 import zmq, json, time, threading
 import pinmap
 import threading
-'''
-    "o_k1_laser": 22, # laser
-    "o_k2_hpa": 23, # high pressure air assist
-    "o_k3_fire": 24, # CO2 Extinguisher
-    "o_k4_lpa": 5,  # Low Pressure Air Assist
-    "o_k5_exhaust": 13, # Exhaust Fan
-    "o_k6_light": 25, # Lights
-    "o_k7_dry_fan": 6,  # Dehumidifier Fan
-    "o_k8_dry_heat": 12, # Dehumidifier Heat
 
-'''
 state_lock = threading.Lock()
 stop_event = threading.Event()
 state_hal = {}
 log = None
 
 RULES = {
-    "o_k1_laser"  : lambda i_btn_estop, i_btn_fire : not (i_btn_estop or i_btn_fire), # laser is blocked by controlled by estop and fire button
-    "o_k2_hpa"    : lambda i_btn_estop, i_m7 : not i_btn_estop and i_m7, # high pressure air assist is controlled by estop and M7
-    "o_k3_fire"   : lambda i_btn_fire : i_btn_fire, # CO2 extinguisher is controlled by fire button
+    "o_k1_laser"  : lambda i_btn_estop, i_btn_fire : not (i_btn_estop or i_btn_fire), 
+    "o_k2_hpa"    : lambda i_btn_estop, i_m7 : not i_btn_estop and i_m7, 
+    "o_k3_fire"   : lambda i_btn_fire : i_btn_fire, 
     "o_k4_lpa"    : lambda i_btn_estop, i_m8 : not i_btn_estop and i_m8,
     "o_k5_exhaust": lambda i_btn_estop, i_m8 : not i_btn_estop and i_m8,
-    # "o_k6_light":    #lights are software button controlled at application layer
+    # "o_k6_light":    # lights are software button controlled at application layer
     # "o_k7_dry_fan":  # dehumidifier fan is controlled by dewpoint check
     # "o_k8_dry_heat": # dehumidifier heat is controlled by dewpoint check
 }
@@ -44,19 +36,23 @@ def dewpoint_check():
     dehumidifier_period = 30.0
 
     while not stop_event.is_set():
-        temperature = state_hal["i_temp"]
-        humidity = state_hal["i_humidity"]
-        dewpoint = dew_point_c(temperature, humidity)
-        delta = dewpoint - temperature
-        with state_lock:
-            if dewpoint_hyst_on < delta < dewpoint_hyst_off:
-                state_hal["o_k6_dry_fan"] = 1
-                state_hal["o_k7_dry_heat"] = 1
-            else:
-                state_hal["o_k6_dry_fan"] = 0
-                state_hal["o_k7_dry_heat"] = 0
-        log.debug("Dewpoint check: Temp: %.2f, Humidity: %.2f, Dewpoint: %.2f, Delta: %.2f",
-                  temperature, humidity, dewpoint, delta)
+        try:
+            if "i_airtemp" not in state_hal or "i_humidity" not in state_hal:
+                continue
+            temperature = state_hal["i_airtemp"]
+            humidity = state_hal["i_humidity"]
+            dewpoint = dew_point_c(temperature, humidity)
+            delta = dewpoint - temperature
+            with state_lock:
+                if dewpoint_hyst_on < delta < dewpoint_hyst_off:
+                    state_hal["o_k6_dry_fan"] = 1
+                    state_hal["o_k7_dry_heat"] = 1
+                else:
+                    state_hal["o_k6_dry_fan"] = 0
+                    state_hal["o_k7_dry_heat"] = 0
+            log.debug("Dewpoint check: Temp: %.2f, Humidity: %.2f, Dewpoint: %.2f, Delta: %.2f",temperature, humidity, dewpoint, delta)
+        except:
+            log.debug("Error in dewpoint check:", e)
         stop_event.wait(dehumidifier_period)
 
 def publish_to_hal():
@@ -73,7 +69,7 @@ def publish_to_hal():
 
 def apply_rules():
     updated = False
-    log.debug("applying rules: %s", raw)
+    log.debug("applying rules: %s", RULES)
     with state_lock:
         inputs = state_hal.copy()
         for output, rule in RULES.items():
@@ -85,8 +81,8 @@ def apply_rules():
                     updated = True
             except KeyError as e:
                 log.error(f"Missing input for {output}: {e}")
-    if updated:
-        publish_to_hal()
+    # if updated:
+        # publish_to_hal()
 
 
 def hal_listener():
