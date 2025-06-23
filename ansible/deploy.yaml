@@ -32,7 +32,7 @@
       loop:
         - hal.py
         - pinmap.py
-        - zmq_recv.py
+        - control.py
 
     # Create HAL GPIO and Sensor systemd service file
     - name: Create HAL GPIO and Sensor systemd service file
@@ -70,4 +70,31 @@
         enabled: true
         state: started
 
+    - name: Create Supervisor (Control Logic) systemd service file
+      copy:
+        content: |
+          [Unit]
+          Description=Laser Control Logic (Supervisor)
+          After=network.target hal.service
+
+          [Service]
+          ExecStart=/usr/bin/python3 /opt/kiosk/control.py
+          Restart=on-failure
+          RestartSec=2
+          StandardOutput=journal
+          StandardError=journal
+          User=kiosk
+          Group=kiosk
+          WorkingDirectory=/opt/kiosk
+
+          [Install]
+          WantedBy=multi-user.target
+        dest: /etc/systemd/system/control.service
+        mode: '0644'
+
+    - name: Enable and start Supervisor (Control Logic) service
+      systemd:
+        name: control.service
+        enabled: true
+        state: started
 
