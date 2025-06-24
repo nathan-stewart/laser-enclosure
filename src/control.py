@@ -13,9 +13,9 @@ state_hal = {}
 log = None
 
 RULES = {
-    "o_k1_laser"  : lambda i_btn_estop, i_btn_fire : not (i_btn_estop or i_btn_fire), 
-    "o_k2_hpa"    : lambda i_btn_estop, i_m7 : not i_btn_estop and i_m7, 
-    "o_k3_fire"   : lambda i_btn_fire : i_btn_fire, 
+    "o_k1_laser"  : lambda i_btn_estop, i_btn_fire : not (i_btn_estop or i_btn_fire),
+    "o_k2_hpa"    : lambda i_btn_estop, i_m7 : not i_btn_estop and i_m7,
+    "o_k3_fire"   : lambda i_btn_fire : i_btn_fire,
     "o_k4_lpa"    : lambda i_btn_estop, i_m8 : not i_btn_estop and i_m8,
     "o_k5_exhaust": lambda i_btn_estop, i_m8 : not i_btn_estop and i_m8,
     # "o_k6_light":    # lights are software button controlled at application layer
@@ -37,22 +37,26 @@ def dewpoint_check():
 
     while not stop_event.is_set():
         try:
-            if "i_airtemp" not in state_hal or "i_humidity" not in state_hal:
-                continue
-            temperature = state_hal["i_airtemp"]
-            humidity = state_hal["i_humidity"]
-            dewpoint = dew_point_c(temperature, humidity)
-            delta = dewpoint - temperature
-            with state_lock:
-                if dewpoint_hyst_on < delta < dewpoint_hyst_off:
-                    state_hal["o_k6_dry_fan"] = 1
-                    state_hal["o_k7_dry_heat"] = 1
-                else:
-                    state_hal["o_k6_dry_fan"] = 0
-                    state_hal["o_k7_dry_heat"] = 0
-            log.debug("Dewpoint check: Temp: %.2f, Humidity: %.2f, Dewpoint: %.2f, Delta: %.2f",temperature, humidity, dewpoint, delta)
-        except:
-            log.debug("Error in dewpoint check:", e)
+            if "i_airtemp" in state_hal and "i_humidity" in state_hal:
+                temperature = state_hal["i_airtemp"]
+                humidity = state_hal["i_humidity"]
+                dewpoint = dew_point_c(temperature, humidity)
+                delta = dewpoint - temperature
+                with state_lock:
+                    if delta > dewpoint_hyst_on:
+                        new_val = 1
+                    elif delta < dewpoint_hyst_off:
+                        new_val = 0
+                    else:
+                        new_val = None  # No change
+
+                    if new_val is not None:
+                        for key in ("o_k6_dry_fan", "o_k7_dry_heat"):
+                            if state_hal.get(key) != new_val:
+                                state_hal[key] = new_val
+                log.debug("Dewpoint check: Temp: %.2f, Humidity: %.2f, Dewpoint: %.2f, Delta: %.2f",temperature, humidity, dewpoint, delta)
+        except Exception as e:
+            log.error(f"Error in dewpoint check: {e}")
         stop_event.wait(dehumidifier_period)
 
 def publish_to_hal():
@@ -93,7 +97,7 @@ def hal_listener():
             with state_lock:
                 state_hal.update(json.loads(raw).get("state", {}))
             apply_rules()  # Apply output logic based on updated inputs
-            print("HAL State Updated:", state_hal)
+            log.debug("HAL State Updated:", state_hal)
 
 
 if __name__ == "__main__":
