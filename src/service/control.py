@@ -16,10 +16,10 @@ RULES = {
     "o_k1_laser"  : lambda i_btn_estop, i_btn_fire : not (i_btn_estop or i_btn_fire),
     "o_k2_hpa"    : lambda i_btn_estop, i_m7 : not i_btn_estop and i_m7,
     "o_k3_fire"   : lambda i_btn_fire : i_btn_fire,
-    "o_k4_lpa"    : lambda i_btn_estop, i_m8 : not i_btn_estop and i_m8,
-    "o_k5_exhaust": lambda i_btn_estop, i_m8 : not i_btn_estop and i_m8,
-    # "o_k6_light":    # lights are software button controlled at application layer
-    # "o_k7_dry_fan":  # dehumidifier fan is controlled by dewpoint check
+    "o_k5_lpa"    : lambda i_btn_estop, i_m8 : not i_btn_estop and i_m8,
+    "o_k7_exhaust": lambda i_btn_estop, i_m8 : not i_btn_estop and i_m8,
+    # "o_k4_light":    # lights are software button controlled at application layer
+    # "o_k6_dry_fan":  # dehumidifier fan is controlled by dewpoint check
     # "o_k8_dry_heat": # dehumidifier heat is controlled by dewpoint check
 }
 
@@ -51,7 +51,7 @@ def dewpoint_check():
                         new_val = None  # No change
 
                     if new_val is not None:
-                        for key in ("o_k6_dry_fan", "o_k7_dry_heat"):
+                        for key in ("o_k6_dry_fan", "o_k8_dry_heat"):
                             if state_hal.get(key) != new_val:
                                 state_hal[key] = new_val
                 log.debug("Dewpoint check: Temp: %.2f, Humidity: %.2f, Dewpoint: %.2f, Delta: %.2f",temperature, humidity, dewpoint, delta)

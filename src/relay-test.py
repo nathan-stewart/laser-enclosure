@@ -5,18 +5,7 @@ import termios
 import tty
 import select
 import sys
-
-RPi_OUTPUT_PINS = [
-    ("o_k1_laser", 7),    # laser 24v power
-    ("o_k2_hpa", 8),      # high pressure air assist
-    ("o_k3_fire", 25),     # CO2 Extinguisher
-    ("o_k4_light", 24),    # Lights
-    ("o_k5_lpa", 23),       # Low Pressure Air Assist - 12V
-    ("o_k6_dry_fan", 18),   # Dehumidifier Fan - 12V
-    ("o_k7_exhaust", 12),  # Exhaust Fan - AC
-    ("o_k8_dry_heat", 16), # Dehumidifier Heat - AC
-]
-
+from service.pinmap import RPi_OUTPUT_PINS
 
 def getch_nonblocking():
     if select.select([sys.stdin], [], [], 0)[0]:
@@ -26,7 +15,7 @@ def getch_nonblocking():
 # Reserve all lines (relays) as outputs
 chip = gpiod.Chip("gpiochip0")
 lines = {}
-for name, pin in RPi_OUTPUT_PINS:
+for name, pin in RPi_OUTPUT_PINS.items():
     try:
         line = chip.get_line(pin)
         line.request(consumer=name, type=gpiod.LINE_REQ_DIR_OUT)
@@ -42,7 +31,7 @@ def raw_input_loop():
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
     tty.setcbreak(fd)
-
+    RPi_OUTPUT_KEYS = sorted([x for x in RPi_OUTPUT_PINS.keys()])
     try:
         pressed = set()
         while True:
@@ -55,7 +44,8 @@ def raw_input_loop():
                     key = int(ch)
                     if key not in pressed:
                         pressed.add(key)
-                        name, pin = RPi_OUTPUT_PINS[int(key)-1]
+                        name = RPi_OUTPUT_KEYS[int(key) - 1]
+                        pin = RPi_OUTPUT_PINS[name]
                         line = chip.get_line(pin)
                         val = 0 if line.get_value() else 1
                         line.set_value(val)

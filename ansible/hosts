@@ -1,0 +1,5 @@
+[local]
+laser ansible_host=laser.lan ansible_user=nps
+
+[remote]
+laser_remote ansible_host=laser.lan ansible_user=nps ansible_ssh_common_args='-o ProxyJump=your_user@bonesofwrath.asuscomm.com:2204'

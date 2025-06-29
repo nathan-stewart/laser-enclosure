@@ -22,19 +22,14 @@
         group: kiosk
         mode: '0755'
 
-    - name: Copy kiosk source files to /opt/kiosk
+    - name: Deploy full application to /opt/kiosk
       copy:
-        src: "/home/nps/projects/laser-enclosure/src/{{ item }}"
-        dest: "/opt/kiosk/{{ item }}"
+        src: "/home/nps/projects/laser-enclosure/src/"
+        dest: "/opt/kiosk/"
         owner: kiosk
         group: kiosk
         mode: '0755'
-      loop:
-        - hal.py
-        - pinmap.py
-        - control.py
 
-    # Create HAL GPIO and Sensor systemd service file
     - name: Create HAL GPIO and Sensor systemd service file
       copy:
         content: |
@@ -43,7 +38,7 @@
           After=network.target
 
           [Service]
-          ExecStart=/usr/bin/python3 /opt/kiosk/hal.py
+          ExecStart=/usr/bin/python3 /opt/kiosk/run_hal.py
           Restart=on-failure
           RestartSec=2
           WatchdogSec=5s
@@ -63,7 +58,6 @@
         dest: /etc/systemd/system/hal.service
         mode: '0644'
 
-    # Enable and start HAL GPIO and Sensor service
     - name: Enable and start HAL GPIO and Sensor service
       systemd:
         name: hal.service
@@ -78,7 +72,7 @@
           After=network.target hal.service
 
           [Service]
-          ExecStart=/usr/bin/python3 /opt/kiosk/control.py
+          ExecStart=/usr/bin/python3 /opt/kiosk/run_control.py
           Restart=on-failure
           RestartSec=2
           StandardOutput=journal
@@ -98,3 +92,52 @@
         enabled: true
         state: started
 
+- name: Install GUI dependencies and prepare autostart
+  hosts: laser
+  become: yes
+  tasks:
+    - name: Install GUI and Python dependencies
+      apt:
+        name:
+          - xinit
+          - x11-xserver-utils
+          - python3-pyqt5
+          - python3-pip
+          - fonts-dejavu
+        state: present
+        update_cache: yes
+
+    - name: Create autostart X session script
+      copy:
+        dest: /home/kiosk/.xsession
+        mode: '0755'
+        owner: kiosk
+        group: kiosk
+        content: |
+          #!/bin/bash
+          xset s off
+          xset -dpms
+          xset s noblank
+          exec /usr/bin/python3 /opt/kiosk/gui/main.py
+
+    - name: Ensure .xinitrc matches .xsession
+      file:
+        src: /home/kiosk/.xsession
+        dest: /home/kiosk/.xinitrc
+        state: link
+        owner: kiosk
+        group: kiosk
+
+    - name: Ensure startx runs on login
+      lineinfile:
+        path: /home/kiosk/.bash_profile
+        line: '[[ -z $DISPLAY && $XDG_VTNR -eq 1 ]] && exec startx'
+        create: yes
+        owner: kiosk
+        group: kiosk
+
+    - name: Ensure Xauthority file exists
+      file:
+        path: /home/kiosk/.Xauthority
+        state: touch
+        owner: kiosk
