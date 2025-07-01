@@ -98,7 +98,7 @@
           xset s off
           xset -dpms
           xset s noblank
-          exec /usr/bin/python3 /opt/kiosk/gui/main.py
+          exec /opt/kiosk/run_gui.py
     
     - name: Ensure startx runs on login
       lineinfile:
