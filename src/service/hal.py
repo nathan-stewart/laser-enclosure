@@ -24,7 +24,7 @@ notifier = SystemdNotifier()
 i2c_bus1 = busio.I2C(board.SCL, board.SDA)
 
 wait_40Hz = 1.0 / 40.0
-wait_60s = 60.0 
+wait_60s = 60.0
 wait_config = 10.0  # seconds
 TIMEOUT_40Hz = 0.5  # seconds
 TIMEOUT_60s = 180  # seconds
@@ -51,6 +51,7 @@ dht11_dev = None
 
 debounce = {}           # name -> deque
 last_stable_state = {}  # name -> last confirmed value
+log = None
 
 # State tracking
 with state_lock:
@@ -346,7 +347,10 @@ def thread_wrapper(func):
         stop_event.set()
 
 
-if __name__ == "__main__":
+def main(argv=None):
+    global pub, rep, ctx, log
+    if argv is None:
+        argv = sys.argv[1:]  # exclude script name
     parser = argparse.ArgumentParser(description="HAL Watcher")
     parser.add_argument(
         "--log", "-l",
@@ -414,3 +418,6 @@ if __name__ == "__main__":
     pub.close()
     ctx.term()
     log.info("HAL shutdown complete.")
+
+if __name__ == "__main__":
+    main(sys.argv)

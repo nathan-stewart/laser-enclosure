@@ -17,8 +17,15 @@ class HALClient(QObject):
         self.timer.timeout.connect(self.poll)
         self.timer.start(100)
 
+
     def poll(self):
-        while self.sub.poll(timeout=0):
-            msg = self.sub.recv_json()
-            if msg.get("type") == "state":
-                self.state_updated.emit(msg["state"])
+        try:
+            while self.sub.poll(timeout=10):
+                topic, payload = self.sub.recv_multipart()
+                print(topic, payload)
+                if topic == b'hal':
+                    msg = json.loads(payload.decode())
+                    if msg.get("type") == "state":
+                        self.state_updated.emit(msg["state"])
+        except zmq.ZMQError as e:
+            print("ZMQ Error:", e)

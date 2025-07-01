@@ -1,36 +1,39 @@
 #!/usr/bin/env python3
+
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout
+from PyQt5.QtWidgets import QApplication, QWidget, QHBoxLayout
+from gui.hal_client import HALClient
 from gui.state_panel import StatePanel
 from gui.camera_widget import CameraWidget
-from gui.hal_client import HALClient
+from gui.button_panel import ButtonPanel
 
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Laser Enclosure Monitor")
-        self.layout = QVBoxLayout()
+        self.setFixedSize(800, 480)  # <== Force display size
 
-        # State panel (inputs/outputs/env)
+        self.layout = QHBoxLayout()
+        self.button_panel = ButtonPanel()
         self.state_panel = StatePanel()
-        self.layout.addWidget(self.state_panel)
-
-        # Camera feed
         self.camera = CameraWidget()
+
+        self.layout.addWidget(self.button_panel)
+        self.layout.addWidget(self.state_panel)
         self.layout.addWidget(self.camera)
 
-        # HAL Client
+        self.setLayout(self.layout)
+
+        # HAL connection
         self.hal = HALClient()
         self.hal.state_updated.connect(self.state_panel.update_state)
-
-        self.setLayout(self.layout)
 
     def closeEvent(self, event):
         self.camera.shutdown()
         event.accept()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app = QApplication(sys.argv)
-    win = MainWindow()
-    win.show()
+    window = MainWindow()
+    window.show()
     sys.exit(app.exec_())

@@ -15,6 +15,10 @@ class StatePanel(QWidget):
         self.setLayout(self.layout)
 
     def update_state(self, state):
-        self.inputs.setText(f"Inputs: {state.get('inputs')}")
-        self.outputs.setText(f"Outputs: {state.get('outputs')}")
-        self.env.setText(f"Env: {state.get('env')}")
+        input_items = {k: v for k, v in state.items() if k.startswith("i_")}
+        output_items = {k: v for k, v in state.items() if k.startswith("o_")}
+        env_items = {k: v for k, v in state.items() if k in ("i_airtemp", "i_humidity")}
+
+        self.inputs.setText(f"Inputs: {input_items}")
+        self.outputs.setText(f"Outputs: {output_items}")
+        self.env.setText(f"Environment: {env_items}")
