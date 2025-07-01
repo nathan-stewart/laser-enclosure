@@ -10,8 +10,8 @@ class HALClient(QObject):
         super().__init__()
         self.ctx = zmq.Context()
         self.sub = self.ctx.socket(zmq.SUB)
-        self.sub.connect("tcp://localhost:5556")  # or whatever port
-        self.sub.setsockopt_string(zmq.SUBSCRIBE, '')
+        self.sub.connect("tcp://127.0.0.1:5556")  # or whatever port
+        self.sub.setsockopt_string(zmq.SUBSCRIBE, 'hal')
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.poll)

@@ -8,12 +8,15 @@ class CameraWidget(QLabel):
     def __init__(self):
         super().__init__()
         self.cap = cv2.VideoCapture(0)
-        self.setText("Loading camera...")
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_frame)
         self.timer.start(100)
+        self.setFixedSize(480, 480)  # or whatever size you want
+        self.setStyleSheet("background-color: black;")
+        self.setText("Camera View")
 
     def update_frame(self):
+
         if self.cap.isOpened():
             ret, frame = self.cap.read()
             if ret:
