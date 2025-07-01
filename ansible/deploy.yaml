@@ -1,5 +1,9 @@
 - hosts: laser
   become: yes
+  vars:
+    kiosk_user: kiosk
+    app_dir: /opt/kiosk
+    
   tasks:
     - name: Install required packages
       apt:
@@ -30,8 +34,10 @@
         group: kiosk
         mode: '0755'
 
-    - name: Create HAL GPIO and Sensor systemd service file
+    - name: Create HAL GPIO and Sensor systemd service
       copy:
+        dest: /etc/systemd/system/kiosk-hal.service
+        mode: '0644'
         content: |
           [Unit]
           Description=HAL GPIO and Sensor Service
@@ -52,124 +58,3 @@
           User=kiosk
           Group=kiosk
           WorkingDirectory=/opt/kiosk
-
-          [Install]
-          WantedBy=multi-user.target
-        dest: /etc/systemd/system/kiosk-hal.service
-        mode: '0644'
-
-    - name: Reload systemd daemon to pick up new service file
-      systemd:
-        daemon_reload: yes
-
-    - name: Enable and start HAL GPIO and Sensor service
-      systemd:
-        name: kiosk-hal.service
-        enabled: true
-        state: restarted
-
-    - name: Create Supervisor (Control Logic) systemd service file
-      copy:
-        content: |
-          [Unit]
-          Description=Laser Control Logic (Supervisor)
-          After=network.target kiosk-hal.service
-
-          [Service]
-          ExecStart=/usr/bin/python3 /opt/kiosk/run_control.py
-          Restart=on-failure
-          RestartSec=2
-          StandardOutput=journal
-          StandardError=journal
-          User=kiosk
-          Group=kiosk
-          WorkingDirectory=/opt/kiosk
-
-          [Install]
-          WantedBy=multi-user.target
-        dest: /etc/systemd/system/kiosk-control.service
-        mode: '0644'
-
-    - name: Reload systemd daemon to pick up new service file
-      systemd:
-        daemon_reload: yes
-
-    - name: Enable and start Supervisor (Control Logic) service
-      systemd:
-        name: kiosk-control.service
-        enabled: true
-        state: restarted
-
-- name: Install GUI dependencies and prepare autostart
-  hosts: laser
-  become: yes
-  tasks:
-    - name: Install GUI and Python dependencies
-      apt:
-        name:
-          - xinit
-          - x11-xserver-utils
-          - python3-pyqt5
-          - python3-pip
-          - fonts-dejavu
-        state: present
-        update_cache: yes
-
-    - name: Create autostart X session script
-      copy:
-        dest: /home/kiosk/.xsession
-        mode: '0755'
-        owner: kiosk
-        group: kiosk
-        content: |
-          #!/bin/bash
-          xset s off
-          xset -dpms
-          xset s noblank
-          exec /usr/bin/python3 /opt/kiosk/gui/main.py
-
-    - name: Ensure .xinitrc matches .xsession
-      file:
-        src: /home/kiosk/.xsession
-        dest: /home/kiosk/.xinitrc
-        state: link
-        owner: kiosk
-        group: kiosk
-
-    - name: Ensure startx runs on login
-      lineinfile:
-        path: /home/kiosk/.bash_profile
-        line: '[[ -z $DISPLAY && $XDG_VTNR -eq 1 ]] && exec startx'
-        create: yes
-        owner: kiosk
-        group: kiosk
-
-    - name: Ensure Xauthority file exists
-      file:
-        path: /home/kiosk/.Xauthority
-        state: touch
-        owner: kiosk
-
-    - name: Enable autologin for kiosk on tty1
-      copy:
-        dest: /etc/systemd/system/getty@tty1.service.d/override.conf
-        content: |
-          [Service]
-          ExecStart=
-          ExecStart=-/sbin/agetty --autologin kiosk --noclear %I $TERM
-        owner: root
-        group: root
-        mode: '0644'
-
-    - name: Reload systemd and restart getty@tty1
-      systemd:
-        daemon_reload: yes
-        name: getty@tty1.service
-        state: restarted
-        enabled: true
-
-    - name: Ensure getty on tty2 is enabled
-      systemd:
-        name: getty@tty2.service
-        enabled: true
-        state: started
