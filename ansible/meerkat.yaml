@@ -28,10 +28,9 @@
             After=network.target
 
             [Service]
-            ExecStart=/usr/local/bin/meerk40t --no-gui -m web
+            ExecStart=/usr/local/bin/meerk40t --no-gui
             Restart=always
             User=kiosk
-            WorkingDirectory=/opt/meerk40t
 
             [Install]
             WantedBy=multi-user.target
