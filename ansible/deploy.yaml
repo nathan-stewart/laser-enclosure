@@ -3,7 +3,7 @@
   vars:
     kiosk_user: kiosk
     app_dir: /opt/kiosk
-    
+
   tasks:
     - name: Install required packages
       apt:
@@ -58,3 +58,89 @@
           User=kiosk
           Group=kiosk
           WorkingDirectory=/opt/kiosk
+
+
+- hosts: laser
+  become: yes
+  tasks:
+    - name: Install GUI and Python dependencies
+      apt:
+        name:
+          - xinit
+          - x11-xserver-utils
+          - python3-pyqt5
+          - python3-pip
+          - fonts-dejavu
+        state: present
+        update_cache: yes
+
+    - name: Create .xsession for GUI autostart
+      copy:
+        dest: /home/kiosk/.xsession
+        mode: '0755'
+        owner: kiosk
+        group: kiosk
+        content: |
+          #!/bin/bash
+          xset s off
+          xset -dpms
+          xset s noblank
+          exec /usr/bin/python3 /opt/kiosk/gui/main.py
+    
+    - name: Create .xinitrc for GUI autostart
+      copy:
+        dest: /home/kiosk/.xinitrc
+        mode: '0755'
+        owner: kiosk
+        group: kiosk
+        content: |
+          #!/bin/bash
+          xset s off
+          xset -dpms
+          xset s noblank
+          exec /usr/bin/python3 /opt/kiosk/gui/main.py
+    
+    - name: Ensure startx runs on login
+      lineinfile:
+        path: /home/kiosk/.bash_profile
+        line: '[[ -z $DISPLAY && $XDG_VTNR -eq 1 ]] && exec startx'
+        create: yes
+        owner: kiosk
+        group: kiosk
+
+    - name: Ensure Xauthority file exists
+      file:
+        path: /home/kiosk/.Xauthority
+        state: touch
+        owner: kiosk
+        group: kiosk
+
+    - name: Ensure getty@tty1 override directory exists
+      file:
+        path: /etc/systemd/system/getty@tty1.service.d
+        state: directory
+        mode: '0755'
+        
+    - name: Enable autologin for kiosk on tty1
+      copy:
+        dest: /etc/systemd/system/getty@tty1.service.d/override.conf
+        mode: '0644'
+        owner: root
+        group: root
+        content: |
+          [Service]
+          ExecStart=
+          ExecStart=-/sbin/agetty --autologin kiosk --noclear %I $TERM
+
+    - name: Reload systemd and restart getty@tty1
+      systemd:
+        daemon_reload: yes
+        name: getty@tty1.service
+        state: restarted
+        enabled: true
+
+    - name: Ensure getty on tty2 is enabled
+      systemd:
+        name: getty@tty2.service
+        enabled: true
+        state: started

@@ -30,6 +30,7 @@
           - python3-rpi-lgpio
           - python3-sdnotify
           - watchdog
+          - xserver-xorg-legacy
         update_cache: true
 
     - name: Install Python libraries system wide
@@ -96,3 +97,12 @@
         enabled: yes
         state: started
 
+    - name: Ensure /etc/X11/Xwrapper.config allows X for any user
+      copy:
+        dest: /etc/X11/Xwrapper.config
+        content: |
+          allowed_users=anybody
+          needs_root_rights=yes
+        owner: root
+        group: root
+        mode: '0644'
