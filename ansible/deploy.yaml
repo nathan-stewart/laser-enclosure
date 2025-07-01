@@ -149,3 +149,43 @@
         path: /home/kiosk/.Xauthority
         state: touch
         owner: kiosk
+
+    - name: Disable getty on tty1
+      systemd:
+        name: getty@tty1.service
+        enabled: false
+        state: stopped
+
+    - name: Ensure getty on tty2 is enabled
+      systemd:
+        name: getty@tty2.service
+        enabled: true
+        state: started
+
+    - name: Create systemd service to launch GUI on tty1
+      copy:
+        dest: /etc/systemd/system/kiosk-gui.service
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Kiosk GUI Launcher
+          After=multi-user.target
+          Conflicts=getty@tty1.service
+
+          [Service]
+          ExecStart=/usr/bin/xinit /opt/kiosk/gui/main.py -- /usr/bin/X :0 vt1
+          Restart=always
+          User=kiosk
+          Group=kiosk
+          WorkingDirectory=/opt/kiosk
+          StandardOutput=journal
+          StandardError=journal
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Enable and start kiosk-gui service
+      systemd:
+        name: kiosk-gui.service
+        enabled: true
+        state: started

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 import sys
+import os
 import argparse
 import logging
 import math
 import zmq, json, time, threading
+sys.path.insert(0, os.path.dirname(__file__))
 import pinmap
 import threading
 
@@ -11,6 +13,8 @@ state_lock = threading.Lock()
 stop_event = threading.Event()
 state_hal = {}
 log = None
+pub = None
+sub = None
 
 RULES = {
     "o_k1_laser"  : lambda i_btn_estop, i_btn_fire : not (i_btn_estop or i_btn_fire),
@@ -72,7 +76,6 @@ def publish_to_hal():
         log.error("Failed to send outputs to HAL:", e)
 
 def apply_rules():
-    updated = False
     log.debug("applying rules: %s", RULES)
     with state_lock:
         inputs = state_hal.copy()
@@ -82,11 +85,8 @@ def apply_rules():
                 result = int(bool(rule(**args)))
                 if state_hal.get(output) != result:
                     state_hal[output] = result
-                    updated = True
             except KeyError as e:
                 log.error(f"Missing input for {output}: {e}")
-    # if updated:
-        # publish_to_hal()
 
 
 def hal_listener():
@@ -100,7 +100,8 @@ def hal_listener():
             log.debug("HAL State Updated:", state_hal)
 
 
-if __name__ == "__main__":
+def main(argv):
+    global pub, sub, req, log
     parser = argparse.ArgumentParser(description="HAL Watcher")
     parser.add_argument(
         "--log", "-l",
@@ -146,5 +147,5 @@ if __name__ == "__main__":
     log.info("Exiting.")
 
 
-
-
+if __name__ == "__main__":
+    main(sys.argv)

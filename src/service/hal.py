@@ -15,6 +15,8 @@ import adafruit_dht
 from adafruit_ads1x15.analog_in import AnalogIn
 from adafruit_ads1x15.ads1115 import ADS1115
 from adafruit_mcp230xx.mcp23017 import MCP23017
+
+sys.path.insert(0, os.path.dirname(__file__))
 import pinmap
 from pinmap import RPi_INPUT_PINS, RPi_OUTPUT_PINS, MCP23017_PINS, MCP23017_OUTPUT_PINS, DHT11_PINS
 from sdnotify import SystemdNotifier
