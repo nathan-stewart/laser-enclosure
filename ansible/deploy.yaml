@@ -55,21 +55,25 @@
 
           [Install]
           WantedBy=multi-user.target
-        dest: /etc/systemd/system/hal.service
+        dest: /etc/systemd/system/kiosk-hal.service
         mode: '0644'
+
+    - name: Reload systemd daemon to pick up new service file
+      systemd:
+        daemon_reload: yes        
 
     - name: Enable and start HAL GPIO and Sensor service
       systemd:
-        name: hal.service
+        name: kiosk-hal.service
         enabled: true
-        state: started
+        state: restarted
 
     - name: Create Supervisor (Control Logic) systemd service file
       copy:
         content: |
           [Unit]
           Description=Laser Control Logic (Supervisor)
-          After=network.target hal.service
+          After=network.target kiosk-hal.service
 
           [Service]
           ExecStart=/usr/bin/python3 /opt/kiosk/run_control.py
@@ -83,14 +87,18 @@
 
           [Install]
           WantedBy=multi-user.target
-        dest: /etc/systemd/system/control.service
+        dest: /etc/systemd/system/kiosk-control.service
         mode: '0644'
+
+    - name: Reload systemd daemon to pick up new service file
+      systemd:
+        daemon_reload: yes        
 
     - name: Enable and start Supervisor (Control Logic) service
       systemd:
-        name: control.service
+        name: kiosk-control.service
         enabled: true
-        state: started
+        state: restarted
 
 - name: Install GUI dependencies and prepare autostart
   hosts: laser
