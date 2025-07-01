@@ -1,37 +1,48 @@
 #!/us/bin/env python3
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPlainTextEdit, QSizePolicy
+from PyQt5.QtWidgets import (
+    QWidget, QVBoxLayout, QLabel, QSizePolicy, QProgressBar, QScrollArea, QFrame
+)
+from PyQt5.QtCore import Qt
 
 class StatePanel(QWidget):
     def __init__(self):
         super().__init__()
 
-        self.inputs = QPlainTextEdit()
-        self.inputs.setReadOnly(True)
-        self.inputs.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.labels = {}
+        self.env_bars = {}
 
-        self.outputs = QPlainTextEdit()
-        self.outputs.setReadOnly(True)
-        self.outputs.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        layout = QVBoxLayout()
 
-        # Side-by-side layout
-        io_layout = QHBoxLayout()
-        io_layout.addWidget(self.inputs)
-        io_layout.addWidget(self.outputs)
+        # Scrollable area for all labels
+        scroll_area = QScrollArea()
+        scroll_widget = QWidget()
+        self.label_layout = QVBoxLayout(scroll_widget)
+        scroll_area.setWidget(scroll_widget)
+        scroll_area.setWidgetResizable(True)
 
-        # Main layout
-        main_layout = QVBoxLayout()
-        main_layout.addLayout(io_layout)
-        self.setLayout(main_layout)
+        layout.addWidget(scroll_area)
+
+        # Add environment progress bars separately at the bottom
+        for k, maxval, suffix in [("i_airtemp", 30, "°C"), ("i_humidity", 100, "%")]:
+            bar = QProgressBar()
+            bar.setRange(0, maxval)
+            bar.setFormat(f"{k}: %v {suffix}")
+            self.env_bars[k] = bar
+            layout.addWidget(bar)
+
+        self.setLayout(layout)
 
     def update_state(self, state):
-        input_items = {k: v for k, v in state.items() if k.startswith("i_")}
-        output_items = {k: v for k, v in state.items() if k.startswith("o_")}
-        env_items = {k: v for k, v in state.items() if k in ("i_airtemp", "i_humidity")}
-
-        # Combine inputs and environment
-        input_text = "\n".join(f"{k}: {v}" for k, v in input_items.items())
-        env_text = "\n".join(f"{k}: {v}" for k, v in env_items.items())
-        full_input_text = input_text + ("\n\n" + env_text if env_text else "")
-
-        self.inputs.setPlainText(full_input_text)
-        self.outputs.setPlainText("\n".join(f"{k}: {v}" for k, v in output_items.items()))
+        for k, v in state.items():
+            if k in self.env_bars and v is not None:
+                self.env_bars[k].setValue(int(v))
+            else:
+                if k not in self.labels:
+                    lbl = QLabel()
+                    lbl.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+                    self.label_layout.addWidget(lbl)
+                    self.labels[k] = lbl
+                lbl = self.labels[k]
+                display = '✔' if v else '✘' if v is not None else '—'
+                lbl.setText(f"{k}: {display}")
+                lbl.setStyleSheet(f"color: {'green' if v else 'red' if v is not None else 'gray'};")

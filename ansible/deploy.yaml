@@ -60,7 +60,7 @@
 
     - name: Reload systemd daemon to pick up new service file
       systemd:
-        daemon_reload: yes        
+        daemon_reload: yes
 
     - name: Enable and start HAL GPIO and Sensor service
       systemd:
@@ -92,7 +92,7 @@
 
     - name: Reload systemd daemon to pick up new service file
       systemd:
-        daemon_reload: yes        
+        daemon_reload: yes
 
     - name: Enable and start Supervisor (Control Logic) service
       systemd:
@@ -150,42 +150,26 @@
         state: touch
         owner: kiosk
 
-    - name: Disable getty on tty1
+    - name: Enable autologin for kiosk on tty1
+      copy:
+        dest: /etc/systemd/system/getty@tty1.service.d/override.conf
+        content: |
+          [Service]
+          ExecStart=
+          ExecStart=-/sbin/agetty --autologin kiosk --noclear %I $TERM
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Reload systemd and restart getty@tty1
       systemd:
+        daemon_reload: yes
         name: getty@tty1.service
-        enabled: false
-        state: stopped
+        state: restarted
+        enabled: true
 
     - name: Ensure getty on tty2 is enabled
       systemd:
         name: getty@tty2.service
-        enabled: true
-        state: started
-
-    - name: Create systemd service to launch GUI on tty1
-      copy:
-        dest: /etc/systemd/system/kiosk-gui.service
-        mode: '0644'
-        content: |
-          [Unit]
-          Description=Kiosk GUI Launcher
-          After=multi-user.target
-          Conflicts=getty@tty1.service
-
-          [Service]
-          ExecStart=/usr/bin/xinit /opt/kiosk/gui/main.py -- /usr/bin/X :0 vt1
-          Restart=always
-          User=kiosk
-          Group=kiosk
-          WorkingDirectory=/opt/kiosk
-          StandardOutput=journal
-          StandardError=journal
-
-          [Install]
-          WantedBy=multi-user.target
-
-    - name: Enable and start kiosk-gui service
-      systemd:
-        name: kiosk-gui.service
         enabled: true
         state: started
