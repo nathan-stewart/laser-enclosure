@@ -54,6 +54,36 @@ dht11_dev = None
 debounce = {}           # name -> deque
 last_stable_state = {}  # name -> last confirmed value
 log = None
+last_heartbeat = time.time()
+
+
+def heartbeat_listener():
+    global last_heartbeat
+    ctx = zmq.Context()
+    sub = ctx.socket(zmq.SUB)
+    sub.connect("tcp://localhost:5558")
+    sub.setsockopt_string(zmq.SUBSCRIBE, "")
+    while True:
+        try:
+            msg = sub.recv_string()
+            if msg == "heartbeat":
+                last_heartbeat = time.time()
+        except zmq.ZMQError:
+            pass
+
+def heartbeat_monitor():
+    global last_heartbeat
+    while True:
+        if time.time() - last_heartbeat > 2:
+            print("WARNING: No heartbeat from control process. Taking emergency action.")
+            # e.g., shut off laser GPIO
+            shutdown_laser()
+        time.sleep(1)
+
+def shutdown_laser():
+    print("Laser power disabled due to control heartbeat loss.")
+    for output in RPi_OUTPUT_PINS.keys():
+        set_output(output, 0)
 
 # State tracking
 with state_lock:

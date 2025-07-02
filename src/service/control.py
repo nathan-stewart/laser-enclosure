@@ -20,7 +20,7 @@ sub = None
 BACKLIGHT_PATH = "/sys/class/backlight/rpi_backlight/brightness"
 BACKLIGHT_FULL = 255
 BACKLIGHT_DIM = 20
-IDLE_TIMEOUT = 5 * 60  # seconds 
+IDLE_TIMEOUT = 5 * 60  # seconds
 
 last_activity = time.time()
 last_backlight_state = None
@@ -35,6 +35,46 @@ RULES = {
     # "o_k6_dry_fan":  # dehumidifier fan is controlled by dewpoint check
     # "o_k8_dry_heat": # dehumidifier heat is controlled by dewpoint check
 }
+
+def start_heartbeat():
+    ctx = zmq.Context()
+    pub = ctx.socket(zmq.PUB)
+    pub.bind("tcp://*:5558")  # Can use IPC or inproc if preferred
+    while True:
+        pub.send_string("heartbeat")
+        time.sleep(1)
+
+def initial_connect():
+    # Send get_state request
+    try:
+        req.send_json({"cmd": "get_state"})
+        state = req.recv_json()
+        if not state:
+            raise ValueError("Empty state received from HAL")
+        else:
+            logging.info(f"Received initial state from HAL: {state}")
+
+        # Update your internal input/output models here
+        inputs = state.get("inputs", {})
+        outputs = state.get("outputs", {})
+
+        # Re-send outputs to ensure GPIO state consistency
+        req.send_json({
+            "cmd": "set",
+            "outputs": {
+                "laser_enable": 0,
+                "exhaust_fan": 1,
+                "air_valve": 0,
+                # Add all other critical control lines
+            }
+        })
+        ack = req.recv_json()
+        logging.info(f"Initial output reassert response: {ack}")
+
+    except Exception as e:
+        logging.error(f"Startup sync with HAL failed: {e}")
+        time.sleep(1)
+        # Optionally retry or shut down here
 
 def dew_point_c(temp_c, rh_percent):
     a = 17.62
@@ -80,9 +120,9 @@ def publish_to_hal():
         req.send_string(msg)
         ack = req.recv_string()
         if ack != "ok":
-            log.error("HAL did not acknowledge output update:", ack)
+            log.error(f"HAL did not acknowledge output update: {ack}")
     except Exception as e:
-        log.error("Failed to send outputs to HAL:", e)
+        log.error(f"Failed to send outputs to HAL: {e}")
 
 def apply_rules():
     log.debug("applying rules: %s", RULES)
@@ -122,7 +162,7 @@ def hal_listener():
                 state_hal.update(json.loads(raw).get("state", {}))
                 last_activity = time.time()
             apply_rules()
-            log.debug("HAL State Updated:", state_hal)
+            log.debug(f"HAL State Updated: {state_hal}")
 
 def set_backlight(level):
     try:
@@ -175,10 +215,13 @@ def main(argv):
     threads.append(threading.Thread(target=hal_listener))
     threads.append(threading.Thread(target=dewpoint_check))
     threads.append(threading.Thread(target=backlight_monitor))
+    threads.append(threading.Thread(target=start_heartbeat, daemon=True))
 
     log.info("Starting control threads...")
     for thread in threads:
         thread.start()
+
+    initial_connect()
 
     try:
         while not stop_event.is_set():

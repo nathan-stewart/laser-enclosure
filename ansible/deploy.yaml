@@ -58,11 +58,43 @@
           User=kiosk
           Group=kiosk
           WorkingDirectory=/opt/kiosk
+          SyslogIdentifier=kiosk-hal
 
+    - name: Create Control layer systemd service
+      copy:
+        dest: /etc/systemd/system/kiosk-control.service
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Laser Control Logic (Supervisor)
+          After=network.target kiosk-hal.service
 
-- hosts: laser
-  become: yes
-  tasks:
+          [Service]
+          ExecStart=/usr/bin/python3 /opt/kiosk/run_control.py
+          Restart=on-failure
+          RestartSec=2
+          StandardOutput=journal
+          StandardError=journal
+          User=kiosk
+          Group=kiosk
+          WorkingDirectory=/opt/kiosk
+          SyslogIdentifier=kiosk-control
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Enable and start kiosk-hal service
+      systemd:
+        name: kiosk-hal.service
+        enabled: true
+        state: started
+
+    - name: Enable and start kiosk-control service
+      systemd:
+        name: kiosk-control.service
+        enabled: true
+        state: started
+
     - name: Install GUI and Python dependencies
       apt:
         name:
@@ -86,7 +118,7 @@
           xset -dpms
           xset s noblank
           exec /usr/bin/python3 /opt/kiosk/gui/main.py
-    
+
     - name: Create .xinitrc for GUI autostart
       copy:
         dest: /home/kiosk/.xinitrc
@@ -99,7 +131,7 @@
           xset -dpms
           xset s noblank
           exec /opt/kiosk/run_gui.py
-    
+
     - name: Ensure startx runs on login
       lineinfile:
         path: /home/kiosk/.bash_profile
@@ -120,13 +152,13 @@
         path: /etc/systemd/system/getty@tty1.service.d
         state: directory
         mode: '0755'
-        
+
     - name: Enable autologin for kiosk on tty1
       copy:
         dest: /etc/systemd/system/getty@tty1.service.d/override.conf
         mode: '0644'
         owner: root
-        group: root 
+        group: root
         content: |
           [Service]
           ExecStart=
