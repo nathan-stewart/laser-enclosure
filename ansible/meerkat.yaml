@@ -25,15 +25,21 @@
           content: |
             [Unit]
             Description=Meerk40t Laser Cutter Control
-            After=network.target
+            After=graphical.target
+            Requires=graphical.target
+
 
             [Service]
+            User=kiosk
+            Environment=DISPLAY=:0
+            Environment=XAUTHORITY=/home/kiosk/.Xauthority
             ExecStart=/usr/local/bin/meerk40t --no-gui
             Restart=always
-            User=kiosk
+            RestartSec=5
+            
 
             [Install]
-            WantedBy=multi-user.target
+            WantedBy=graphical.target
           dest: /etc/systemd/system/meerkat.service
           mode: '0644'
 
@@ -65,39 +71,3 @@
         - matchbox-window-manager
       state: present
       update_cache: yes
-
-  - name: Create .xinitrc for kiosk user
-    copy:
-      dest: /home/kiosk/.xinitrc
-      content: |
-        #!/bin/sh
-        matchbox-window-manager &
-        chromium-browser --noerrdialogs --kiosk http://localhost:5000
-      owner: kiosk
-      group: kiosk
-      mode: '0755'
-
-  - name: Create kiosk systemd service to launch X on boot
-    copy:
-      dest: /etc/systemd/system/kiosk.service
-      content: |
-        [Unit]
-        Description=Start X in kiosk mode
-        After=multi-user.target
-
-        [Service]
-        User=kiosk
-        Environment=XDG_RUNTIME_DIR=/run/user/1000
-        ExecStart=/usr/bin/startx
-        Restart=always
-
-        [Install]
-        WantedBy=multi-user.target
-      mode: '0644'
-
-  - name: Enable kiosk service
-    systemd:
-      name: kiosk.service
-      enabled: yes
-      state: started
-

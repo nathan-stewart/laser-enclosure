@@ -238,6 +238,8 @@ def read_environment():
             if current_state['error_count']['dht11'] > 0:
                 log.info("Recovered from DHT11 error.")
                 current_state['error_count']['dht11'] = 0
+        except OverflowError as e:
+            log.warning(f'DHT11 overflow error {e}')
         except RuntimeError as e:
             current_state['error_count']['dht11'] += 1
             if current_state['error_count']['dht11'] == error_threshold:

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys
 import os
+import pwd
 import argparse
 import logging
 import math
@@ -15,6 +16,14 @@ state_hal = {}
 log = None
 pub = None
 sub = None
+
+BACKLIGHT_PATH = "/sys/class/backlight/rpi_backlight/brightness"
+BACKLIGHT_FULL = 255
+BACKLIGHT_DIM = 20
+IDLE_TIMEOUT = 5 * 60  # seconds 
+
+last_activity = time.time()
+last_backlight_state = None
 
 RULES = {
     "o_k1_laser"  : lambda i_btn_estop, i_btn_fire : not (i_btn_estop or i_btn_fire),
@@ -89,16 +98,51 @@ def apply_rules():
                 log.error(f"Missing input for {output}: {e}")
 
 
+def active_users(exclude_user='kiosk'):
+    users = set()
+    try:
+        with open("/var/run/utmp", "rb") as f:
+            while True:
+                entry = f.read(384)
+                if not entry:
+                    break
+                username = entry[:32].split(b'\x00', 1)[0].decode(errors='ignore')
+                if username and username != exclude_user:
+                    users.add(username)
+    except Exception:
+        pass
+    return users
+
 def hal_listener():
+    global last_activity
     while not stop_event.is_set():
         topic, raw = sub.recv_multipart()
         if topic == b'hal':
-            log.debug("Received HAL update: %s", raw)
             with state_lock:
                 state_hal.update(json.loads(raw).get("state", {}))
-            apply_rules()  # Apply output logic based on updated inputs
+                last_activity = time.time()
+            apply_rules()
             log.debug("HAL State Updated:", state_hal)
 
+def set_backlight(level):
+    try:
+        with open(BACKLIGHT_PATH, "w") as f:
+            f.write(str(level))
+    except Exception as e:
+        log.warning(f"Could not set backlight: {e}")
+
+def backlight_monitor():
+    global last_backlight_state
+    while not stop_event.is_set():
+        now = time.time()
+        idle = (now - last_activity) > IDLE_TIMEOUT
+        not_logged_in = len(active_users()) == 0
+        log.debug(f"HAL Watcher - idle: {idle}, not_logged_in={not_logged_in}")
+        desired = BACKLIGHT_DIM if (idle and not_logged_in) else BACKLIGHT_FULL
+        if desired != last_backlight_state:
+            set_backlight(desired)
+            last_backlight_state = desired
+        stop_event.wait(10.0)
 
 def main(argv):
     global pub, sub, req, log
@@ -130,6 +174,7 @@ def main(argv):
     threads = []
     threads.append(threading.Thread(target=hal_listener))
     threads.append(threading.Thread(target=dewpoint_check))
+    threads.append(threading.Thread(target=backlight_monitor))
 
     log.info("Starting control threads...")
     for thread in threads:

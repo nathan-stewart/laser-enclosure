@@ -126,7 +126,7 @@
         dest: /etc/systemd/system/getty@tty1.service.d/override.conf
         mode: '0644'
         owner: root
-        group: root
+        group: root 
         content: |
           [Service]
           ExecStart=
