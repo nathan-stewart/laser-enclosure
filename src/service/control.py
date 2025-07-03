@@ -37,44 +37,10 @@ RULES = {
 }
 
 def start_heartbeat():
-    ctx = zmq.Context()
-    pub = ctx.socket(zmq.PUB)
     pub.bind("tcp://*:5558")  # Can use IPC or inproc if preferred
     while True:
         pub.send_string("heartbeat")
         time.sleep(1)
-
-def initial_connect():
-    # Send get_state request
-    try:
-        req.send_json({"cmd": "get_state"})
-        state = req.recv_json()
-        if not state:
-            raise ValueError("Empty state received from HAL")
-        else:
-            logging.info(f"Received initial state from HAL: {state}")
-
-        # Update your internal input/output models here
-        inputs = state.get("inputs", {})
-        outputs = state.get("outputs", {})
-
-        # Re-send outputs to ensure GPIO state consistency
-        req.send_json({
-            "cmd": "set",
-            "outputs": {
-                "laser_enable": 0,
-                "exhaust_fan": 1,
-                "air_valve": 0,
-                # Add all other critical control lines
-            }
-        })
-        ack = req.recv_json()
-        logging.info(f"Initial output reassert response: {ack}")
-
-    except Exception as e:
-        logging.error(f"Startup sync with HAL failed: {e}")
-        time.sleep(1)
-        # Optionally retry or shut down here
 
 def dew_point_c(temp_c, rh_percent):
     a = 17.62
@@ -220,9 +186,7 @@ def main(argv):
     log.info("Starting control threads...")
     for thread in threads:
         thread.start()
-
-    initial_connect()
-
+        
     try:
         while not stop_event.is_set():
             stop_event.wait(1.0)
