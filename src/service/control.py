@@ -37,7 +37,6 @@ RULES = {
 }
 
 def start_heartbeat():
-    pub.bind("tcp://*:5558")  # Can use IPC or inproc if preferred
     while True:
         pub.send_string("heartbeat")
         time.sleep(1)
@@ -59,21 +58,22 @@ def dewpoint_check():
             if "i_airtemp" in state_hal and "i_humidity" in state_hal:
                 temperature = state_hal["i_airtemp"]
                 humidity = state_hal["i_humidity"]
-                dewpoint = dew_point_c(temperature, humidity)
-                delta = dewpoint - temperature
-                with state_lock:
-                    if delta > dewpoint_hyst_on:
-                        new_val = 1
-                    elif delta < dewpoint_hyst_off:
-                        new_val = 0
-                    else:
-                        new_val = None  # No change
+                if isinstance(temperature, (int,float)) and isinstance(humidity, (int,float)):
+                    dewpoint = dew_point_c(temperature, humidity)
+                    delta = dewpoint - temperature
+                    with state_lock:
+                        if delta > dewpoint_hyst_on:
+                            new_val = 1
+                        elif delta < dewpoint_hyst_off:
+                            new_val = 0
+                        else:
+                            new_val = None  # No change
 
-                    if new_val is not None:
-                        for key in ("o_k6_dry_fan", "o_k8_dry_heat"):
-                            if state_hal.get(key) != new_val:
-                                state_hal[key] = new_val
-                log.debug("Dewpoint check: Temp: %.2f, Humidity: %.2f, Dewpoint: %.2f, Delta: %.2f",temperature, humidity, dewpoint, delta)
+                        if new_val is not None:
+                            for key in ("o_k6_dry_fan", "o_k8_dry_heat"):
+                                if state_hal.get(key) != new_val:
+                                    state_hal[key] = new_val
+                    log.debug("Dewpoint check: Temp: %.2f, Humidity: %.2f, Dewpoint: %.2f, Delta: %.2f",temperature, humidity, dewpoint, delta)
         except Exception as e:
             log.error(f"Error in dewpoint check: {e}")
         stop_event.wait(dehumidifier_period)
@@ -186,7 +186,7 @@ def main(argv):
     log.info("Starting control threads...")
     for thread in threads:
         thread.start()
-        
+
     try:
         while not stop_event.is_set():
             stop_event.wait(1.0)

@@ -51,7 +51,6 @@
           NotifyAccess=all
           StandardOutput=journal
           StandardError=journal
-          StartLimitIntervalSec=60
           StartLimitBurst=5
           TimeoutStartSec=10
           KillSignal=SIGINT
