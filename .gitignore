@@ -1,4 +1,8 @@
 *.FCStd1
 *.FCBak
 .vscode
+*-cache.lib
+fp-info-cache
+backup
+.autosave.kicad_sch
 
