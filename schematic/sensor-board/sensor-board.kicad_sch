@@ -4,6 +4,9 @@
 	(generator_version "9.0")
 	(uuid "0bf865ea-abbe-44fe-bc08-67feaf75ed0f")
 	(paper "A4")
+	(title_block
+		(title "Makeomatic Sensor Board (ASD1115)")
+	)
 	(lib_symbols
 		(symbol "Connector:Conn_01x04_Pin"
 			(pin_names
@@ -1726,6 +1729,28 @@
 		(color 0 0 0 0)
 		(uuid "9253851d-912f-48c3-9cfb-58d13ad46048")
 	)
+	(junction
+		(at 67.31 106.68)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "c255e948-ae38-4b41-8959-3aca79442966")
+	)
+	(junction
+		(at 66.04 104.14)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "f7e38c2c-94aa-49f9-9d66-3ad635198089")
+	)
+	(wire
+		(pts
+			(xy 43.18 140.97) (xy 67.31 140.97)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0108a3b2-8a77-4e34-8e06-788aee77280c")
+	)
 	(wire
 		(pts
 			(xy 46.99 69.85) (xy 41.91 69.85)
@@ -1745,6 +1770,16 @@
 			(type default)
 		)
 		(uuid "0e1446f8-0c3f-45c5-88de-e16c039cad2a")
+	)
+	(wire
+		(pts
+			(xy 41.91 90.17) (xy 78.74 90.17)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "18a8d65f-b056-4a44-a8e6-fddb243ad10d")
 	)
 	(wire
 		(pts
@@ -1788,6 +1823,26 @@
 	)
 	(wire
 		(pts
+			(xy 44.45 143.51) (xy 43.18 143.51)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "385923b0-234b-4844-a01e-a801df292362")
+	)
+	(wire
+		(pts
+			(xy 44.45 137.16) (xy 44.45 143.51)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "422ae0fd-13be-4407-b93f-6a6b9ed6f083")
+	)
+	(wire
+		(pts
 			(xy 43.18 102.87) (xy 43.18 109.22)
 		)
 		(stroke
@@ -1798,6 +1853,16 @@
 	)
 	(wire
 		(pts
+			(xy 43.18 138.43) (xy 66.04 138.43)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6f7ccfe4-50c5-4e25-a6db-2ee22eec8a39")
+	)
+	(wire
+		(pts
 			(xy 41.91 72.39) (xy 69.85 72.39)
 		)
 		(stroke
@@ -1805,6 +1870,16 @@
 			(type default)
 		)
 		(uuid "7e4dcd8c-7b47-4d83-b50d-77e3d1c75562")
+	)
+	(wire
+		(pts
+			(xy 78.74 123.19) (xy 88.9 123.19)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "880568df-ded3-45d4-86b0-b59a4e252737")
 	)
 	(wire
 		(pts
@@ -1848,6 +1923,16 @@
 	)
 	(wire
 		(pts
+			(xy 67.31 140.97) (xy 67.31 106.68)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b079a091-89ac-42d2-8d40-63b26bf64612")
+	)
+	(wire
+		(pts
 			(xy 41.91 74.93) (xy 67.31 74.93)
 		)
 		(stroke
@@ -1855,6 +1940,16 @@
 			(type default)
 		)
 		(uuid "b87d5135-1bf0-4bef-9734-6d70cf6b5b5e")
+	)
+	(wire
+		(pts
+			(xy 78.74 90.17) (xy 78.74 123.19)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ba8a7287-e1af-4068-a66c-4e9a8811d8e7")
 	)
 	(wire
 		(pts
@@ -1875,6 +1970,26 @@
 			(type default)
 		)
 		(uuid "c44553f0-ab16-4512-82e2-30aa98140216")
+	)
+	(wire
+		(pts
+			(xy 66.04 138.43) (xy 66.04 104.14)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c78b4960-9534-44f9-83d8-d6463644cb2b")
+	)
+	(wire
+		(pts
+			(xy 76.2 144.78) (xy 90.17 144.78)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c86506ef-2b2e-4326-a440-78a5fbe49a45")
 	)
 	(wire
 		(pts
@@ -1908,6 +2023,26 @@
 	)
 	(wire
 		(pts
+			(xy 76.2 92.71) (xy 76.2 144.78)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e26383e2-2cd1-4219-a67d-a4091a468e02")
+	)
+	(wire
+		(pts
+			(xy 41.91 92.71) (xy 76.2 92.71)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e510ca0c-b858-4807-8d55-509253cddfde")
+	)
+	(wire
+		(pts
 			(xy 41.91 77.47) (xy 66.04 77.47)
 		)
 		(stroke
@@ -1935,6 +2070,76 @@
 			(type default)
 		)
 		(uuid "fc0a0160-5f45-4816-8c6d-93774fe3a45a")
+	)
+	(label "SDA"
+		(at 50.8 140.97 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "18e6fa48-4633-4e8a-8b3b-7f460d7a9895")
+	)
+	(label "I1"
+		(at 54.61 87.63 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "260e045c-6056-42c4-ae34-3e019926d025")
+	)
+	(label "I3"
+		(at 54.61 92.71 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "2b9e275e-0d30-4446-b922-1da458b3f57b")
+	)
+	(label "SCK"
+		(at 50.8 138.43 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "558336ef-82c1-463a-8ee0-8db93dfbd256")
+	)
+	(label "A0"
+		(at 45.72 80.01 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "5de12501-a354-4e6a-bc37-3da6087894da")
+	)
+	(label "I2"
+		(at 54.61 90.17 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "b4c9ef93-f26a-4380-9eb9-9c969ac5a3aa")
+	)
+	(label "I0"
+		(at 54.61 85.09 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "f73b0412-f91c-4c62-8153-cf9b3d866601")
 	)
 	(symbol
 		(lib_id "Device:C")
@@ -2000,6 +2205,147 @@
 			(project "sensor-board"
 				(path "/0bf865ea-abbe-44fe-bc08-67feaf75ed0f"
 					(reference "C3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:Screw_Terminal_01x03")
+		(at 95.25 144.78 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "2b3d893f-0d2c-486d-b020-08bcfc556531")
+		(property "Reference" "J7"
+			(at 97.79 143.5099 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "Screw_Terminal_01x03"
+			(at 97.79 146.0499 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Footprint" "TerminalBlock_Phoenix:TerminalBlock_Phoenix_MKDS-1,5-3-5.08_1x03_P5.08mm_Horizontal"
+			(at 95.25 144.78 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 95.25 144.78 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Generic screw terminal, single row, 01x03, script generated (kicad-library-utils/schlib/autogen/connector/)"
+			(at 95.25 144.78 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "095b5066-a2d6-49c5-8373-1dbce9c100a6")
+		)
+		(pin "2"
+			(uuid "12d5ab96-304e-46b5-bf53-5944797dea98")
+		)
+		(pin "3"
+			(uuid "155ccd7a-1db9-4e31-8c58-3113ac8345b9")
+		)
+		(instances
+			(project "sensor-board"
+				(path "/0bf865ea-abbe-44fe-bc08-67feaf75ed0f"
+					(reference "J7")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "GND_1")
+		(lib_id "power:GND")
+		(at 90.17 147.32 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "2cf3dbe2-2537-4502-840d-7a98382cc44d")
+		(property "Reference" "#PWR014"
+			(at 90.17 153.67 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 90.17 152.4 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 90.17 147.32 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 90.17 147.32 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 90.17 147.32 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "f943f8a3-9d76-4d0e-95b4-67c583783b3a")
+		)
+		(instances
+			(project "sensor-board"
+				(path "/0bf865ea-abbe-44fe-bc08-67feaf75ed0f"
+					(reference "#PWR014")
 					(unit 1)
 				)
 			)
@@ -2268,6 +2614,147 @@
 		)
 	)
 	(symbol
+		(lib_name "GND_1")
+		(lib_id "power:GND")
+		(at 88.9 125.73 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "44a335dc-3e3b-4166-b73b-303f3fe37b93")
+		(property "Reference" "#PWR012"
+			(at 88.9 132.08 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 88.9 130.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 88.9 125.73 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 88.9 125.73 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 88.9 125.73 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "3c0e2fe1-ca36-45e8-8a79-7d1bb7e0af4c")
+		)
+		(instances
+			(project "sensor-board"
+				(path "/0bf865ea-abbe-44fe-bc08-67feaf75ed0f"
+					(reference "#PWR012")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:Screw_Terminal_01x03")
+		(at 93.98 123.19 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "45761083-569b-4087-8350-0a3bbad6d436")
+		(property "Reference" "J6"
+			(at 96.52 121.9199 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "Screw_Terminal_01x03"
+			(at 96.52 124.4599 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Footprint" "TerminalBlock_Phoenix:TerminalBlock_Phoenix_MKDS-1,5-3-5.08_1x03_P5.08mm_Horizontal"
+			(at 93.98 123.19 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 93.98 123.19 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Generic screw terminal, single row, 01x03, script generated (kicad-library-utils/schlib/autogen/connector/)"
+			(at 93.98 123.19 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "e52e86b9-b342-48f0-8a1d-3c35f670a5f4")
+		)
+		(pin "2"
+			(uuid "70fbf99f-30ee-4563-8e6e-0fd701a1f133")
+		)
+		(pin "3"
+			(uuid "21147941-9edb-4675-b798-21f36d6d1a4d")
+		)
+		(instances
+			(project "sensor-board"
+				(path "/0bf865ea-abbe-44fe-bc08-67feaf75ed0f"
+					(reference "J6")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Connector:Conn_01x10_Socket")
 		(at 36.83 80.01 0)
 		(mirror y)
@@ -2363,6 +2850,138 @@
 		)
 	)
 	(symbol
+		(lib_id "power:+3.3V")
+		(at 88.9 120.65 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "5ee4d912-a299-4bdb-8e28-08da1317c303")
+		(property "Reference" "#PWR011"
+			(at 88.9 124.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+3.3V"
+			(at 88.9 115.57 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 88.9 120.65 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 88.9 120.65 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 88.9 120.65 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "fc3341c0-4d42-4007-9cc4-c3c1923d3186")
+		)
+		(instances
+			(project "sensor-board"
+				(path "/0bf865ea-abbe-44fe-bc08-67feaf75ed0f"
+					(reference "#PWR011")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "GND_1")
+		(lib_id "power:GND")
+		(at 43.18 146.05 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "5f11201e-766d-43d1-b3fb-d42c2ada8530")
+		(property "Reference" "#PWR09"
+			(at 43.18 152.4 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 43.18 151.13 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 43.18 146.05 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 43.18 146.05 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 43.18 146.05 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "e702f67e-40f1-47c2-91a6-8677b65e90de")
+		)
+		(instances
+			(project "sensor-board"
+				(path "/0bf865ea-abbe-44fe-bc08-67feaf75ed0f"
+					(reference "#PWR09")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Connector:Screw_Terminal_01x03")
 		(at 93.98 104.14 0)
 		(unit 1)
@@ -2388,6 +3007,7 @@
 					(size 1.27 1.27)
 				)
 				(justify left)
+				(hide yes)
 			)
 		)
 		(property "Footprint" "TerminalBlock_Phoenix:TerminalBlock_Phoenix_MKDS-1,5-3-5.08_1x03_P5.08mm_Horizontal"
@@ -2736,6 +3356,7 @@
 					(size 1.27 1.27)
 				)
 				(justify left)
+				(hide yes)
 			)
 		)
 		(property "Footprint" "TerminalBlock_Phoenix:TerminalBlock_Phoenix_MKDS-1,5-3-5.08_1x03_P5.08mm_Horizontal"
@@ -2843,6 +3464,147 @@
 			(project "sensor-board"
 				(path "/0bf865ea-abbe-44fe-bc08-67feaf75ed0f"
 					(reference "#PWR037")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:Conn_01x04_Pin")
+		(at 38.1 143.51 0)
+		(mirror x)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "9922f707-6f76-4342-b773-5d13d3c4be3c")
+		(property "Reference" "J5"
+			(at 36.83 142.2399 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "Conn_01x04_Pin"
+			(at 38.735 148.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical"
+			(at 38.1 143.51 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 38.1 143.51 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Generic connector, single row, 01x04, script generated"
+			(at 38.1 143.51 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "2df4bb20-6573-4c82-b09b-be59554df07e")
+		)
+		(pin "4"
+			(uuid "7276f65c-6161-468e-801f-7e44c8cf21c4")
+		)
+		(pin "3"
+			(uuid "cc5166c9-2dba-4fe9-889e-207b1afe3192")
+		)
+		(pin "2"
+			(uuid "4f678f2e-ed7f-4e61-a0c0-e63dde230fb4")
+		)
+		(instances
+			(project "sensor-board"
+				(path "/0bf865ea-abbe-44fe-bc08-67feaf75ed0f"
+					(reference "J5")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+3.3V")
+		(at 44.45 137.16 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "aca4dd99-c6e9-4d29-a925-febe161b2638")
+		(property "Reference" "#PWR010"
+			(at 44.45 140.97 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+3.3V"
+			(at 44.45 132.08 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 44.45 137.16 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 44.45 137.16 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 44.45 137.16 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "9cc0501e-95b2-49d0-a75b-99955dcba48b")
+		)
+		(instances
+			(project "sensor-board"
+				(path "/0bf865ea-abbe-44fe-bc08-67feaf75ed0f"
+					(reference "#PWR010")
 					(unit 1)
 				)
 			)
@@ -2980,6 +3742,71 @@
 			(project "sensor-board"
 				(path "/0bf865ea-abbe-44fe-bc08-67feaf75ed0f"
 					(reference "#PWR036")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+3.3V")
+		(at 90.17 142.24 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "ef9b9bdc-0e63-4449-a2b5-726e01ca89cc")
+		(property "Reference" "#PWR013"
+			(at 90.17 146.05 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+3.3V"
+			(at 90.17 137.16 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 90.17 142.24 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 90.17 142.24 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 90.17 142.24 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "e0d65f16-0bdd-45f8-9227-32386ad0dd68")
+		)
+		(instances
+			(project "sensor-board"
+				(path "/0bf865ea-abbe-44fe-bc08-67feaf75ed0f"
+					(reference "#PWR013")
 					(unit 1)
 				)
 			)
