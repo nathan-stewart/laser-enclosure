@@ -7,6 +7,7 @@ import copy
 import time
 import json
 import os
+import struct
 import threading
 from RPi import GPIO
 import busio
@@ -41,9 +42,8 @@ DEBOUNCE_LEN = 3
 pub = None
 rep = None
 
-missing_devices = []
-for address in MCP23017_ADDRESSES + ADS1115_ADDRESS + BME280_ADDRESS + ENCODER_ADDRESS:
-    missing_devices.append(address)
+missing_devices = list(MCP23017_ADDRESSES + ADS1115_ADDRESS + BME280_ADDRESS + ENCODER_ADDRESS)
+mcp23017_devices = {}
 ads1115_device = None
 
 debounce = {}           # name -> deque
@@ -126,13 +126,14 @@ def configure_ads1115():
         if ADS1115_ADDRESS not in missing_devices:
             return
         ads = ADS1115(i2c_bus1, address=ADS1115_ADDRESS)
-        ads1115_device = {
+        tmp = {
             "ads": ads,
             "channels": {
                 name: AnalogIn(ads, getattr(ADS1115, f'P{chan}'))
                 for name, chan in pinmap.ADS1115_CHANNELS.items()
             }
         }
+        ads1115_device = tmp
         missing_devices.remove(ADS1115_ADDRESS)
         log.info(f"ADS1115 detected at address 0x{ADS1115_ADDRESS:02X}.")
         
@@ -140,35 +141,35 @@ def configure_ads1115():
         log.warning(f"Failed to configure ADS1115 at 0x{ADS1115_ADDRESS:02X}: {e}")
 
 def configure_mcp23017():
-    """Detect and configure MCP23017 devices with pin directions from MCP23017_PINS."""
-    if MCP23017_ADDRESSES not in missing_devices: # TBD is this okay - can we search for a list not in a list?
-        return
     devices = i2c_bus1.scan()
     for address in MCP23017_ADDRESSES:
-        if address in missing_devices and address in devices:
+        if address not in devices or address not in missing_devices:
+            continue
+
+        try:
+            mcp = MCP23017(i2c_bus1, address=address)
+            mcp23017_devices[address] = mcp
+            missing_devices.remove(address)
+            log.info(f"MCP23017 configured at 0x{address:02X}.")
+        except Exception as e:
+            log.error(f"Failed to configure MCP23017 at 0x{address:02X}: {e}")
+            continue
+
+        # Only configure pins for this MCP
+        for name, (pin_owner, pin) in MCP23017_PINS.items():
+            if pin_owner != address:
+                continue
             try:
-                mcp = MCP23017(i2c_bus1, address=address)
-                mcp23017_devices[address] = mcp
-                missing_devices.remove(address)
-                log.info(f"MCP23017 configured at address 0x{address:02X}.")
+                if name in MCP23017_OUTPUT_PINS:
+                    mcp.setup(pin, mcp.OUT)
+                    mcp.output(pin, 0)
+                else:
+                    mcp.setup(pin, mcp.IN)
+                    mcp.pullups |= (1 << pin)
+                debounce[name] = deque(maxlen=DEBOUNCE_LEN)
+                last_stable_state[name] = None
             except Exception as e:
-                log.error(f"Error configuring MCP23017 at address 0x{address:02X}: {e}")
-
-            for name, (pin_owner, pin) in MCP23017_PINS.items():
-                if pin_owner == address: 
-                    try:
-                        if name in MCP23017_OUTPUT_PINS:
-                            mcp.setup(pin, mcp.OUT)
-                            mcp.output(pin, 0)  # default LOW
-                        else:
-                            mcp.setup(pin, mcp.IN)
-                            mcp.pullups |= (1 << pin)
-                    except Exception as e:
-                        log.error(f"Failed to configure MCP23017 pin {name} on address 0x{address:02X}: {e}")
-
-                    if name not in debounce:
-                        debounce[name] = deque(maxlen=DEBOUNCE_LEN)
-                        last_stable_state[name] = None
+                log.error(f"Failed to setup pin {name} on 0x{address:02X}: {e}")
 
 def configure_encoder():
     if ENCODER_ADDRESS not in missing_devices:
@@ -176,7 +177,8 @@ def configure_encoder():
     devices = i2c_bus1.scan()
     if ENCODER_ADDRESS in devices:
         missing_devices.remove(ENCODER_ADDRESS)
-
+        log.info(f"Encoder detected at 0x{ENCODER_ADDRESS:02X}, but not yet configured.")
+        raise RuntimeError("Uninmplemented")
     # TBD do any setup we need to put it in delta mode if any
     
 def configure_bme280():
@@ -215,22 +217,20 @@ def read_gpio():
             raise RuntimeError(f"GPIO read error on pin {name}: {e}")
 
 def read_expanders():
-    global debounce, current_state
     for address, mcp in mcp23017_devices.items():
-        if address in missing_devices:
-            continue
-        for name, (device_address, pin) in MCP23017_PINS.items():
-            if device_address == address:
-                try:
-                    val = mcp.input(pin)
-                    debounce[name].append(val)
-                    if current_state['error_count']['mcp'] > 0:
-                        log.info(f"MCP23017 read error recovery at address 0x{address:02X}")
-                        current_state['error_count']['mcp'] = 0
-                except Exception as e:
-                    current_state['error_count']['mcp'] += 1
-                    if current_state['error_count']['mcp'] == error_threshold:
-                        log.error(f"MCP23017 read error at address 0x{address:02X}: {e}")
+        for name, (dev_addr, pin) in MCP23017_PINS.items():
+            if dev_addr != address:
+                continue
+            try:
+                val = mcp.input(pin)
+                debounce[name].append(val)
+                if current_state['error_count']['mcp'] > 0:
+                    log.info(f"MCP23017 read error recovered at 0x{address:02X}")
+                    current_state['error_count']['mcp'] = 0
+            except Exception as e:
+                current_state['error_count']['mcp'] += 1
+                if current_state['error_count']['mcp'] == error_threshold:
+                    log.error(f"MCP23017 read error at 0x{address:02X}: {e}")
 
 
 def read_ads1115():
@@ -255,9 +255,6 @@ def read_encoder_deltas():
     i2c_bus1.readfrom_mem(ENCODER_ADDRESS, 0x88, 24)  # This is garbage
 
 def read_bme280():
-    import struct
-    import time
-
     if BME280_ADDRESS in missing_devices:
         return
 
@@ -333,24 +330,21 @@ def read_bme280():
 
 def read_environment():
     global current_state
-    if bme280_device:
-        try:
-            temp, pressure, humidity = read_bme280()
-            current_state['i_airtemp'] = temp
-            current_state['i_humidity'] = humidity
-            current_state['i_ambient_pressure'] = pressure
+    if BME280_ADDRESS in missing_devices:
+        return
+    try:
+        temp, pressure, humidity = read_bme280()
+        current_state['i_airtemp'] = temp
+        current_state['i_humidity'] = humidity
+        current_state['i_ambient_pressure'] = pressure
+        current_state['error_count']['bme280'] = 0
+        if current_state['error_count']['bme280'] > 0:
+            log.info("Recovered from BME280 error.")
             current_state['error_count']['bme280'] = 0
-            if current_state['error_count']['bme280'] > 0:
-                log.info("Recovered from BME280 error.")
-                current_state['error_count']['bme280'] = 0
-        except Exception as e:
-            current_state['error_count']['bme280'] += 1
-            if current_state['error_count']['bme280'] == error_threshold:
-                log.warning(f"BME280 read error: {e}")
-        except RuntimeError as e:
-            current_state['error_count']['bme280'] += 1
-            if current_state['error_count']['bme280'] == error_threshold:
-                log.warning(f"BME280 read error: {e}")
+    except (Exception, RuntimeError) as e:
+        current_state['error_count']['bme280'] += 1
+        if current_state['error_count']['bme280'] == error_threshold:
+            log.warning(f"BME280 read error: {e}")
 
 def monitor_40Hz():
     global current_state, previous_state, last_40Hz_poll
@@ -397,46 +391,48 @@ def publish_state():
 
 def set_output(pin, value):
     """Set the state of an output pin."""
-    global current_state, mcp23017_devices, rep
+    global current_state, rep, mcp23017_devices
+
     try:
         with state_lock:
             if pin in RPi_OUTPUT_PINS:
+                # Set RPi GPIO pin
                 GPIO.output(RPi_OUTPUT_PINS[pin], GPIO.HIGH if value else GPIO.LOW)
                 current_state[pin] = GPIO.input(RPi_OUTPUT_PINS[pin])
                 if current_state[pin] != (1 if value else 0):
                     raise RuntimeError(f"Failed to set RPi output pin {pin} to {value}")
+
             elif pin in MCP23017_PINS:
+                # Set MCP23017 pin
                 addr, mcp_pin = MCP23017_PINS[pin]
-                mcp = mcp23017_devices[addr]
-                if mcp:
-                    try:
-                        mcp.setup(mcp_pin, mcp.OUT)
-                        mcp.output(mcp_pin, 1 if value else 0)
-                        current_state[pin] = 1 if value else 0
-                    except Exception as e:
-                        raise RuntimeError(f"Error setting MCP23017 pin {pin}: {e}")
-                else:
-                    raise RuntimeError(f"MCP23017 device at address 0x{addr:02X} not found")
+                mcp = mcp23017_devices.get(addr)
+                if not mcp:
+                    raise RuntimeError(f"MCP23017 at 0x{addr:02X} not available")
+
+                mcp.setup(mcp_pin, mcp.OUT)
+                mcp.output(mcp_pin, 1 if value else 0)
+                current_state[pin] = 1 if value else 0
+
             else:
                 raise ValueError(f"Unknown pin: {pin}")
 
-            msg = {
+            rep.send_json({
                 "status": "ok",
                 "pin": pin,
                 "value": value
-            }
+            })
 
     except Exception as e:
-        msg = {
+        log.error(f"set_output error on pin '{pin}': {e}")
+        rep.send_json({
             "status": "error",
-            "error": str(e),
             "pin": pin,
-            "value": value
-        }
-    rep.send(msg)
+            "value": value,
+            "error": str(e)
+        })
 
 def handle_commands():
-    global current_state, mcp23017_devices, bme280_device, rep
+    global current_state, mcp23017_devices, rep
     while not stop_event.is_set():
         try:
             msg = rep.recv_json()
