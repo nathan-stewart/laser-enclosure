@@ -38,14 +38,13 @@ last_60s_poll = 0
 error_threshold = 5
 DEBOUNCE_LEN = 3
 
-
 pub = None
 rep = None
 
 missing_devices = []
-mcp23017_devices = []
+for address in MCP23017_ADDRESSES + ADS1115_ADDRESS + BME280_ADDRESS + ENCODER_ADDRESS:
+    missing_devices.append(address)
 ads1115_device = None
-bme280_device = None
 
 debounce = {}           # name -> deque
 last_stable_state = {}  # name -> last confirmed value
@@ -98,7 +97,7 @@ with state_lock:
     previous_state = copy.deepcopy(current_state)
 
 def configure_gpio():
-    global current_state
+    global current_state, debounce, last_stable_state
     """Configure Raspberry Pi GPIO pins."""
     GPIO.setmode(GPIO.BCM)
     try:
@@ -111,14 +110,22 @@ def configure_gpio():
             current_state[name] = GPIO.input(RPi_OUTPUT_PINS[name])
             log.debug(f"RPi GPIO output pin {name} configured on BCM pin {RPi_OUTPUT_PINS[name]}.")
         log.debug("RPi GPIOs configured.")
+
+        # initialize debounce tracking
+        for name in list(RPi_INPUT_PINS.keys()):
+            debounce[name] = deque(maxlen=DEBOUNCE_LEN)
+            last_stable_state[name] = None
+
         gpio_configured.set()  # Signal that GPIO configuration is complete
     except KeyError as e:
         log.error(f"Configuration error: RPi_GPIO_PINS dictionary is missing key {e}.")
 
-def configure_ads1115(i2c_bus):
+def configure_ads1115():
     global ads1115_device
     try:
-        ads = ADS1115(i2c_bus, address=ADS1115_ADDRESS)
+        if ADS1115_ADDRESS not in missing_devices:
+            return
+        ads = ADS1115(i2c_bus1, address=ADS1115_ADDRESS)
         ads1115_device = {
             "ads": ads,
             "channels": {
@@ -126,70 +133,71 @@ def configure_ads1115(i2c_bus):
                 for name, chan in pinmap.ADS1115_CHANNELS.items()
             }
         }
-        if ADS1115_ADDRESS in missing_devices:
-            missing_devices.remove(ADS1115_ADDRESS)
+        missing_devices.remove(ADS1115_ADDRESS)
         log.info(f"ADS1115 detected at address 0x{ADS1115_ADDRESS:02X}.")
+        
     except Exception as e:
-        if ADS1115_ADDRESS not in missing_devices:
-            missing_devices.append(ADS1115_ADDRESS)
         log.warning(f"Failed to configure ADS1115 at 0x{ADS1115_ADDRESS:02X}: {e}")
 
-def configure_expanders(i2c_bus):
-    global mcp23017_devices
+def configure_mcp23017():
     """Detect and configure MCP23017 devices with pin directions from MCP23017_PINS."""
-    found_addresses = set()
-    for name, (address, pin) in MCP23017_PINS.items():
-        if address in found_addresses:
-            continue
-        try:
-            mcp = MCP23017(i2c_bus, address=address)
-            mcp23017_devices[address] = mcp
-            found_addresses.add(address)
-            log.info(f"MCP23017 configured at address 0x{address:02X}.")
-            if address in missing_devices:
+    if MCP23017_ADDRESSES not in missing_devices: # TBD is this okay - can we search for a list not in a list?
+        return
+    devices = i2c_bus1.scan()
+    for address in MCP23017_ADDRESSES:
+        if address in missing_devices and address in devices:
+            try:
+                mcp = MCP23017(i2c_bus1, address=address)
+                mcp23017_devices[address] = mcp
                 missing_devices.remove(address)
-        except Exception as e:
-            if address not in missing_devices:
-                missing_devices.append(address)
+                log.info(f"MCP23017 configured at address 0x{address:02X}.")
+            except Exception as e:
                 log.error(f"Error configuring MCP23017 at address 0x{address:02X}: {e}")
 
-    for name, (address, pin) in MCP23017_PINS.items():
-        for addr, mcp in mcp23017_devices:
-            if addr == address:
-                try:
-                    if name in MCP23017_OUTPUT_PINS:
-                        mcp.setup(pin, mcp.OUT)
-                        mcp.output(pin, 0)  # default LOW
-                    else:
-                        mcp.setup(pin, mcp.IN)
-                        mcp.pullups |= (1 << pin)
-                except Exception as e:
-                    log.error(f"Failed to configure MCP23017 pin {name} on address 0x{address:02X}: {e}")
+            for name, (pin_owner, pin) in MCP23017_PINS.items():
+                if pin_owner == address: 
+                    try:
+                        if name in MCP23017_OUTPUT_PINS:
+                            mcp.setup(pin, mcp.OUT)
+                            mcp.output(pin, 0)  # default LOW
+                        else:
+                            mcp.setup(pin, mcp.IN)
+                            mcp.pullups |= (1 << pin)
+                    except Exception as e:
+                        log.error(f"Failed to configure MCP23017 pin {name} on address 0x{address:02X}: {e}")
 
+                    if name not in debounce:
+                        debounce[name] = deque(maxlen=DEBOUNCE_LEN)
+                        last_stable_state[name] = None
+
+def configure_encoder():
+    if ENCODER_ADDRESS not in missing_devices:
+        return
+    devices = i2c_bus1.scan()
+    if ENCODER_ADDRESS in devices:
+        missing_devices.remove(ENCODER_ADDRESS)
+
+    # TBD do any setup we need to put it in delta mode if any
+    
+def configure_bme280():
+    if BME280_ADDRESS not in missing_devices:
+        return
+    devices = i2c_bus1.scan()
+    if BME280_ADDRESS in devices:
+        missing_devices.remove(BME280_ADDRESS)
 
 def configure():
     global debounce, last_stable_state
     configure_gpio()
 
-    # initialize debounce tracking
-    for name in list(RPi_INPUT_PINS.keys()):
-        debounce[name] = deque(maxlen=DEBOUNCE_LEN)
-        last_stable_state[name] = None
-
     while not stop_event.is_set():
         try:
-            if not mcp23017_devices:
-                configure_expanders(i2c_bus1)
-                if mcp23017_devices:
-                    # initialize debounce tracking
-                    for name in MCP23017_PINS.keys():
-                        if name not in debounce:
-                            debounce[name] = deque(maxlen=DEBOUNCE_LEN)
-                            last_stable_state[name] = None
+            configure_mcp23017()                    
+            configure_ads1115()
+            configure_encoder()
+            configure_bme280()
 
-            if not ads1115_device:
-                configure_ads1115(i2c_bus1)
-            if mcp23017_devices and ads1115_device and bme280_device:
+            if len(missing_devices) == 0:
                 log.info("All devices configured successfully.")
                 break
 
@@ -209,6 +217,8 @@ def read_gpio():
 def read_expanders():
     global debounce, current_state
     for address, mcp in mcp23017_devices.items():
+        if address in missing_devices:
+            continue
         for name, (device_address, pin) in MCP23017_PINS.items():
             if device_address == address:
                 try:
@@ -225,7 +235,7 @@ def read_expanders():
 
 def read_ads1115():
     global current_state
-    if not ads1115_device:
+    if ADS1115_ADDRESS in missing_devices:
         return
     for name, channel in ads1115_device["channels"].items():
         try:
@@ -240,11 +250,16 @@ def read_ads1115():
 
 # TBD - figure out how to read the Adafruit encoder
 def read_encoder_deltas():
+    if ENCODER_ADDRESS in missing_devices:
+        return
     i2c_bus1.readfrom_mem(ENCODER_ADDRESS, 0x88, 24)  # This is garbage
 
 def read_bme280():
     import struct
     import time
+
+    if BME280_ADDRESS in missing_devices:
+        return
 
     # Read calibration data
     calib = i2c_bus1.readfrom_mem(BME280_ADDRESS, 0x88, 24)
