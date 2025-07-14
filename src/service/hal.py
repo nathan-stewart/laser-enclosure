@@ -17,7 +17,7 @@ from adafruit_mcp230xx.mcp23017 import MCP23017
 
 sys.path.insert(0, os.path.dirname(__file__))
 import pinmap
-from pinmap import RPi_INPUT_PINS, RPi_OUTPUT_PINS, MCP23017_PINS, MCP23017_OUTPUT_PINS
+from pinmap import *
 from sdnotify import SystemdNotifier
 from collections import deque
 
@@ -41,10 +41,6 @@ DEBOUNCE_LEN = 3
 
 pub = None
 rep = None
-
-MCP23017_ADDRESSES = list(set([addr for addr, pin in MCP23017_PINS.values()]))
-ADS1115_ADDRESS = 0x48
-BME280_ADDRESS = 0x76
 
 missing_devices = []
 mcp23017_devices = []
@@ -242,6 +238,10 @@ def read_ads1115():
             if current_state['error_count']['ads1115'] == error_threshold:
                 log.error(f"ADC read error: {e}")
 
+# TBD - figure out how to read the Adafruit encoder
+def read_encoder_deltas():
+    i2c_bus1.readfrom_mem(ENCODER_ADDRESS, 0x88, 24)  # This is garbage
+
 def read_bme280():
     import struct
     import time
@@ -315,6 +315,7 @@ def read_bme280():
 
     return T / 100.0, P / 25600.0, H / 1024.0  # °C, hPa, %RH
 
+
 def read_environment():
     global current_state
     if bme280_device:
@@ -346,6 +347,7 @@ def monitor_40Hz():
             read_gpio()
             read_expanders()
             read_ads1115()
+            read_encoder_deltas()
 
             for pin, history in debounce.items():
                 if len(history) == DEBOUNCE_LEN and all(v == history[0] for v in history):

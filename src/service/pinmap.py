@@ -21,21 +21,25 @@ RPi_OUTPUT_PINS = {
 
 # MCP23017 expanders and their pins
 MCP23017_PINS = {
-    "i_fp1"       : (0x20, 0),
-    "o_fp1"       : (0x20, 1),
-    "i_fp2"       : (0x20, 2),
-    "o_fp2"       : (0x20, 3),
-    "i_fp3"       : (0x20, 4),
-    "o_fp3"       : (0x20, 5),
-    "i_fp4"       : (0x20, 6),
-    "o_fp4"       : (0x20, 7),
-    "i_btn_estop" : (0x20, 8),
-    "i_btn_fire"  : (0x20, 9),
-    "i_ignore_enc": (0x21, 0),
-    "i_axis_x"    : (0x21, 1),
-    "i_axis_z"    : (0x21, 2),
-    "i_coarse"    : (0x21, 3),
-    "i_fine"      : (0x21, 4),
+    # right panel
+    "i_fp1"         : (0x20, 0),
+    "i_fp2"         : (0x20, 1),
+    "i_fp3"         : (0x20, 2),
+    "i_fp4"         : (0x20, 3),
+    "i_btn_estop"   : (0x20, 6),
+    "i_btn_fire"    : (0x20, 7),
+    "o_fp1"         : (0x20, 8),
+    "o_fp2"         : (0x20, 9),
+    "o_fp3"         : (0x20, 10),
+    "o_fp4"         : (0x20, 11),
+
+    # left panel
+    "i_encoder_mask": (0x21, 0),
+    "o_encoder_mask": (0x21, 8),
+    "i_axis_x"      : (0x21, 1),
+    "i_axis_z"      : (0x21, 2),
+    "i_coarse"      : (0x21, 3),
+    "i_fine"        : (0x21, 4),
 }
 
 MCP23017_OUTPUT_PINS = [ x for x in MCP23017_PINS if x.startswith("o_") ]
@@ -45,3 +49,7 @@ ADS1115_CHANNELS = {
     "i_co2" : 1,  # Example pin on ASD1115 2
 }
 
+MCP23017_ADDRESSES = list(set([addr for addr, pin in MCP23017_PINS.values()]))
+ADS1115_ADDRESS = 0x48
+BME280_ADDRESS = 0x76
+ENCODER_ADDRESS = 0x60 # TBD - find real value
