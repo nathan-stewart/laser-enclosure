@@ -40,11 +40,8 @@ MCP23017_PINS = {
 
 MCP23017_OUTPUT_PINS = [ x for x in MCP23017_PINS if x.startswith("o_") ]
 
-ADS1115_PINS = {
-    "i_air" : (0x48, 0),  # Example pin on ASD1115 1
-    "i_co2" : (0x49, 1),  # Example pin on ASD1115 2
+ADS1115_CHANNELS = {
+    "i_air" : 0,  # Example pin on ASD1115 1
+    "i_co2" : 1,  # Example pin on ASD1115 2
 }
 
-DHT11_PINS = {
-    "i_dht11" : board.D4,  # DHT11 sensor pin
-}

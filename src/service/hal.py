@@ -11,14 +11,13 @@ import threading
 from RPi import GPIO
 import busio
 import board
-import adafruit_dht
 from adafruit_ads1x15.analog_in import AnalogIn
 from adafruit_ads1x15.ads1115 import ADS1115
 from adafruit_mcp230xx.mcp23017 import MCP23017
 
 sys.path.insert(0, os.path.dirname(__file__))
 import pinmap
-from pinmap import RPi_INPUT_PINS, RPi_OUTPUT_PINS, MCP23017_PINS, MCP23017_OUTPUT_PINS, DHT11_PINS
+from pinmap import RPi_INPUT_PINS, RPi_OUTPUT_PINS, MCP23017_PINS, MCP23017_OUTPUT_PINS
 from sdnotify import SystemdNotifier
 from collections import deque
 
@@ -44,12 +43,13 @@ pub = None
 rep = None
 
 MCP23017_ADDRESSES = list(set([addr for addr, pin in MCP23017_PINS.values()]))
-ADS1115_ADDRESSES = list(set([addr for addr, pin in pinmap.ADS1115_PINS.values()]))
+ADS1115_ADDRESS = 0x48
+BME280_ADDRESS = 0x76
 
 missing_devices = []
-mcp_devices = []
-ads_devices = {}
-dht11_dev = None
+mcp23017_devices = []
+ads1115_device = None
+bme280_device = None
 
 debounce = {}           # name -> deque
 last_stable_state = {}  # name -> last confirmed value
@@ -93,10 +93,11 @@ with state_lock:
             current_state[pin_name] = None
     current_state['i_airtemp'] = None
     current_state['i_humidity']    = None
+    current_state['i_ambient_pressure'] = None
     current_state['error_count'] = {
-        "adc": 0,
-        "mcp": 0,
-        "dht11": 0
+        "ads1115": 0,
+        "mcp23017": 0,
+        "bme280": 0
     }
     previous_state = copy.deepcopy(current_state)
 
@@ -118,31 +119,27 @@ def configure_gpio():
     except KeyError as e:
         log.error(f"Configuration error: RPi_GPIO_PINS dictionary is missing key {e}.")
 
-def configure_adc(i2c_bus):
-    global ads_devices
-    for address in ADS1115_ADDRESSES:
-        try:
-            ads = ADS1115(i2c_bus, address=address)
-            # Register both expected channels from this address
-            for name, (addr, chan) in pinmap.ADS1115_PINS.items():
-                if addr == address:
-                    ads_devices[name] = {
-                        'ads': ads,
-                        'analog_in': AnalogIn(ads, getattr(ADS1115, f'P{chan}')),
-                        'address': address,
-                        'channel': chan
-                    }
-            if address in missing_devices:
-                missing_devices.remove(address)
-            log.info(f"ADS1115 detected at address 0x{address:02X}.")
-        except Exception as e:
-            if address not in missing_devices:
-                missing_devices.append(address)
-                log.warning(f"Failed to configure ADS1115 at 0x{address:02X}: {e}")
-
+def configure_ads1115(i2c_bus):
+    global ads1115_device
+    try:
+        ads = ADS1115(i2c_bus, address=ADS1115_ADDRESS)
+        ads1115_device = {
+            "ads": ads,
+            "channels": {
+                name: AnalogIn(ads, getattr(ADS1115, f'P{chan}'))
+                for name, chan in pinmap.ADS1115_CHANNELS.items()
+            }
+        }
+        if ADS1115_ADDRESS in missing_devices:
+            missing_devices.remove(ADS1115_ADDRESS)
+        log.info(f"ADS1115 detected at address 0x{ADS1115_ADDRESS:02X}.")
+    except Exception as e:
+        if ADS1115_ADDRESS not in missing_devices:
+            missing_devices.append(ADS1115_ADDRESS)
+        log.warning(f"Failed to configure ADS1115 at 0x{ADS1115_ADDRESS:02X}: {e}")
 
 def configure_expanders(i2c_bus):
-    global mcp_devices
+    global mcp23017_devices
     """Detect and configure MCP23017 devices with pin directions from MCP23017_PINS."""
     found_addresses = set()
     for name, (address, pin) in MCP23017_PINS.items():
@@ -150,7 +147,7 @@ def configure_expanders(i2c_bus):
             continue
         try:
             mcp = MCP23017(i2c_bus, address=address)
-            mcp_devices.append((address, mcp))
+            mcp23017_devices[address] = mcp
             found_addresses.add(address)
             log.info(f"MCP23017 configured at address 0x{address:02X}.")
             if address in missing_devices:
@@ -161,7 +158,7 @@ def configure_expanders(i2c_bus):
                 log.error(f"Error configuring MCP23017 at address 0x{address:02X}: {e}")
 
     for name, (address, pin) in MCP23017_PINS.items():
-        for addr, mcp in mcp_devices:
+        for addr, mcp in mcp23017_devices:
             if addr == address:
                 try:
                     if name in MCP23017_OUTPUT_PINS:
@@ -174,20 +171,6 @@ def configure_expanders(i2c_bus):
                     log.error(f"Failed to configure MCP23017 pin {name} on address 0x{address:02X}: {e}")
 
 
-def configure_dht11():
-    global dht11_dev
-    """Configure DHT11 sensor."""
-    try:
-        # Initialize the DHT11 sensor
-        dht11_dev = adafruit_dht.DHT11(DHT11_PINS['i_dht11'])
-        log.info("DHT11 sensor found.")
-        if 'dht11' in missing_devices:
-            missing_devices.remove('dht11')
-    except Exception as e:
-        if 'dht11' in missing_devices:
-            missing_devices.remove('dht11')
-        log.error(f"DHT11 sensor not configured {e}.")
-
 def configure():
     global debounce, last_stable_state
     configure_gpio()
@@ -199,20 +182,18 @@ def configure():
 
     while not stop_event.is_set():
         try:
-            if not mcp_devices:
+            if not mcp23017_devices:
                 configure_expanders(i2c_bus1)
-                if mcp_devices:
+                if mcp23017_devices:
                     # initialize debounce tracking
                     for name in MCP23017_PINS.keys():
                         if name not in debounce:
                             debounce[name] = deque(maxlen=DEBOUNCE_LEN)
                             last_stable_state[name] = None
 
-            if not ads_devices:
-                configure_adc(i2c_bus1)
-            if not dht11_dev:
-                configure_dht11()
-            if mcp_devices and ads_devices and dht11_dev:
+            if not ads1115_device:
+                configure_ads1115(i2c_bus1)
+            if mcp23017_devices and ads1115_device and bme280_device:
                 log.info("All devices configured successfully.")
                 break
 
@@ -231,7 +212,7 @@ def read_gpio():
 
 def read_expanders():
     global debounce, current_state
-    for address, mcp in mcp_devices:
+    for address, mcp in mcp23017_devices.items():
         for name, (device_address, pin) in MCP23017_PINS.items():
             if device_address == address:
                 try:
@@ -246,34 +227,114 @@ def read_expanders():
                         log.error(f"MCP23017 read error at address 0x{address:02X}: {e}")
 
 
-def read_adc():
+def read_ads1115():
     global current_state
-    for name, adc_info in ads_devices.items():
+    if not ads1115_device:
+        return
+    for name, channel in ads1115_device["channels"].items():
         try:
-            current_state[name] = adc_info['analog_in'].value
-            if current_state['error_count']['adc'] > 0:
-                log.info(f"ADC read error recover at address 0x{adc_info['address']:02X}")
-                current_state['error_count']['adc'] = 0
+            current_state[name] = channel.value
+            if current_state['error_count']['ads1115'] > 0:
+                log.info(f"ADC read error recovered")
+                current_state['error_count']['ads1115'] = 0
         except Exception as e:
-            current_state['error_count']['adc'] += 1
-            if current_state['error_count']['adc'] == error_threshold:
-                log.error(f"ADC read error at address 0x{adc_info['address']:02X}: {e}")
+            current_state['error_count']['ads1115'] += 1
+            if current_state['error_count']['ads1115'] == error_threshold:
+                log.error(f"ADC read error: {e}")
+
+def read_bme280():
+    import struct
+    import time
+
+    # Read calibration data
+    calib = i2c_bus1.readfrom_mem(BME280_ADDRESS, 0x88, 24)
+    h_calib = i2c_bus1.readfrom_mem(BME280_ADDRESS, 0xA1, 1) + i2c_bus1.readfrom_mem(BME280_ADDRESS, 0xE1, 7)
+
+    dig_T1 = struct.unpack('<H', calib[0:2])[0]
+    dig_T2 = struct.unpack('<h', calib[2:4])[0]
+    dig_T3 = struct.unpack('<h', calib[4:6])[0]
+
+    dig_P1 = struct.unpack('<H', calib[6:8])[0]
+    dig_P2 = struct.unpack('<h', calib[8:10])[0]
+    dig_P3 = struct.unpack('<h', calib[10:12])[0]
+    dig_P4 = struct.unpack('<h', calib[12:14])[0]
+    dig_P5 = struct.unpack('<h', calib[14:16])[0]
+    dig_P6 = struct.unpack('<h', calib[16:18])[0]
+    dig_P7 = struct.unpack('<h', calib[18:20])[0]
+    dig_P8 = struct.unpack('<h', calib[20:22])[0]
+    dig_P9 = struct.unpack('<h', calib[22:24])[0]
+
+    dig_H1 = h_calib[0]
+    dig_H2 = struct.unpack('<h', h_calib[1:3])[0]
+    dig_H3 = h_calib[3]
+    e4, e5, e6 = h_calib[4:7]
+    dig_H4 = (e4 << 4) | (e5 & 0x0F)
+    dig_H5 = (e6 << 4) | (e5 >> 4)
+    dig_H6 = struct.unpack('b', h_calib[7:8])[0]
+
+    # Trigger measurement
+    i2c_bus1.writeto_mem(BME280_ADDRESS, 0xF2, b'\x01')  # ctrl_hum: 1x
+    i2c_bus1.writeto_mem(BME280_ADDRESS, 0xF4, b'\x27')  # ctrl_meas: temp/press 1x
+    time.sleep_ms(100)
+
+    # Read raw data
+    raw = i2c_bus1.readfrom_mem(BME280_ADDRESS, 0xF7, 8)
+    adc_P = ((raw[0] << 16) | (raw[1] << 8) | raw[2]) >> 4
+    adc_T = ((raw[3] << 16) | (raw[4] << 8) | raw[5]) >> 4
+    adc_H = (raw[6] << 8) | raw[7]
+
+    # Temperature compensation
+    var1 = (((adc_T >> 3) - (dig_T1 << 1)) * dig_T2) >> 11
+    var2 = (((((adc_T >> 4) - dig_T1) * ((adc_T >> 4) - dig_T1)) >> 12) * dig_T3) >> 14
+    t_fine = var1 + var2
+    T = (t_fine * 5 + 128) >> 8
+
+    # Pressure compensation
+    var1 = t_fine - 128000
+    var2 = var1 * var1 * dig_P6
+    var2 += (var1 * dig_P5) << 17
+    var2 += dig_P4 << 35
+    var1 = ((var1 * var1 * dig_P3) >> 8) + ((var1 * dig_P2) << 12)
+    var1 = (((1 << 47) + var1) * dig_P1) >> 33
+    if var1 == 0:
+        P = 0
+    else:
+        p = 1048576 - adc_P
+        p = (((p << 31) - var2) * 3125) // var1
+        var1 = (dig_P9 * (p >> 13) * (p >> 13)) >> 25
+        var2 = (dig_P8 * p) >> 19
+        P = ((p + var1 + var2) >> 8) + (dig_P7 << 4)
+
+    # Humidity compensation
+    h = t_fine - 76800
+    h = (((((adc_H << 14) - (dig_H4 << 20) - (dig_H5 * h)) + 16384) >> 15) *
+         (((((((h * dig_H6) >> 10) * (((h * dig_H3) >> 11) + 32768)) >> 10) + 2097152) * dig_H2 + 8192) >> 14))
+    h -= (((((h >> 15) * (h >> 15)) >> 7) * dig_H1) >> 4)
+    h = max(0, min(h, 419430400))
+    H = h >> 12
+
+    return T / 100.0, P / 25600.0, H / 1024.0  # °C, hPa, %RH
 
 def read_environment():
     global current_state
-    if dht11_dev:
+    if bme280_device:
         try:
-            current_state['i_airtemp'] = dht11_dev.temperature
-            current_state['i_humidity'] = dht11_dev.humidity
-            if current_state['error_count']['dht11'] > 0:
-                log.info("Recovered from DHT11 error.")
-                current_state['error_count']['dht11'] = 0
-        except OverflowError as e:
-            log.debug(f'DHT11 overflow error {e}')
+            temp, pressure, humidity = read_bme280()
+            current_state['i_airtemp'] = temp
+            current_state['i_humidity'] = humidity
+            current_state['i_ambient_pressure'] = pressure
+            current_state['error_count']['bme280'] = 0
+            if current_state['error_count']['bme280'] > 0:
+                log.info("Recovered from BME280 error.")
+                current_state['error_count']['bme280'] = 0
+        except Exception as e:
+            current_state['error_count']['bme280'] += 1
+            if current_state['error_count']['bme280'] == error_threshold:
+                log.warning(f"BME280 read error: {e}")
         except RuntimeError as e:
-            current_state['error_count']['dht11'] += 1
-            if current_state['error_count']['dht11'] == error_threshold:
-                log.warning(f"DHT11 read error: {e}")
+            current_state['error_count']['bme280'] += 1
+            if current_state['error_count']['bme280'] == error_threshold:
+                log.warning(f"BME280 read error: {e}")
 
 def monitor_40Hz():
     global current_state, previous_state, last_40Hz_poll
@@ -284,7 +345,7 @@ def monitor_40Hz():
 
             read_gpio()
             read_expanders()
-            read_adc()
+            read_ads1115()
 
             for pin, history in debounce.items():
                 if len(history) == DEBOUNCE_LEN and all(v == history[0] for v in history):
@@ -319,7 +380,7 @@ def publish_state():
 
 def set_output(pin, value):
     """Set the state of an output pin."""
-    global current_state, mcp_devices, rep
+    global current_state, mcp23017_devices, rep
     try:
         with state_lock:
             if pin in RPi_OUTPUT_PINS:
@@ -329,15 +390,16 @@ def set_output(pin, value):
                     raise RuntimeError(f"Failed to set RPi output pin {pin} to {value}")
             elif pin in MCP23017_PINS:
                 addr, mcp_pin = MCP23017_PINS[pin]
-                for device_addr, mcp in mcp_devices:
-                    if device_addr == addr:
-                        try:
-                            mcp.setup(mcp_pin, mcp.OUT)
-                            mcp.output(mcp_pin, 1 if value else 0)
-                            current_state[pin] = 1 if value else 0
-                        except Exception as e:
-                            raise RuntimeError(f"Error setting MCP23017 pin {pin}: {e}")
-                        break
+                mcp = mcp23017_devices[addr]
+                if mcp:
+                    try:
+                        mcp.setup(mcp_pin, mcp.OUT)
+                        mcp.output(mcp_pin, 1 if value else 0)
+                        current_state[pin] = 1 if value else 0
+                    except Exception as e:
+                        raise RuntimeError(f"Error setting MCP23017 pin {pin}: {e}")
+                else:
+                    raise RuntimeError(f"MCP23017 device at address 0x{addr:02X} not found")
             else:
                 raise ValueError(f"Unknown pin: {pin}")
 
@@ -357,7 +419,7 @@ def set_output(pin, value):
     rep.send(msg)
 
 def handle_commands():
-    global current_state, mcp_devices, dht11_dev, rep
+    global current_state, mcp23017_devices, bme280_device, rep
     while not stop_event.is_set():
         try:
             msg = rep.recv_json()
