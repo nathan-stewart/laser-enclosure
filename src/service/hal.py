@@ -52,7 +52,7 @@ log = None
 last_heartbeat = time.time()
 
 
-def heartbeat_listener():
+def control_heartbeat_listener():
     global last_heartbeat
     ctx = zmq.Context()
     sub = ctx.socket(zmq.SUB)
@@ -66,7 +66,7 @@ def heartbeat_listener():
         except zmq.ZMQError:
             pass
 
-def heartbeat_monitor():
+def monitor_control_heartbeat():
     global last_heartbeat
     while True:
         if time.time() - last_heartbeat > 2:
@@ -492,7 +492,9 @@ def main(argv=None):
     threads.append(threading.Thread(target=thread_wrapper, args=(handle_commands,), daemon=True))
     threads.append(threading.Thread(target=thread_wrapper, args=(monitor_40Hz,), daemon=True))
     threads.append(threading.Thread(target=thread_wrapper, args=(monitor_60s,), daemon=True))
-
+    threads.append(threading.Thread(target=thread_wrapper, args=(control_heartbeat_listener), daemon=True))
+    threads.append(threading.Thread(target=thread_wrapper, args=(monitor_control_heartbeat), daemon=True))
+    
     threads[0].start()
     gpio_configured.wait()  # Wait for GPIO configuration to complete
     for thread in threads[1:]:
