@@ -11,6 +11,8 @@ class Encoder:
         self.delta = 0
 
     def configure(self):
+        if self.dev:
+            return
         self.dev = configure_seesaw(self.i2c, self.addr)
         if self.dev:
             self.last_position = self.dev.encoder_position

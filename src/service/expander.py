@@ -29,6 +29,9 @@ class Expander:
         self.outputs[logical_name] = (pin, initial)
     
     def configure(self):
+        if self.dev:
+            return
+        
         self.dev = configure_mcp23017(self.i2c, self.addr)
         if self.dev:
             for name, (pin, pullup) in self.inputs.items():

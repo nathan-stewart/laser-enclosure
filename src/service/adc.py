@@ -8,6 +8,8 @@ class Adc:
         self.dev = None
 
     def configure(self):
+        if self.dev:
+            return
         self.dev = configure_ads1115(self.i2c, self.addr)
 
     def input(self, channel, logical_name):

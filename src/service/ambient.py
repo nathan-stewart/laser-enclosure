@@ -10,6 +10,8 @@ class Ambient:
         self.inputs = {}  # logical_name -> measurement_key ('temperature', 'humidity', 'pressure')
 
     def configure(self):
+        if self.dev:
+            return
         self.dev = configure_bme280(self.i2c, self.addr)
 
     def input(self, channel, logical_name):

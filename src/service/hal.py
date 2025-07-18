@@ -35,14 +35,13 @@ from pinmap import *
 if args.mock:
     import i2c_devices
     i2c_devices.USE_MOCK = True
-from i2c_devices import configure_mcp23017, read_mcp23017
 
 from sdnotify import SystemdNotifier
 from collections import deque
 
 wait_40Hz = 1.0 / 40.0
 wait_60s = 60.0
-wait_config = 10.0  # seconds
+wait_config = 0.5  # seconds # rescan periodically if lost comms
 TIMEOUT_40Hz = 0.5  # seconds
 TIMEOUT_60s = 180  # seconds
 heartbeat_lock = threading.Lock()
@@ -72,7 +71,6 @@ expanders[0x20].output(0, 'o_fp0')
 expanders[0x20].output(1, 'o_fp1')
 expanders[0x20].output(2, 'o_fp2')
 expanders[0x20].output(3, 'o_fp3')
-expanders[0x20].configure()
 
 expanders[0x21] = Expander(name=f"MCP@{hex(0x21)}")
 expanders[0x21].input(0, 'i_mask_encoder')
@@ -81,18 +79,17 @@ expanders[0x21].input(2, 'i_axis_z')
 expanders[0x21].input(3, 'i_coarse')
 expanders[0x21].input(4, 'i_fine')
 expanders[0x21].output(0, 'o_mask_encoder')
-expanders[0x21].configure()
+]=
+encoder = Encoder(name=f"SeeSaw@{hex(0x36)}")
 
 adc = Adc(adc_dev, name="ADC")
 adc.input(0, "i_air_supply")
 adc.input(1, "i_co2_supply")
-adc.configure()
 
-bme280 = Ambient(name=f"BME280@{hex(0x76)}")
-bme280.input('temperature', 'ambient_temp')
-bme280.input('humidity',    'ambient_humidity')
-bme280.input('pressure',    'ambient_pressure')
-bme280.configure()
+ambient = Ambient(name=f"BME280@{hex(0x76)}")
+ambient.input('temperature', 'ambient_temp')
+ambient.input('humidity',    'ambient_humidity')
+ambient.input('pressure',    'ambient_pressure')
 
 last_stable_state = {}  # name -> last confirmed value
 log = None
@@ -132,14 +129,6 @@ with state_lock:
     for pin_dict in (RPi_INPUT_PINS, RPi_OUTPUT_PINS, pinmap.MCP23017_PINS, pinmap.ADS1115_PINS):
         for pin_name in pin_dict:
             current_state[pin_name] = None
-    current_state['i_airtemp'] = None
-    current_state['i_humidity']    = None
-    current_state['i_ambient_pressure'] = None
-    current_state['error_count'] = {
-        "ads1115": 0,
-        "mcp23017": 0,
-        "bme280": 0
-    }
     previous_state = copy.deepcopy(current_state)
 
 def configure_gpio():
@@ -171,18 +160,11 @@ def configure():
     configure_gpio()
 
     while not stop_event.is_set():
-        try:
-            configure_mcp23017()                    
-            configure_ads1115()
-            configure_encoder()
-            configure_bme280()
-
-            if len(missing_devices) == 0:
-                log.info("All devices configured successfully.")
-                break
-
-        except Exception as e:
-            pass
+         # these return if configured - need to add loss detection
+        for expander in expanders.items():
+            expander.configure()
+        adc.configure()
+        ambient.configure()
         stop_event.wait(wait_config)
 
 def read_gpio():
@@ -195,23 +177,6 @@ def read_gpio():
             raise RuntimeError(f"GPIO read error on pin {name}: {e}")
 
 
-def read_environment():
-    global current_state
-    if BME280_ADDRESS in missing_devices:
-        return
-    try:
-        temp, pressure, humidity = read_bme280()
-        current_state['i_airtemp'] = temp
-        current_state['i_humidity'] = humidity
-        current_state['i_ambient_pressure'] = pressure
-        current_state['error_count']['bme280'] = 0
-        if current_state['error_count']['bme280'] > 0:
-            log.info("Recovered from BME280 error.")
-            current_state['error_count']['bme280'] = 0
-    except (Exception, RuntimeError) as e:
-        current_state['error_count']['bme280'] += 1
-        if current_state['error_count']['bme280'] == error_threshold:
-            log.warning(f"BME280 read error: {e}")
 
 def monitor_40Hz():
     global current_state, previous_state, last_40Hz_poll
@@ -234,8 +199,8 @@ def monitor_40Hz():
 
             current_state.update(adc.read())
             
-            read_encoder_deltas()
-
+            delta = encoder.read_delta()
+            current_state['encoder_delta'] = delta
 
             # if previous_state != current_state:
             publish_state()
@@ -253,8 +218,8 @@ def monitor_60s():
                 last_60s_poll = time.time()
                 if time.time() - last_60s_poll > TIMEOUT_60s:
                     raise RuntimeError("Input read timeout")
-            read_environment()
-            # publish_state()
+                current_state['ambient_temp'], current_state['ambient_humidity'], current_state['ambient_pressure'] = ambient.read()
+
             log.debug(f"Current state: {json.dumps(current_state, indent=2)}")
         stop_event.wait(wait_60s)
 
