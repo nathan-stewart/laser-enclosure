@@ -9,21 +9,35 @@ import json
 import os
 import struct
 import threading
-from RPi import GPIO
-import busio
-import board
-from adafruit_ads1x15.analog_in import AnalogIn
-from adafruit_ads1x15.ads1115 import ADS1115
-from adafruit_mcp230xx.mcp23017 import MCP23017
+import expander
+
+if sys.argv is None:
+    argv = sys.argv[1:]  # exclude script name
+parser = argparse.ArgumentParser(description="HAL Watcher")
+parser.add_argument(
+    "--log", "-l",
+    default="INFO",
+    choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+    help="Set the logging level (default: INFO)"
+)
+
+parser.add_argument(
+    "--mock", "-m",
+    action="store_true",
+    help="Run HAL with mock I2C devices for testing on non-Pi systems"
+)
+args = parser.parse_args()
 
 sys.path.insert(0, os.path.dirname(__file__))
-import pinmap
 from pinmap import *
+
+if args.mock:
+    import i2c_devices
+    i2c_devices.USE_MOCK = True
+from i2c_devices import configure_mcp23017, read_mcp23017
+
 from sdnotify import SystemdNotifier
 from collections import deque
-
-notifier = SystemdNotifier()
-i2c_bus1 = busio.I2C(board.SCL, board.SDA)
 
 wait_40Hz = 1.0 / 40.0
 wait_60s = 60.0
@@ -42,15 +56,46 @@ DEBOUNCE_LEN = 3
 pub = None
 rep = None
 
-missing_devices = list(MCP23017_ADDRESSES + ADS1115_ADDRESS + BME280_ADDRESS + ENCODER_ADDRESS)
-mcp23017_devices = {}
-ads1115_device = None
-
+SEESAW_ADDRESS = 0x36
 debounce = {}           # name -> deque
+
+expanders = {}
+expanders[0x20] = Expander(name=f"MCP@{hex(0x20)}")       
+expanders[0x20].input(0,'i_fp0')
+expanders[0x20].input(1,'i_fp1')
+expanders[0x20].input(2,'i_fp2')
+expanders[0x20].input(3,'i_fp3')
+expanders[0x20].input(4,'i_btn_estop')
+expanders[0x20].input(5,'i_btn_fire')
+expanders[0x20].output(0, 'o_fp0')
+expanders[0x20].output(1, 'o_fp1')
+expanders[0x20].output(2, 'o_fp2')
+expanders[0x20].output(3, 'o_fp3')
+expanders[0x20].configure()
+
+expanders[0x21] = Expander(name=f"MCP@{hex(0x21)}")
+expanders[0x21].input(0 'i_mask_encoder')
+expanders[0x21].input(1 'i_axis_x')
+expanders[0x21].input(2 'i_axis_z')
+expanders[0x21].input(3 'i_coarse')
+expanders[0x21].input(4 'i_fine')
+expanders[0x21].output(0 'o_mask_encoder')
+expanders[0x21].configure()
+
+adc = Adc(adc_dev, name="ADC")
+adc.input(0, "i_air_supply")
+adc.input(1, "i_co2_supply")
+adc.configure()
+
+bme280 = Ambient(name=f"BME280@{hex(0x76)}")
+bme280.input('temperature', 'ambient_temp')
+bme280.input('humidity',    'ambient_humidity')
+bme280.input('pressure',    'ambient_pressure')
+bme280.configure()
+
 last_stable_state = {}  # name -> last confirmed value
 log = None
 last_heartbeat = time.time()
-
 
 def control_heartbeat_listener():
     global last_heartbeat
@@ -120,74 +165,6 @@ def configure_gpio():
     except KeyError as e:
         log.error(f"Configuration error: RPi_GPIO_PINS dictionary is missing key {e}.")
 
-def configure_ads1115():
-    global ads1115_device
-    try:
-        if ADS1115_ADDRESS not in missing_devices:
-            return
-        ads = ADS1115(i2c_bus1, address=ADS1115_ADDRESS)
-        tmp = {
-            "ads": ads,
-            "channels": {
-                name: AnalogIn(ads, getattr(ADS1115, f'P{chan}'))
-                for name, chan in pinmap.ADS1115_CHANNELS.items()
-            }
-        }
-        ads1115_device = tmp
-        missing_devices.remove(ADS1115_ADDRESS)
-        log.info(f"ADS1115 detected at address 0x{ADS1115_ADDRESS:02X}.")
-        
-    except Exception as e:
-        log.warning(f"Failed to configure ADS1115 at 0x{ADS1115_ADDRESS:02X}: {e}")
-
-def configure_mcp23017():
-    devices = i2c_bus1.scan()
-    for address in MCP23017_ADDRESSES:
-        if address not in devices or address not in missing_devices:
-            continue
-
-        try:
-            mcp = MCP23017(i2c_bus1, address=address)
-            mcp23017_devices[address] = mcp
-            missing_devices.remove(address)
-            log.info(f"MCP23017 configured at 0x{address:02X}.")
-        except Exception as e:
-            log.error(f"Failed to configure MCP23017 at 0x{address:02X}: {e}")
-            continue
-
-        # Only configure pins for this MCP
-        for name, (pin_owner, pin) in MCP23017_PINS.items():
-            if pin_owner != address:
-                continue
-            try:
-                if name in MCP23017_OUTPUT_PINS:
-                    mcp.setup(pin, mcp.OUT)
-                    mcp.output(pin, 0)
-                else:
-                    mcp.setup(pin, mcp.IN)
-                    mcp.pullups |= (1 << pin)
-                debounce[name] = deque(maxlen=DEBOUNCE_LEN)
-                last_stable_state[name] = None
-            except Exception as e:
-                log.error(f"Failed to setup pin {name} on 0x{address:02X}: {e}")
-
-def configure_encoder():
-    if ENCODER_ADDRESS not in missing_devices:
-        return
-    devices = i2c_bus1.scan()
-    if ENCODER_ADDRESS in devices:
-        missing_devices.remove(ENCODER_ADDRESS)
-        log.info(f"Encoder detected at 0x{ENCODER_ADDRESS:02X}, but not yet configured.")
-        raise RuntimeError("Uninmplemented")
-    # TBD do any setup we need to put it in delta mode if any
-    
-def configure_bme280():
-    if BME280_ADDRESS not in missing_devices:
-        return
-    devices = i2c_bus1.scan()
-    if BME280_ADDRESS in devices:
-        missing_devices.remove(BME280_ADDRESS)
-
 def configure():
     global debounce, last_stable_state
     configure_gpio()
@@ -231,101 +208,6 @@ def read_expanders():
                 current_state['error_count']['mcp'] += 1
                 if current_state['error_count']['mcp'] == error_threshold:
                     log.error(f"MCP23017 read error at 0x{address:02X}: {e}")
-
-
-def read_ads1115():
-    global current_state
-    if ADS1115_ADDRESS in missing_devices:
-        return
-    for name, channel in ads1115_device["channels"].items():
-        try:
-            current_state[name] = channel.value
-            if current_state['error_count']['ads1115'] > 0:
-                log.info(f"ADC read error recovered")
-                current_state['error_count']['ads1115'] = 0
-        except Exception as e:
-            current_state['error_count']['ads1115'] += 1
-            if current_state['error_count']['ads1115'] == error_threshold:
-                log.error(f"ADC read error: {e}")
-
-# TBD - figure out how to read the Adafruit encoder
-def read_encoder_deltas():
-    if ENCODER_ADDRESS in missing_devices:
-        return
-    i2c_bus1.readfrom_mem(ENCODER_ADDRESS, 0x88, 24)  # This is garbage
-
-def read_bme280():
-    if BME280_ADDRESS in missing_devices:
-        return
-
-    # Read calibration data
-    calib = i2c_bus1.readfrom_mem(BME280_ADDRESS, 0x88, 24)
-    h_calib = i2c_bus1.readfrom_mem(BME280_ADDRESS, 0xA1, 1) + i2c_bus1.readfrom_mem(BME280_ADDRESS, 0xE1, 7)
-
-    dig_T1 = struct.unpack('<H', calib[0:2])[0]
-    dig_T2 = struct.unpack('<h', calib[2:4])[0]
-    dig_T3 = struct.unpack('<h', calib[4:6])[0]
-
-    dig_P1 = struct.unpack('<H', calib[6:8])[0]
-    dig_P2 = struct.unpack('<h', calib[8:10])[0]
-    dig_P3 = struct.unpack('<h', calib[10:12])[0]
-    dig_P4 = struct.unpack('<h', calib[12:14])[0]
-    dig_P5 = struct.unpack('<h', calib[14:16])[0]
-    dig_P6 = struct.unpack('<h', calib[16:18])[0]
-    dig_P7 = struct.unpack('<h', calib[18:20])[0]
-    dig_P8 = struct.unpack('<h', calib[20:22])[0]
-    dig_P9 = struct.unpack('<h', calib[22:24])[0]
-
-    dig_H1 = h_calib[0]
-    dig_H2 = struct.unpack('<h', h_calib[1:3])[0]
-    dig_H3 = h_calib[3]
-    e4, e5, e6 = h_calib[4:7]
-    dig_H4 = (e4 << 4) | (e5 & 0x0F)
-    dig_H5 = (e6 << 4) | (e5 >> 4)
-    dig_H6 = struct.unpack('b', h_calib[7:8])[0]
-
-    # Trigger measurement
-    i2c_bus1.writeto_mem(BME280_ADDRESS, 0xF2, b'\x01')  # ctrl_hum: 1x
-    i2c_bus1.writeto_mem(BME280_ADDRESS, 0xF4, b'\x27')  # ctrl_meas: temp/press 1x
-    time.sleep_ms(100)
-
-    # Read raw data
-    raw = i2c_bus1.readfrom_mem(BME280_ADDRESS, 0xF7, 8)
-    adc_P = ((raw[0] << 16) | (raw[1] << 8) | raw[2]) >> 4
-    adc_T = ((raw[3] << 16) | (raw[4] << 8) | raw[5]) >> 4
-    adc_H = (raw[6] << 8) | raw[7]
-
-    # Temperature compensation
-    var1 = (((adc_T >> 3) - (dig_T1 << 1)) * dig_T2) >> 11
-    var2 = (((((adc_T >> 4) - dig_T1) * ((adc_T >> 4) - dig_T1)) >> 12) * dig_T3) >> 14
-    t_fine = var1 + var2
-    T = (t_fine * 5 + 128) >> 8
-
-    # Pressure compensation
-    var1 = t_fine - 128000
-    var2 = var1 * var1 * dig_P6
-    var2 += (var1 * dig_P5) << 17
-    var2 += dig_P4 << 35
-    var1 = ((var1 * var1 * dig_P3) >> 8) + ((var1 * dig_P2) << 12)
-    var1 = (((1 << 47) + var1) * dig_P1) >> 33
-    if var1 == 0:
-        P = 0
-    else:
-        p = 1048576 - adc_P
-        p = (((p << 31) - var2) * 3125) // var1
-        var1 = (dig_P9 * (p >> 13) * (p >> 13)) >> 25
-        var2 = (dig_P8 * p) >> 19
-        P = ((p + var1 + var2) >> 8) + (dig_P7 << 4)
-
-    # Humidity compensation
-    h = t_fine - 76800
-    h = (((((adc_H << 14) - (dig_H4 << 20) - (dig_H5 * h)) + 16384) >> 15) *
-         (((((((h * dig_H6) >> 10) * (((h * dig_H3) >> 11) + 32768)) >> 10) + 2097152) * dig_H2 + 8192) >> 14))
-    h -= (((((h >> 15) * (h >> 15)) >> 7) * dig_H1) >> 4)
-    h = max(0, min(h, 419430400))
-    H = h >> 12
-
-    return T / 100.0, P / 25600.0, H / 1024.0  # °C, hPa, %RH
 
 
 def read_environment():
@@ -458,16 +340,6 @@ def thread_wrapper(func):
 
 def main(argv=None):
     global pub, rep, ctx, log
-    if argv is None:
-        argv = sys.argv[1:]  # exclude script name
-    parser = argparse.ArgumentParser(description="HAL Watcher")
-    parser.add_argument(
-        "--log", "-l",
-        default="INFO",
-        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        help="Set the logging level (default: INFO)"
-    )
-    args = parser.parse_args()
 
     logging.basicConfig(
         level=getattr(logging, args.log),
