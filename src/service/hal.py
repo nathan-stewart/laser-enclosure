@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# i2c_devices.py
 import sys
 import logging
 import argparse
@@ -74,12 +75,12 @@ expanders[0x20].output(3, 'o_fp3')
 expanders[0x20].configure()
 
 expanders[0x21] = Expander(name=f"MCP@{hex(0x21)}")
-expanders[0x21].input(0 'i_mask_encoder')
-expanders[0x21].input(1 'i_axis_x')
-expanders[0x21].input(2 'i_axis_z')
-expanders[0x21].input(3 'i_coarse')
-expanders[0x21].input(4 'i_fine')
-expanders[0x21].output(0 'o_mask_encoder')
+expanders[0x21].input(0, 'i_mask_encoder')
+expanders[0x21].input(1, 'i_axis_x')
+expanders[0x21].input(2, 'i_axis_z')
+expanders[0x21].input(3, 'i_coarse')
+expanders[0x21].input(4, 'i_fine')
+expanders[0x21].output(0, 'o_mask_encoder')
 expanders[0x21].configure()
 
 adc = Adc(adc_dev, name="ADC")
