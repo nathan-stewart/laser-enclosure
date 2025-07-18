@@ -194,22 +194,6 @@ def read_gpio():
         except Exception as e:
             raise RuntimeError(f"GPIO read error on pin {name}: {e}")
 
-def read_expanders():
-    for address, mcp in mcp23017_devices.items():
-        for name, (dev_addr, pin) in MCP23017_PINS.items():
-            if dev_addr != address:
-                continue
-            try:
-                val = mcp.input(pin)
-                debounce[name].append(val)
-                if current_state['error_count']['mcp'] > 0:
-                    log.info(f"MCP23017 read error recovered at 0x{address:02X}")
-                    current_state['error_count']['mcp'] = 0
-            except Exception as e:
-                current_state['error_count']['mcp'] += 1
-                if current_state['error_count']['mcp'] == error_threshold:
-                    log.error(f"MCP23017 read error at 0x{address:02X}: {e}")
-
 
 def read_environment():
     global current_state
@@ -237,15 +221,21 @@ def monitor_40Hz():
                 last_40Hz_poll = time.time()
 
             read_gpio()
-            read_expanders()
-            read_ads1115()
-            read_encoder_deltas()
-
             for pin, history in debounce.items():
                 if len(history) == DEBOUNCE_LEN and all(v == history[0] for v in history):
                     if last_stable_state[pin] != history[0]:
                         last_stable_state[pin] = history[0]
                         current_state[pin] = history[0]
+
+            for address, exp in expanders.items():
+                for name, (pin, _) in exp.inputs.items():
+                    val = exp.dev.get_pin(pin).value
+                    debounce[name].append(val)
+
+            current_state.update(adc.read())
+            
+            read_encoder_deltas()
+
 
             # if previous_state != current_state:
             publish_state()

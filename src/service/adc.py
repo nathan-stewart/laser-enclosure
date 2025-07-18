@@ -1,3 +1,4 @@
+#adc.py
 class Adc:
     def __init__(self, i2c, addr=0x48, name=None):
         self.i2c = i2c

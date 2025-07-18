@@ -50,4 +50,7 @@ class MockBME280:
 
 class MockSeeSaw:
     def __init__(self, i2c=None, address=0x36):
-        self.delta = 0
+        self.encoder_position = 0
+
+    def simulate_turn(self, delta):
+        self.encoder_position += delta
