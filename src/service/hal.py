@@ -10,7 +10,12 @@ import json
 import os
 import struct
 import threading
+import gpio
+import mock_devices
 import expander
+import ambient
+import encoder
+import adc
 
 if sys.argv is None:
     argv = sys.argv[1:]  # exclude script name
@@ -35,6 +40,15 @@ from pinmap import *
 if args.mock:
     import i2c_devices
     i2c_devices.USE_MOCK = True
+    mock_devices.USE_MOCK = True
+    gpio.USE_MOCK = True
+    ambient.USE_MOCK = True
+    encoder.USE_MOCK = True
+    expander.USSE_MOCK = True
+    
+
+
+
 
 from sdnotify import SystemdNotifier
 from collections import deque
@@ -46,7 +60,6 @@ TIMEOUT_40Hz = 0.5  # seconds
 TIMEOUT_60s = 180  # seconds
 heartbeat_lock = threading.Lock()
 stop_event = threading.Event()
-gpio_configured = threading.Event()
 state_lock = threading.Lock()
 last_40Hz_poll = 0
 last_60s_poll = 0
@@ -58,6 +71,24 @@ rep = None
 
 SEESAW_ADDRESS = 0x36
 debounce = {}           # name -> deque
+
+# RPi GPIO pins
+
+gpio = Gpio()
+gpio.input(22, "m7")
+gpio.input(27, "m8")
+gpio.input(17, "lid")
+
+gpio.output(7,  "k1_laser",    0)
+gpio.output(8,  "k2_hpa",      0)
+gpio.output(25, "k3_fire",     0)
+gpio.output(24, "k4_light",    0)
+gpio.output(23, "k5_lpa",      0)
+gpio.output(18, "k6_dry_fan",  0)
+gpio.output(12, "k7_exhaust",  0)
+gpio.output(16, "k8_dry_heat", 0)
+# gpio.read() => state
+# state=> gpio.write()
 
 expanders = {}
 expanders[0x20] = Expander(name=f"MCP@{hex(0x20)}")       
@@ -79,7 +110,7 @@ expanders[0x21].input(2, 'i_axis_z')
 expanders[0x21].input(3, 'i_coarse')
 expanders[0x21].input(4, 'i_fine')
 expanders[0x21].output(0, 'o_mask_encoder')
-]=
+
 encoder = Encoder(name=f"SeeSaw@{hex(0x36)}")
 
 adc = Adc(adc_dev, name="ADC")
@@ -131,34 +162,8 @@ with state_lock:
             current_state[pin_name] = None
     previous_state = copy.deepcopy(current_state)
 
-def configure_gpio():
-    global current_state, debounce, last_stable_state
-    """Configure Raspberry Pi GPIO pins."""
-    GPIO.setmode(GPIO.BCM)
-    try:
-        for name in RPi_INPUT_PINS:
-            GPIO.setup(RPi_INPUT_PINS[name], GPIO.IN, pull_up_down=GPIO.PUD_UP)
-            log.debug(f"RPi GPIO input pin {name} configured on BCM pin {RPi_INPUT_PINS[name]}.")
-        log.debug(f"{RPi_OUTPUT_PINS}")
-        for name in RPi_OUTPUT_PINS:
-            GPIO.setup(RPi_OUTPUT_PINS[name], GPIO.OUT, initial=GPIO.LOW)
-            current_state[name] = GPIO.input(RPi_OUTPUT_PINS[name])
-            log.debug(f"RPi GPIO output pin {name} configured on BCM pin {RPi_OUTPUT_PINS[name]}.")
-        log.debug("RPi GPIOs configured.")
-
-        # initialize debounce tracking
-        for name in list(RPi_INPUT_PINS.keys()):
-            debounce[name] = deque(maxlen=DEBOUNCE_LEN)
-            last_stable_state[name] = None
-
-        gpio_configured.set()  # Signal that GPIO configuration is complete
-    except KeyError as e:
-        log.error(f"Configuration error: RPi_GPIO_PINS dictionary is missing key {e}.")
-
 def configure():
     global debounce, last_stable_state
-    configure_gpio()
-
     while not stop_event.is_set():
          # these return if configured - need to add loss detection
         for expander in expanders.items():
@@ -324,7 +329,6 @@ def main(argv=None):
     threads.append(threading.Thread(target=thread_wrapper, args=(monitor_control_heartbeat), daemon=True))
     
     threads[0].start()
-    gpio_configured.wait()  # Wait for GPIO configuration to complete
     for thread in threads[1:]:
         thread.start()
     log.info("HAL threads started.")
