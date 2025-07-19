@@ -2,10 +2,10 @@
 import logging
 from i2c_devices import configure_mcp23017
 
-MAX_INPUTS = 8
-MAX_OUTPUTS = 8
-
 class Expander:
+    MAX_INPUTS = 8
+    MAX_OUTPUTS = 8
+
     def __init__(self, i2c, addr, name):
         self.i2c = i2c
         self.addr = addr
@@ -17,15 +17,15 @@ class Expander:
     def input(self, pin, logical_name, *, pullup=False):
         if logical_name in self.inputs or logical_name in self.outputs:
             raise ValueError(f"Duplicate logical name '{logical_name}' on {self.name}")
-        if len(self.inputs) >= self.MAX_INPUTS:
-            raise ValueError(f"Too many inputs on {self.name} (max {self.MAX_INPUTS})")
+        if len(self.inputs) >= Expander.MAX_INPUTS:
+            raise ValueError(f"Too many inputs on {self.name} (max {Expander.MAX_INPUTS})")
         self.inputs[logical_name] = (pin, pullup)
 
     def output(self, pin, logical_name, *, initial=False):
         if logical_name in self.outputs or logical_name in self.inputs:
             raise ValueError(f"Duplicate logical name '{logical_name}' on {self.name}")
-        if len(self.outputs) >= self.MAX_OUTPUTS:
-            raise ValueError(f"Too many outputs on {self.name} (max {self.MAX_OUTPUTS})")
+        if len(self.outputs) >= Expander.MAX_OUTPUTS:
+            raise ValueError(f"Too many outputs on {self.name} (max {Expander.MAX_OUTPUTS})")
         self.outputs[logical_name] = (pin, initial)
     
     def configure(self):

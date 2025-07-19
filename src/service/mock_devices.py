@@ -3,34 +3,24 @@
 class MockMCP23017:
     def __init__(self, i2c=None, address=0x20):
         self.address = address
-        self.pin_states = [False] * 16
+        self.pins = [MockPin() for _ in range(16)]
 
     def get_pin(self, pin):
-        return MockPin(self.pin_states, pin)
+        return self.pins[pin]
     
-    def configure():
-        pass # do nothing in mock case
-
 class MockPin:
-    def __init__(self, state_array, pin_number):
-        self.state_array = state_array
-        self.pin_number = pin_number
-        self.direction = None
+    def __init__(self):
+        self.direction = None  # "input" or "output"
         self.pullup = False
+        self._value = False
 
-    def switch_to_input(self, pull=False):
-        self.direction = "input"
-        self.pullup = pull
-
-    def switch_to_output(self, value=False):
-        self.direction = "output"
-        self.state_array[self.pin_number] = value
-
+    @property
     def value(self):
-        return self.state_array[self.pin_number]
+        return self._value
 
-    def set_value(self, val):  # optional for manual testing
-        self.state_array[self.pin_number] = val
+    @value.setter
+    def value(self, val):
+        self._value = bool(val)
 
 
 class MockADS1115:
@@ -54,3 +44,38 @@ class MockSeeSaw:
 
     def simulate_turn(self, delta):
         self.encoder_position += delta
+
+class MockGpioController:
+    def __init__(self):
+        self._inputs = {}
+        self._outputs = {}
+        self._state = {}
+
+    def input(self, name, bcm, pullup=True):
+        self._inputs[name] = bcm
+        self._state[name] = False
+
+    def output(self, name, bcm, initial=False):
+        self._outputs[name] = bcm
+        self._state[name] = initial
+
+    def read(self, name):
+        if name not in self._inputs:
+            raise ValueError(f"Input pin '{name}' not configured")
+        return self._state[name]
+
+    def write(self, name, value):
+        if name not in self._outputs:
+            raise ValueError(f"Output pin '{name}' not configured")
+        self._state[name] = bool(value)
+
+    def set_input(self, name, value):
+        """Simulate a pin change in test mode"""
+        if name not in self._inputs:
+            raise ValueError(f"Input pin '{name}' not configured")
+        self._state[name] = bool(value)
+
+    def cleanup(self):
+        self._inputs.clear()
+        self._outputs.clear()
+        self._state.clear()
