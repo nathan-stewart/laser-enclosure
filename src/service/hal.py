@@ -10,12 +10,6 @@ import json
 import os
 import struct
 import threading
-import gpio
-import mock_devices
-import expander
-import ambient
-import encoder
-import adc
 
 if sys.argv is None:
     argv = sys.argv[1:]  # exclude script name
@@ -34,21 +28,9 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-sys.path.insert(0, os.path.dirname(__file__))
-from pinmap import *
-
-if args.mock:
-    import i2c_devices
-    i2c_devices.USE_MOCK = True
-    mock_devices.USE_MOCK = True
-    gpio.USE_MOCK = True
-    ambient.USE_MOCK = True
-    encoder.USE_MOCK = True
-    expander.USSE_MOCK = True
-    
-
-
-
+import devices
+devices.configure_mock(args.mock)
+from devices import Gpio, MCP23017, ADS1115, BME280, SeeSaw
 
 from sdnotify import SystemdNotifier
 from collections import deque
