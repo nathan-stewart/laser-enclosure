@@ -14,7 +14,7 @@ if USE_MOCK:
         MockMCP23017 as MCP23017,
         MockADS1115 as ADS1115,
         MockBME280 as BME280,
-        MockSeeSaw as SeeSaw,
+        MockQTEncoder as QTEncoder,
     )
 else:
     from .real_devices import (
@@ -22,5 +22,5 @@ else:
         MCP23017,
         ADS1115,
         BME280,
-        SeeSaw,
+        QTEncoder,
     )

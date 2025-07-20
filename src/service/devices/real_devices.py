@@ -20,7 +20,7 @@ class RpiGpio:
 
     def __delete__(self):
         GPIO.cleanup()
-        
+
     def input(self, name, bcm, pullup=True):
         GPIO.setup(bcm, GPIO.IN, pull_up_down=GPIO.PUD_UP if pullup else GPIO.PUD_DOWN)
         self._inputs[name] = bcm
@@ -43,7 +43,7 @@ class RpiGpio:
         self._state[name] = bool(value)
 
 
-class Adc:
+class ADS1115:
     def __init__(self, i2c, addr=0x48, name=None):
         self.i2c = i2c
         self.addr = addr
@@ -67,7 +67,7 @@ class Adc:
             for name, channel in self.inputs.items()
         }
 
-class Expander:
+class MCP23017:
     MAX_INPUTS = 8
     MAX_OUTPUTS = 8
 
@@ -82,21 +82,21 @@ class Expander:
     def input(self, pin, logical_name, *, pullup=False):
         if logical_name in self.inputs or logical_name in self.outputs:
             raise ValueError(f"Duplicate logical name '{logical_name}' on {self.name}")
-        if len(self.inputs) >= Expander.MAX_INPUTS:
-            raise ValueError(f"Too many inputs on {self.name} (max {Expander.MAX_INPUTS})")
+        if len(self.inputs) >= MCP23017.MAX_INPUTS:
+            raise ValueError(f"Too many inputs on {self.name} (max {MCP23017.MAX_INPUTS})")
         self.inputs[logical_name] = (pin, pullup)
 
     def output(self, pin, logical_name, *, initial=False):
         if logical_name in self.outputs or logical_name in self.inputs:
             raise ValueError(f"Duplicate logical name '{logical_name}' on {self.name}")
-        if len(self.outputs) >= Expander.MAX_OUTPUTS:
-            raise ValueError(f"Too many outputs on {self.name} (max {Expander.MAX_OUTPUTS})")
+        if len(self.outputs) >= MCP23017.MAX_OUTPUTS:
+            raise ValueError(f"Too many outputs on {self.name} (max {MCP23017.MAX_OUTPUTS})")
         self.outputs[logical_name] = (pin, initial)
-    
+
     def configure(self):
         if self.dev:
             return
-        
+
         try:
             i2c.writeto(self.addr, b"")  # Dummy write to probe
             self.dev = MCP23017(self.i2c, address=self.addr)
@@ -125,20 +125,18 @@ class Expander:
             pin, _ = self.outputs[logical_name]
             self.dev.get_pin(pin).value = 1 if value else 0
 
-    
-def configure_ads1115(i2c, addr): 
+
+def configure_ads1115(i2c, addr):
     try:
-        if not USE_MOCK:
-            i2c.writeto(addr, b"")  # Dummy write to probe
+        i2c.writeto(addr, b"")  # Dummy write to probe
         return ADS1115(i2c, address=addr)
     except OSError:
         pass
     return None
-    
-def configure_bme280(i2c, addr): 
+
+def configure_bme280(i2c, addr):
     try:
-        if not USE_MOCK:
-            i2c.writeto(addr, b"")  # Dummy write to probe
+        i2c.writeto(addr, b"")  # Dummy write to probe
         return Adafruit_BME280_I2C(i2c, address=addr)
     except OSError:
         pass
@@ -146,16 +144,15 @@ def configure_bme280(i2c, addr):
 
 def configure_seesaw(i2c, addr):
     try:
-        if not USE_MOCK:
-            i2c.writeto(addr, b"")  # Dummy write to probe
+        i2c.writeto(addr, b"")  # Dummy write to probe
         return seesaw.Seesaw(i2c, address=addr)
     except OSError:
         pass
     return None
-                
+
 def read_ads1115(dev, channel=0): return dev.read_voltage(channel)
 
-class Ambient:
+class BME280:
     def __init__(self, i2c, addr=0x76, name=None):
         self.i2c = i2c
         self.addr = addr
@@ -183,8 +180,8 @@ class Ambient:
             except AttributeError:
                 result[name] = None
         return result
-    
-class Encoder:
+
+class QTEncoder:
     def __init__(self, i2c, addr=0x36, name=None):
         self.i2c = i2c
         self.addr = addr

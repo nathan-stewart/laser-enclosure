@@ -30,7 +30,7 @@ args = parser.parse_args()
 
 import devices
 devices.configure_mock(args.mock)
-from devices import Gpio, MCP23017, ADS1115, BME280, SeeSaw
+from devices import Gpio, MCP23017, ADS1115, BME280, QTEncoder
 
 from sdnotify import SystemdNotifier
 from collections import deque
@@ -73,7 +73,7 @@ gpio.output(16, "k8_dry_heat", 0)
 # state=> gpio.write()
 
 expanders = {}
-expanders[0x20] = Expander(name=f"MCP@{hex(0x20)}")       
+expanders[0x20] = MCP23017(name=f"MCP@{hex(0x20)}")
 expanders[0x20].input(0,'i_fp0')
 expanders[0x20].input(1,'i_fp1')
 expanders[0x20].input(2,'i_fp2')
@@ -85,7 +85,7 @@ expanders[0x20].output(1, 'o_fp1')
 expanders[0x20].output(2, 'o_fp2')
 expanders[0x20].output(3, 'o_fp3')
 
-expanders[0x21] = Expander(name=f"MCP@{hex(0x21)}")
+expanders[0x21] = MCP23017(name=f"MCP@{hex(0x21)}")
 expanders[0x21].input(0, 'i_mask_encoder')
 expanders[0x21].input(1, 'i_axis_x')
 expanders[0x21].input(2, 'i_axis_z')
@@ -93,13 +93,13 @@ expanders[0x21].input(3, 'i_coarse')
 expanders[0x21].input(4, 'i_fine')
 expanders[0x21].output(0, 'o_mask_encoder')
 
-encoder = Encoder(name=f"SeeSaw@{hex(0x36)}")
+encoder = QTEncoder(name=f"SeeSaw@{hex(0x36)}")
 
-adc = Adc(adc_dev, name="ADC")
+adc = ADS1115(adc_dev, name="ADC")
 adc.input(0, "i_air_supply")
 adc.input(1, "i_co2_supply")
 
-ambient = Ambient(name=f"BME280@{hex(0x76)}")
+ambient = BME280(name=f"BME280@{hex(0x76)}")
 ambient.input('temperature', 'ambient_temp')
 ambient.input('humidity',    'ambient_humidity')
 ambient.input('pressure',    'ambient_pressure')
@@ -185,7 +185,7 @@ def monitor_40Hz():
                     debounce[name].append(val)
 
             current_state.update(adc.read())
-            
+
             delta = encoder.read_delta()
             current_state['encoder_delta'] = delta
 
@@ -309,7 +309,7 @@ def main(argv=None):
     threads.append(threading.Thread(target=thread_wrapper, args=(monitor_60s,), daemon=True))
     threads.append(threading.Thread(target=thread_wrapper, args=(control_heartbeat_listener), daemon=True))
     threads.append(threading.Thread(target=thread_wrapper, args=(monitor_control_heartbeat), daemon=True))
-    
+
     threads[0].start()
     for thread in threads[1:]:
         thread.start()

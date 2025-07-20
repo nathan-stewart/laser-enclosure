@@ -41,7 +41,7 @@ class MockMCP23017:
 
     def get_pin(self, pin):
         return self.pins[pin]
-    
+
 class MockPin:
     def __init__(self):
         self.direction = None  # "input" or "output"
@@ -72,7 +72,7 @@ class MockBME280:
         self.humidity = 45.0
         self.pressure = 1013.25
 
-class MockSeeSaw:
+class MockQTEncoder:
     def __init__(self, i2c=None, address=0x36):
         self.encoder_position = 0
 
