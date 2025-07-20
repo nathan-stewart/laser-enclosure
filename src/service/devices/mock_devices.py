@@ -35,26 +35,27 @@ class MockGpioController:
         self._state.clear()
 
 class MockMCP23017:
-    def __init__(self, i2c=None, address=0x20):
+    DIR_OUT = 1
+    DIR_IN = 0
+    def __init__(self, i2c, address):
         self.address = address
-        self.pins = [MockPin() for _ in range(16)]
+        self.directions = {}  # pin -> DIR_IN or DIR_OUT
+        self.states = {}      # pin -> value
 
-    def get_pin(self, pin):
-        return self.pins[pin]
+    def set_pin_direction(self, pin, direction):
+        self.directions[pin] = direction
+        if direction == MockMCP23017.DIR_OUT:
+            self.states.setdefault(pin, False)
 
-class MockPin:
-    def __init__(self):
-        self.direction = None  # "input" or "output"
-        self.pullup = False
-        self._value = False
+    def digital_write(self, pin, value):
+        if self.directions.get(pin) != MockMCP23017.DIR_OUT:
+            raise RuntimeError(f"Pin {pin} not configured as output")
+        self.states[pin] = value
 
-    @property
-    def value(self):
-        return self._value
-
-    @value.setter
-    def value(self, val):
-        self._value = bool(val)
+    def digital_read(self, pin):
+        if self.directions.get(pin) != MockMCP23017.DIR_IN:
+            raise RuntimeError(f"Pin {pin} not configured as input")
+        return self.states.get(pin, False)
 
 
 class MockADS1115:

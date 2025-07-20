@@ -102,7 +102,7 @@ class MCP23017:
             self.dev = MCP23017(self.i2c, address=self.addr)
         except OSError:
             pass
-        self.dev = None``
+        self.dev = None
 
         if self.dev:
             for name, (pin, pullup) in self.inputs.items():
