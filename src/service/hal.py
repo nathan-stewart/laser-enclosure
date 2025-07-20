@@ -303,12 +303,12 @@ def main(argv=None):
     log.info("ZeroMQ replier bound to tcp://*:5557")
 
     threads = []
-    threads.append(threading.Thread(target=thread_wrapper, args=(configure,), daemon=True))
-    threads.append(threading.Thread(target=thread_wrapper, args=(handle_commands,), daemon=True))
-    threads.append(threading.Thread(target=thread_wrapper, args=(monitor_40Hz,), daemon=True))
-    threads.append(threading.Thread(target=thread_wrapper, args=(monitor_60s,), daemon=True))
-    threads.append(threading.Thread(target=thread_wrapper, args=(control_heartbeat_listener), daemon=True))
-    threads.append(threading.Thread(target=thread_wrapper, args=(monitor_control_heartbeat), daemon=True))
+    threads.append(threading.Thread(target=thread_wrapper, name="ConfigureThread", args=(configure,), daemon=True))
+    threads.append(threading.Thread(target=thread_wrapper, name="CommandHandler", args=(handle_commands,), daemon=True))
+    threads.append(threading.Thread(target=thread_wrapper, name="40Hz", args=(monitor_40Hz,), daemon=True))
+    threads.append(threading.Thread(target=thread_wrapper, name="60s", args=(monitor_60s,), daemon=True))
+    threads.append(threading.Thread(target=thread_wrapper, name="HeartbeatListener", args=(control_heartbeat_listener), daemon=True))
+    threads.append(threading.Thread(target=thread_wrapper, name="HeartbeatMonitor", args=(monitor_control_heartbeat), daemon=True))
 
     threads[0].start()
     for thread in threads[1:]:
