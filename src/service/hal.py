@@ -28,9 +28,9 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-import devices
-devices.configure_mock(args.mock)
-from devices import Gpio, MCP23017, ADS1115, BME280, QTEncoder
+import service.devices
+service.devices.configure_mock(args.mock)
+from service.devices import Gpio, MCP23017, ADS1115, BME280, SeeSaw
 
 from sdnotify import SystemdNotifier
 from collections import deque

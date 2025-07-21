@@ -1,15 +1,14 @@
 # i2c_devices.py
 import sys
-else:
-    import board
-    import busio
-    i2c_bus1 = busio.I2C(board.SCL, board.SDA)
+import board
+import busio
+i2c_bus1 = busio.I2C(board.SCL, board.SDA)
 
-    from adafruit_mcp230xx.mcp23017 import MCP23017
-    from adafruit_ads1x15.analog_in import AnalogIn
-    from adafruit_ads1x15.ads1115 import ADS1115
-    from adafruit_bme280 import Adafruit_BME280_I2C
-    from adafruit_seesaw import seesaw
+from adafruit_mcp230xx.mcp23017 import MCP23017
+from adafruit_ads1x15.analog_in import AnalogIn
+from adafruit_ads1x15.ads1115 import ADS1115
+from adafruit_bme280 import Adafruit_BME280_I2C
+from adafruit_seesaw import seesaw
 
 class RpiGpio:
     def __init__(self):
