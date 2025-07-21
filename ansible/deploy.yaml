@@ -18,6 +18,15 @@
         state: present
         update_cache: yes
 
+    - name: Install Python libraries system wide
+      pip:
+        name:
+        - adafruit-circuitpython-ads1x15
+        - adafruit-circuitpython-mcp230xx
+        - adafruit-circuitpython-bme280
+        - adafruit-circuitpython-seesaw
+        extra_args: --break-system-packages
+
     - name: Ensure /opt/kiosk directory exists
       file:
         path: /opt/kiosk

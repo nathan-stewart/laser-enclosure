@@ -1,14 +1,15 @@
 # i2c_devices.py
 import sys
+import RPi.GPIO as GPIO
 import board
 import busio
-i2c_bus1 = busio.I2C(board.SCL, board.SDA)
-
-from adafruit_mcp230xx.mcp23017 import MCP23017
+import adafruit_mcp230xx.mcp23017
 from adafruit_ads1x15.analog_in import AnalogIn
-from adafruit_ads1x15.ads1115 import ADS1115
-from adafruit_bme280 import Adafruit_BME280_I2C
-from adafruit_seesaw import seesaw
+import adafruit_ads1x15.ads1115
+import Adafruit_BME280
+from adafruit_seesaw import digitalio, rotaryio, seesaw
+
+i2c = busio.I2C(board.SCL, board.SDA)
 
 class RpiGpio:
     def __init__(self):
@@ -20,12 +21,12 @@ class RpiGpio:
     def __delete__(self):
         GPIO.cleanup()
 
-    def input(self, name, bcm, pullup=True):
+    def input(self, bcm, name, pullup=True):
         GPIO.setup(bcm, GPIO.IN, pull_up_down=GPIO.PUD_UP if pullup else GPIO.PUD_DOWN)
         self._inputs[name] = bcm
         self._state[name] = None
 
-    def output(self, name, bcm, initial=False):
+    def output(self, bcm, name, initial=False):
         GPIO.setup(bcm, GPIO.OUT, initial=GPIO.HIGH if initial else GPIO.LOW)
         self._outputs[name] = bcm
         self._state[name] = initial
@@ -41,39 +42,13 @@ class RpiGpio:
         GPIO.output(self._outputs[name], GPIO.HIGH if value else GPIO.LOW)
         self._state[name] = bool(value)
 
-
-class ADS1115:
-    def __init__(self, i2c, addr=0x48, name=None):
-        self.i2c = i2c
-        self.addr = addr
-        self.name = name or f"ADS@{hex(addr)}"
-        self.inputs = {}  # logical_name -> channel
-        self.dev = None
-
-    def configure(self):
-        if self.dev:
-            return
-        self.dev = configure_ads1115(self.i2c, self.addr)
-
-    def input(self, channel, logical_name):
-        self.inputs[logical_name] = channel
-
-    def read(self):
-        if not self.dev:
-            return {name: None for name in self.inputs}
-        return {
-            name: self.dev.read_voltage(channel)
-            for name, channel in self.inputs.items()
-        }
-
 class MCP23017:
     MAX_INPUTS = 8
     MAX_OUTPUTS = 8
 
-    def __init__(self, i2c, addr, name):
-        self.i2c = i2c
+    def __init__(self, addr, name = None):
         self.addr = addr
-        self.name = name
+        self.name = name or f"BME280@{hex(addr)}"
         self.inputs = {}   # logical_name: (pin_number, pullup)
         self.outputs = {}  # logical_name: (pin_number, initial_value)
         self.dev = None
@@ -98,10 +73,9 @@ class MCP23017:
 
         try:
             i2c.writeto(self.addr, b"")  # Dummy write to probe
-            self.dev = MCP23017(self.i2c, address=self.addr)
+            self.dev = adafruit_mcp230xx.MCP23017(i2c, address=self.addr)
         except OSError:
-            pass
-        self.dev = None
+            self.dev = None
 
         if self.dev:
             for name, (pin, pullup) in self.inputs.items():
@@ -125,35 +99,38 @@ class MCP23017:
             self.dev.get_pin(pin).value = 1 if value else 0
 
 
-def configure_ads1115(i2c, addr):
-    try:
-        i2c.writeto(addr, b"")  # Dummy write to probe
-        return ADS1115(i2c, address=addr)
-    except OSError:
-        pass
-    return None
+class ADS1115:
+    def __init__(self, addr=0x48, name=None):
+        self.addr = addr
+        self.name = name or f"ADS@{hex(addr)}"
+        self.inputs = {}  # logical_name -> channel
+        self.dev = None
 
-def configure_bme280(i2c, addr):
-    try:
-        i2c.writeto(addr, b"")  # Dummy write to probe
-        return Adafruit_BME280_I2C(i2c, address=addr)
-    except OSError:
-        pass
-    return None
+    def configure(self):
+        if self.dev:
+            return
+        try:
+            i2c.writeto(addr, b"")  # Dummy write to probe
+            self.dev = adafruit_ads1x15.ADS1115(i2c, address=addr)
+        except OSError:
+            self.dev = None
+        return self.dev
 
-def configure_seesaw(i2c, addr):
-    try:
-        i2c.writeto(addr, b"")  # Dummy write to probe
-        return seesaw.Seesaw(i2c, address=addr)
-    except OSError:
-        pass
-    return None
+    def input(self, channel, logical_name):
+        self.inputs[logical_name] = channel
+
+    def read(self):
+        if not self.dev:
+            return {name: None for name in self.inputs}
+        return {
+            name: self.dev.read_voltage(channel)
+            for name, channel in self.inputs.items()
+        }
 
 def read_ads1115(dev, channel=0): return dev.read_voltage(channel)
 
 class BME280:
-    def __init__(self, i2c, addr=0x76, name=None):
-        self.i2c = i2c
+    def __init__(self, addr=0x76, name=None):
         self.addr = addr
         self.name = name or f"BME280@{hex(addr)}"
         self.dev = None
@@ -162,7 +139,12 @@ class BME280:
     def configure(self):
         if self.dev:
             return
-        self.dev = configure_bme280(self.i2c, self.addr)
+        try:
+            i2c.writeto(addr, b"")  # Dummy write to probe
+            self.dev = Adafruit_BME280.BME280(i2c, address=addr)
+        except OSError:
+            self.dev = None
+        return self.dev
 
     def input(self, channel, logical_name):
         # channel is one of 'temperature', 'humidity', 'pressure'
@@ -181,8 +163,7 @@ class BME280:
         return result
 
 class QTEncoder:
-    def __init__(self, i2c, addr=0x36, name=None):
-        self.i2c = i2c
+    def __init__(self, addr=0x36, name=None):
         self.addr = addr
         self.name = name or f"SeeSaw@{hex(addr)}"
         self.dev = None
@@ -192,9 +173,13 @@ class QTEncoder:
     def configure(self):
         if self.dev:
             return
-        self.dev = configure_seesaw(self.i2c, self.addr)
-        if self.dev:
+        try:
+            i2c.writeto(addr, b"")  # Dummy write to probe
+            self.dev = seesaw.Seesaw(i2c, address=addr)
             self.last_position = self.dev.encoder_position
+            return self.dev
+        except OSError:
+            return None
 
     def read_delta(self):
         if not self.dev:

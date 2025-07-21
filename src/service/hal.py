@@ -30,7 +30,7 @@ args = parser.parse_args()
 
 import service.devices
 service.devices.configure_mock(args.mock)
-from service.devices import Gpio, MCP23017, ADS1115, BME280, SeeSaw
+from service.devices import Gpio, MCP23017, ADS1115, BME280, QTEncoder
 
 from sdnotify import SystemdNotifier
 from collections import deque
@@ -51,7 +51,6 @@ DEBOUNCE_LEN = 3
 pub = None
 rep = None
 
-SEESAW_ADDRESS = 0x36
 debounce = {}           # name -> deque
 
 # RPi GPIO pins
@@ -73,7 +72,7 @@ gpio.output(16, "k8_dry_heat", 0)
 # state=> gpio.write()
 
 expanders = {}
-expanders[0x20] = MCP23017(name=f"MCP@{hex(0x20)}")
+expanders[0x20] = MCP23017(addr=0x20)
 expanders[0x20].input(0,'i_fp0')
 expanders[0x20].input(1,'i_fp1')
 expanders[0x20].input(2,'i_fp2')
@@ -85,7 +84,7 @@ expanders[0x20].output(1, 'o_fp1')
 expanders[0x20].output(2, 'o_fp2')
 expanders[0x20].output(3, 'o_fp3')
 
-expanders[0x21] = MCP23017(name=f"MCP@{hex(0x21)}")
+expanders[0x21] = MCP23017(addr=0x21)
 expanders[0x21].input(0, 'i_mask_encoder')
 expanders[0x21].input(1, 'i_axis_x')
 expanders[0x21].input(2, 'i_axis_z')
@@ -93,13 +92,13 @@ expanders[0x21].input(3, 'i_coarse')
 expanders[0x21].input(4, 'i_fine')
 expanders[0x21].output(0, 'o_mask_encoder')
 
-encoder = QTEncoder(name=f"SeeSaw@{hex(0x36)}")
+encoder = QTEncoder()
 
-adc = ADS1115(adc_dev, name="ADC")
+adc = ADS1115()
 adc.input(0, "i_air_supply")
 adc.input(1, "i_co2_supply")
 
-ambient = BME280(name=f"BME280@{hex(0x76)}")
+ambient = BME280()
 ambient.input('temperature', 'ambient_temp')
 ambient.input('humidity',    'ambient_humidity')
 ambient.input('pressure',    'ambient_pressure')
@@ -136,15 +135,7 @@ def shutdown_laser():
     for output in RPi_OUTPUT_PINS.keys():
         set_output(output, 0)
 
-# State tracking
-with state_lock:
-    current_state = {}
-    for pin_dict in (RPi_INPUT_PINS, RPi_OUTPUT_PINS, pinmap.MCP23017_PINS, pinmap.ADS1115_PINS):
-        for pin_name in pin_dict:
-            current_state[pin_name] = None
-    previous_state = copy.deepcopy(current_state)
-
-def configure():
+def configure_thread():
     global debounce, last_stable_state
     while not stop_event.is_set():
          # these return if configured - need to add loss detection
@@ -303,7 +294,7 @@ def main(argv=None):
     log.info("ZeroMQ replier bound to tcp://*:5557")
 
     threads = []
-    threads.append(threading.Thread(target=thread_wrapper, name="ConfigureThread", args=(configure,), daemon=True))
+    threads.append(threading.Thread(target=thread_wrapper, name="ConfigureThread", args=(configure_thread,), daemon=True))
     threads.append(threading.Thread(target=thread_wrapper, name="CommandHandler", args=(handle_commands,), daemon=True))
     threads.append(threading.Thread(target=thread_wrapper, name="40Hz", args=(monitor_40Hz,), daemon=True))
     threads.append(threading.Thread(target=thread_wrapper, name="60s", args=(monitor_60s,), daemon=True))
@@ -335,7 +326,7 @@ def main(argv=None):
 
     stop_event.set()  # Signal threads to stop
     time.sleep(0.1)  # Give threads a moment to exit
-    GPIO.cleanup()
+
     for thread in threads:
         thread.join()
 

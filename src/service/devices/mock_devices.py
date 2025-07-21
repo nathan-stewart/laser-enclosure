@@ -5,11 +5,11 @@ class MockGpioController:
         self._outputs = {}
         self._state = {}
 
-    def input(self, name, bcm, pullup=True):
+    def input(self, bcm, name, pullup=True):
         self._inputs[name] = bcm
         self._state[name] = False
 
-    def output(self, name, bcm, initial=False):
+    def output(self, bcm, name, initial=False):
         self._outputs[name] = bcm
         self._state[name] = initial
 
@@ -37,7 +37,7 @@ class MockGpioController:
 class MockMCP23017:
     DIR_OUT = 1
     DIR_IN = 0
-    def __init__(self, i2c, address):
+    def __init__(self, address):
         self.address = address
         self.directions = {}  # pin -> DIR_IN or DIR_OUT
         self.states = {}      # pin -> value
@@ -59,7 +59,7 @@ class MockMCP23017:
 
 
 class MockADS1115:
-    def __init__(self, i2c=None, address=0x48):
+    def __init__(self, address=0x48):
         self.address = address
         self.last_value = 1.23  # Simulated voltage
 
@@ -68,13 +68,13 @@ class MockADS1115:
 
 
 class MockBME280:
-    def __init__(self, i2c=None, address=0x76):
+    def __init__(self, address=0x76):
         self.temperature = 22.0
         self.humidity = 45.0
         self.pressure = 1013.25
 
 class MockQTEncoder:
-    def __init__(self, i2c=None, address=0x36):
+    def __init__(self, address=0x36):
         self.encoder_position = 0
 
     def simulate_turn(self, delta):
