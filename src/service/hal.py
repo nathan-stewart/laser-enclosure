@@ -52,9 +52,6 @@ pub = None
 rep = None
 
 debounce = {}           # name -> deque
-
-# RPi GPIO pins
-
 gpio = Gpio()
 gpio.input(22, "m7")
 gpio.input(27, "m8")
@@ -103,6 +100,21 @@ ambient.input('temperature', 'ambient_temp')
 ambient.input('humidity',    'ambient_humidity')
 ambient.input('pressure',    'ambient_pressure')
 
+filters = {}
+class EMAFilter:
+    def __init__(self, alpha=0.2):
+        self.alpha = alpha
+        self.filtered = None
+
+    def add(self, val):
+        if self.filtered is None:
+            self.filtered = val
+        else:
+            self.filtered = self.alpha * val + (1 - self.alpha) * self.filtered
+        return self.filtered
+filters['i_air_supply'] = EMAFilter(0.1)
+filters['i_co2_supply'] = EMAFilter(0.1)
+
 last_stable_state = {}  # name -> last confirmed value
 log = None
 last_heartbeat = time.time()
@@ -146,15 +158,45 @@ def configure_thread():
         stop_event.wait(wait_config)
 
 def read_gpio():
-    global debounce
-    for name, pin in RPi_INPUT_PINS.items():
-        try:
-            val = GPIO.input(pin)
+    for name in gpio.get_inputs():
+        val = gpio.read(name)
+        debounce[name].append(val)
+        if len(debounce[name]) == DEBOUNCE_LEN and all(v == debounce[name][0] for v in debounce[name]):
+            stable_val = debounce[name][0]
+            if last_stable_state.get(name) != stable_val:
+                last_stable_state[name] = stable_val
+                current_state[name] = stable_val
+
+def read_expanders():
+    for addr, expander in expanders.items():
+        for name in expander.get_inputs():
+            val = expander.read(name)
             debounce[name].append(val)
-        except Exception as e:
-            raise RuntimeError(f"GPIO read error on pin {name}: {e}")
+            if len(debounce[name]) == DEBOUNCE_LEN and all(v == debounce[name][0] for v in debounce[name]):
+                stable_val = debounce[name][0]
+                if last_stable_state.get(name) != stable_val:
+                    last_stable_state[name] = stable_val
+                    current_state[name] = stable_val
 
+def read_analog():
+    global filters
+    for name, channel in adc.get_inputs().items():
+        val = adc.read(channel)
+        if name in filters:
+            val = filters[name].add(val)
+        debounce[name].append(val)
+        if len(debounce[name]) == DEBOUNCE_LEN and all(v == debounce[name][0] for v in debounce[name]):
+            stable_val = debounce[name][0]
+            if last_stable_state.get(name) != stable_val:
+                last_stable_state[name] = stable_val
+                current_state[name] = stable_val
 
+def read_encoder():
+    global last_stable_state, current_state
+    delta = encoder.read_delta()
+    if delta != 0:
+        last_stable_state['encoder_delta'] = delta
+        current_state['encoder_delta'] = delta
 
 def monitor_40Hz():
     global current_state, previous_state, last_40Hz_poll
@@ -164,21 +206,9 @@ def monitor_40Hz():
                 last_40Hz_poll = time.time()
 
             read_gpio()
-            for pin, history in debounce.items():
-                if len(history) == DEBOUNCE_LEN and all(v == history[0] for v in history):
-                    if last_stable_state[pin] != history[0]:
-                        last_stable_state[pin] = history[0]
-                        current_state[pin] = history[0]
-
-            for address, exp in expanders.items():
-                for name, (pin, _) in exp.inputs.items():
-                    val = exp.dev.get_pin(pin).value
-                    debounce[name].append(val)
-
-            current_state.update(adc.read())
-
-            delta = encoder.read_delta()
-            current_state['encoder_delta'] = delta
+            read_expanders()
+            read_analog()
+            read_encoder()
 
             # if previous_state != current_state:
             publish_state()
