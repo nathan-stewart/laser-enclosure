@@ -158,9 +158,9 @@ def configure_thread():
         stop_event.wait(wait_config)
 
 def read_gpio():
-    for name in gpio.get_inputs():
-        val = gpio.read(name)
-        debounce[name].append(val)
+    values = gpio.read()
+    for name in values.keys():
+        debounce[name].append(values[name])
         if len(debounce[name]) == DEBOUNCE_LEN and all(v == debounce[name][0] for v in debounce[name]):
             stable_val = debounce[name][0]
             if last_stable_state.get(name) != stable_val:

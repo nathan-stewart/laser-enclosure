@@ -31,7 +31,9 @@ class RpiGpio:
         self._outputs[name] = bcm
         self._state[name] = initial
 
-    def read(self, name):
+    def read(self, name=None):
+        if name is None:
+            return {n: GPIO.input(pin) for n, pin in self._inputs.items()}
         if name not in self._inputs:
             raise ValueError(f"Input pin '{name}' not configured")
         return GPIO.input(self._inputs[name])
