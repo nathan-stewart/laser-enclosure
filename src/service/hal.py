@@ -100,21 +100,6 @@ ambient.input('temperature', 'ambient_temp')
 ambient.input('humidity',    'ambient_humidity')
 ambient.input('pressure',    'ambient_pressure')
 
-filters = {}
-class EMAFilter:
-    def __init__(self, alpha=0.2):
-        self.alpha = alpha
-        self.filtered = None
-
-    def add(self, val):
-        if self.filtered is None:
-            self.filtered = val
-        else:
-            self.filtered = self.alpha * val + (1 - self.alpha) * self.filtered
-        return self.filtered
-filters['i_air_supply'] = EMAFilter(0.1)
-filters['i_co2_supply'] = EMAFilter(0.1)
-
 log = None
 last_heartbeat = time.time()
 
@@ -156,7 +141,7 @@ def configure_thread():
         stop_event.wait(wait_config)
 
 def read_gpio():
-    values = gpio.read()
+    values = gpio.read_all()
 
 def read_expanders():
     for addr, expander in expanders.items():
