@@ -8,6 +8,7 @@ from adafruit_ads1x15.analog_in import AnalogIn
 import adafruit_ads1x15.ads1115
 import Adafruit_BME280
 from adafruit_seesaw import digitalio, rotaryio, seesaw
+from collections import deque
 
 i2c = busio.I2C(board.SCL, board.SDA)
 
@@ -17,12 +18,14 @@ class RpiGpio:
         self._inputs = {}
         self._outputs = {}
         self._state = {}
+        self.debounce = {}
 
     def __delete__(self):
         GPIO.cleanup()
 
     def input(self, bcm, name, pullup=True):
         GPIO.setup(bcm, GPIO.IN, pull_up_down=GPIO.PUD_UP if pullup else GPIO.PUD_DOWN)
+        self.debounce[name] = deque(maxlen=3)  # Using deque for efficient appending and popping
         self._inputs[name] = bcm
         self._state[name] = None
 
@@ -31,12 +34,21 @@ class RpiGpio:
         self._outputs[name] = bcm
         self._state[name] = initial
 
-    def read(self, name=None):
-        if name is None:
-            return {n: GPIO.input(pin) for n, pin in self._inputs.items()}
-        if name not in self._inputs:
-            raise ValueError(f"Input pin '{name}' not configured")
-        return GPIO.input(self._inputs[name])
+    def read_all(self):
+        for n in list(self._inputs.keys()):
+            if n not in self.debounce:
+                self.debounce[n] = []
+            self.debounce.append(GPIO.input(self._inputs[n]))
+
+        return {n: GPIO.input(pin) for n, pin in self._inputs.items()}
+        debounce[name].append(values[name])
+        if len(debounce[name]) == DEBOUNCE_LEN and all(v == debounce[name][0] for v in debounce[name]):
+            stable_val = debounce[name][0]
+            if last_stable_state.get(name) != stable_val:
+                last_stable_state[name] = stable_val
+                current_state[name] = stable_val
+
+        return 
 
     def write(self, name, value):
         if name not in self._outputs:
@@ -45,7 +57,7 @@ class RpiGpio:
         self._state[name] = bool(value)
 
     def configure(self):
-        """Simulate configuration, no-op in mock"""
+        # 
         pass
 
 class MCP23017:

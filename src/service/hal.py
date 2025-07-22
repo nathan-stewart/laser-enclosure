@@ -115,7 +115,6 @@ class EMAFilter:
 filters['i_air_supply'] = EMAFilter(0.1)
 filters['i_co2_supply'] = EMAFilter(0.1)
 
-last_stable_state = {}  # name -> last confirmed value
 log = None
 last_heartbeat = time.time()
 
@@ -148,7 +147,6 @@ def shutdown_laser():
         set_output(output, 0)
 
 def configure_thread():
-    global debounce, last_stable_state
     while not stop_event.is_set():
          # these return if configured - need to add loss detection
         for expander in expanders.values():
@@ -159,24 +157,11 @@ def configure_thread():
 
 def read_gpio():
     values = gpio.read()
-    for name in values.keys():
-        debounce[name].append(values[name])
-        if len(debounce[name]) == DEBOUNCE_LEN and all(v == debounce[name][0] for v in debounce[name]):
-            stable_val = debounce[name][0]
-            if last_stable_state.get(name) != stable_val:
-                last_stable_state[name] = stable_val
-                current_state[name] = stable_val
 
 def read_expanders():
     for addr, expander in expanders.items():
         for name in expander.get_inputs():
             val = expander.read(name)
-            debounce[name].append(val)
-            if len(debounce[name]) == DEBOUNCE_LEN and all(v == debounce[name][0] for v in debounce[name]):
-                stable_val = debounce[name][0]
-                if last_stable_state.get(name) != stable_val:
-                    last_stable_state[name] = stable_val
-                    current_state[name] = stable_val
 
 def read_analog():
     global filters
