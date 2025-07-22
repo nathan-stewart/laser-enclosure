@@ -120,12 +120,10 @@ class ADS1115:
     def configure(self):
         if not self.dev:
             try:
-                i2c.writeto(addr, b"")  # Dummy write to probe
+                i2c.writeto(self.addr, b"")  # Dummy write to probe
                 self.dev = adafruit_ads1x15.ADS1115(i2c, address=addr)
             except OSError:
                 self.dev = None
-
-def read_ads1115(dev, channel=0): return dev.read_voltage(channel)
 
 class BME280:
     def __init__(self, addr=0x76, name=None):
@@ -137,7 +135,7 @@ class BME280:
     def configure(self):
         if not self.dev:
             try:
-                i2c.writeto(addr, b"")  # Dummy write to probe
+                i2c.writeto(self.addr, b"")  # Dummy write to probe
                 self.dev = Adafruit_BME280.BME280(i2c, address=addr)
             except OSError:
                 self.dev = None
@@ -169,7 +167,7 @@ class QTEncoder:
     def configure(self):
         if not self.dev:
             try:
-                i2c.writeto(addr, b"")  # Dummy write to probe
+                i2c.writeto(self.addr, b"")  # Dummy write to probe
                 self.dev = seesaw.Seesaw(i2c, address=addr)
                 self.last_position = self.dev.encoder_position
             except OSError:
