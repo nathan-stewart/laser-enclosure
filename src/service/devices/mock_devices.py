@@ -34,6 +34,10 @@ class MockGpioController:
         self._outputs.clear()
         self._state.clear()
 
+    def configure(self):
+        """Simulate configuration, no-op in mock"""
+        pass
+
 class MockMCP23017:
     DIR_OUT = 1
     DIR_IN = 0
@@ -57,6 +61,9 @@ class MockMCP23017:
             raise RuntimeError(f"Pin {pin} not configured as input")
         return self.states.get(pin, False)
 
+    def configure(self):
+        """Simulate configuration, no-op in mock"""
+        pass
 
 class MockADS1115:
     def __init__(self, address=0x48):
@@ -66,6 +73,10 @@ class MockADS1115:
     def read_voltage(self, channel=0):
         return self.last_value
 
+    def configure(self):
+        """Simulate configuration, no-op in mock"""
+        pass
+
 
 class MockBME280:
     def __init__(self, address=0x76):
@@ -73,6 +84,9 @@ class MockBME280:
         self.humidity = 45.0
         self.pressure = 1013.25
 
+    def configure(self):
+        """Simulate configuration, no-op in mock"""
+        pass
 class MockQTEncoder:
     def __init__(self, address=0x36):
         self.encoder_position = 0
@@ -80,3 +94,22 @@ class MockQTEncoder:
     def simulate_turn(self, delta):
         self.encoder_position += delta
 
+    def configure(self):
+        """Simulate configuration, no-op in mock"""
+        pass
+
+class MockQTEncoder:
+    def __init__(self, addr=0x36, name=None):
+        self.last_position = 0
+        self.delta = 0
+
+    def configure(self):
+        pass
+
+    def read_delta(self):
+        delta = self.delta
+        self.last_position += delta
+        return delta
+
+    def simulate_turn(self, delta):
+        self.delta = delta

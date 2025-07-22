@@ -139,7 +139,7 @@ def configure_thread():
     global debounce, last_stable_state
     while not stop_event.is_set():
          # these return if configured - need to add loss detection
-        for expander in expanders.items():
+        for expander in expanders.values():
             expander.configure()
         adc.configure()
         ambient.configure()

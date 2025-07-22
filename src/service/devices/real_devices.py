@@ -42,6 +42,10 @@ class RpiGpio:
         GPIO.output(self._outputs[name], GPIO.HIGH if value else GPIO.LOW)
         self._state[name] = bool(value)
 
+    def configure(self):
+        """Simulate configuration, no-op in mock"""
+        pass
+
 class MCP23017:
     MAX_INPUTS = 8
     MAX_OUTPUTS = 8
@@ -68,24 +72,20 @@ class MCP23017:
         self.outputs[logical_name] = (pin, initial)
 
     def configure(self):
-        if self.dev:
-            return
-
-        try:
-            i2c.writeto(self.addr, b"")  # Dummy write to probe
-            self.dev = adafruit_mcp230xx.MCP23017(i2c, address=self.addr)
-        except OSError:
-            self.dev = None
-
-        if self.dev:
-            for name, (pin, pullup) in self.inputs.items():
-                p = self.dev.get_pin(pin)
-                p.direction = Direction.INPUT
-                p.pullup = pullup
-            for name, (pin, initial) in self.outputs.items():
-                p = self.dev.get_pin(pin)
-                p.direction = Direction.OUTPUT
-                p.value = 1 if initial else 0
+        if not self.dev:
+            try:
+                i2c.writeto(self.addr, b"")  # Dummy write to probe
+                self.dev = adafruit_mcp230xx.MCP23017(i2c, address=self.addr)
+                for name, (pin, pullup) in self.inputs.items():
+                    p = self.dev.get_pin(pin)
+                    p.direction = Direction.INPUT
+                    p.pullup = pullup
+                for name, (pin, initial) in self.outputs.items():
+                    p = self.dev.get_pin(pin)
+                    p.direction = Direction.OUTPUT
+                    p.value = 1 if initial else 0
+            except OSError:
+                self.dev = None
 
     def read_all(self):
         if not self.dev:
@@ -106,16 +106,6 @@ class ADS1115:
         self.inputs = {}  # logical_name -> channel
         self.dev = None
 
-    def configure(self):
-        if self.dev:
-            return
-        try:
-            i2c.writeto(addr, b"")  # Dummy write to probe
-            self.dev = adafruit_ads1x15.ADS1115(i2c, address=addr)
-        except OSError:
-            self.dev = None
-        return self.dev
-
     def input(self, channel, logical_name):
         self.inputs[logical_name] = channel
 
@@ -127,6 +117,14 @@ class ADS1115:
             for name, channel in self.inputs.items()
         }
 
+    def configure(self):
+        if not self.dev:
+            try:
+                i2c.writeto(addr, b"")  # Dummy write to probe
+                self.dev = adafruit_ads1x15.ADS1115(i2c, address=addr)
+            except OSError:
+                self.dev = None
+
 def read_ads1115(dev, channel=0): return dev.read_voltage(channel)
 
 class BME280:
@@ -137,14 +135,12 @@ class BME280:
         self.inputs = {}  # logical_name -> measurement_key ('temperature', 'humidity', 'pressure')
 
     def configure(self):
-        if self.dev:
-            return
-        try:
-            i2c.writeto(addr, b"")  # Dummy write to probe
-            self.dev = Adafruit_BME280.BME280(i2c, address=addr)
-        except OSError:
-            self.dev = None
-        return self.dev
+        if not self.dev:
+            try:
+                i2c.writeto(addr, b"")  # Dummy write to probe
+                self.dev = Adafruit_BME280.BME280(i2c, address=addr)
+            except OSError:
+                self.dev = None
 
     def input(self, channel, logical_name):
         # channel is one of 'temperature', 'humidity', 'pressure'
@@ -171,15 +167,13 @@ class QTEncoder:
         self.delta = 0
 
     def configure(self):
-        if self.dev:
-            return
-        try:
-            i2c.writeto(addr, b"")  # Dummy write to probe
-            self.dev = seesaw.Seesaw(i2c, address=addr)
-            self.last_position = self.dev.encoder_position
-            return self.dev
-        except OSError:
-            return None
+        if not self.dev:
+            try:
+                i2c.writeto(addr, b"")  # Dummy write to probe
+                self.dev = seesaw.Seesaw(i2c, address=addr)
+                self.last_position = self.dev.encoder_position
+            except OSError:
+                self.dev = None
 
     def read_delta(self):
         if not self.dev:
