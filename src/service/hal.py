@@ -51,7 +51,9 @@ DEBOUNCE_LEN = 3
 pub = None
 rep = None
 
-debounce = {}           # name -> deque
+current_state = {}
+previous_state = {}
+
 gpio = Gpio()
 gpio.input(22, "m7")
 gpio.input(27, "m8")
@@ -65,8 +67,6 @@ gpio.output(23, "k5_lpa",      0)
 gpio.output(18, "k6_dry_fan",  0)
 gpio.output(12, "k7_exhaust",  0)
 gpio.output(16, "k8_dry_heat", 0)
-# gpio.read() => state
-# state=> gpio.write()
 
 expanders = {}
 expanders[0x20] = MCP23017(addr=0x20)
@@ -141,31 +141,27 @@ def configure_thread():
         stop_event.wait(wait_config)
 
 def read_gpio():
-    print(gpio.read_all())
-    values = gpio.read_all()
+    global current_state
+    update = gpio.read()
+    for name in update.keys():
+        current_state[name] = update[name]
 
 def read_expanders():
     for addr, expander in expanders.items():
-        for name in expander.get_inputs():
-            val = expander.read(name)
+        update = expander.read()
+        for name in update.keys():
+            current_state[name] = update[name]
 
 def read_analog():
-    for name, channel in adc.get_inputs().items():
-        val = adc.read(channel)
-        if name in filters:
-            val = filters[name].add(val)
-        debounce[name].append(val)
-        if len(debounce[name]) == DEBOUNCE_LEN and all(v == debounce[name][0] for v in debounce[name]):
-            stable_val = debounce[name][0]
-            if last_stable_state.get(name) != stable_val:
-                last_stable_state[name] = stable_val
-                current_state[name] = stable_val
+    global current_state
+    update = adc.read().items()
+    for name in update.keys():
+        current_state[name] = update[name]
 
 def read_encoder():
-    global last_stable_state, current_state
+    global current_state
     delta = encoder.read_delta()
     if delta != 0:
-        last_stable_state['encoder_delta'] = delta
         current_state['encoder_delta'] = delta
 
 def monitor_40Hz():
@@ -179,10 +175,7 @@ def monitor_40Hz():
             read_expanders()
             read_analog()
             read_encoder()
-
-            # if previous_state != current_state:
             publish_state()
-            previous_state = copy.deepcopy(current_state)
 
         stop_event.wait(wait_40Hz)
 
@@ -202,8 +195,10 @@ def monitor_60s():
         stop_event.wait(wait_60s)
 
 def publish_state():
-    global current_state
+    global previous_state
     pub.send_multipart([b'hal', json.dumps({"state": current_state}).encode()])
+    previous_state = copy.deepcopy(current_state)
+
 
 def set_output(pin, value):
     """Set the state of an output pin."""

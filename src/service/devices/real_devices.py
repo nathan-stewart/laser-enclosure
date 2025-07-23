@@ -46,7 +46,7 @@ class RpiGpio:
         GPIO.setup(bcm, GPIO.OUT, initial=GPIO.HIGH if initial else GPIO.LOW)
         self.outputs[name] = bcm
 
-    def read_all(self):
+    def read(self):
         result = {}
         for name in list(self.inputs.keys()):
             self.debounce[name].append(GPIO.input(self.inputs[name]))
@@ -112,7 +112,7 @@ class MCP23017:
             except OSError:
                 self.dev = None
 
-    def read_all(self):
+    def read(self):
         if not self.dev:
             return {name: None for name in self.inputs}
 
@@ -145,15 +145,16 @@ class ADS1115:
         self.inputs[logical_name] = channel
         self.filters[logical_name] = EMAFilter(0.1)
 
+
     def read(self):
         if not self.dev:
             return {name: None for name in self.inputs}
+        result = {}
         for name, channel in self.inputs.items():
-            self.filters[channel].add(self.dev.read_voltage(channel))
-        return {
-                name: self.dev.read_voltage(channel)
-
-        }
+            raw = self.dev.read_voltage(channel)
+            filtered = self.filters[name].add(raw)
+            result[name] = filtered
+        return result
 
     def configure(self):
         if not self.dev:
