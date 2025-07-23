@@ -27,9 +27,8 @@ class EMAFilter:
 class RpiGpio:
     def __init__(self):
         GPIO.setmode(GPIO.BCM)
-        self._inputs = {}
-        self._outputs = {}
-        self._state = {}
+        self.inputs = {}
+        self.outputs = {}
         self.debounce = {}
         self.last_stable = {}
 
@@ -39,28 +38,27 @@ class RpiGpio:
     def input(self, bcm, name, pullup=True):
         GPIO.setup(bcm, GPIO.IN, pull_up_down=GPIO.PUD_UP if pullup else GPIO.PUD_DOWN)
         self.debounce[name] = deque(maxlen=3)  # Using deque for efficient appending and popping
-        self._inputs[name] = bcm
-        self._state[name] = None
-        self.debounce[bcm] = deque(maxlen=3)  # Initialize debounce queue for this input
+        self.inputs[name] = bcm
+        self.debounce[name] = deque(maxlen=3)  # Initialize debounce queue for this input
+        self.last_stable[name] = None
 
     def output(self, bcm, name, initial=False):
         GPIO.setup(bcm, GPIO.OUT, initial=GPIO.HIGH if initial else GPIO.LOW)
-        self._outputs[name] = bcm
-        self._state[name] = initial
+        self.outputs[name] = bcm
 
     def read_all(self):
         result = {}
-        for pin_name in list(self._inputs.keys()):
-            self.debounce[pin_name].append(GPIO.input(self._inputs[pin_name]))
-            if all(v == self.debounce[pin_name][0] for v in self.debounce[pin_name]):
-                self.last_stable = self.debounce[pin_name][0]
-        result[self._inputs[pin_name]] = self.last_stable[pin_name]
+        for name in list(self.inputs.keys()):
+            self.debounce[name].append(GPIO.input(self.inputs[name]))
+            if all(v == self.debounce[name][0] for v in self.debounce[name]):
+                self.last_stable[name] = self.debounce[name][0]
+        result[name] = self.last_stable[name]
+        return result
 
     def write(self, name, value):
-        if name not in self._outputs:
+        if name not in self.outputs:
             raise ValueError(f"Output pin '{name}' not configured")
-        GPIO.output(self._outputs[name], GPIO.HIGH if value else GPIO.LOW)
-        self._state[name] = bool(value)
+        GPIO.output(self.outputs[name], GPIO.HIGH if value else GPIO.LOW)
 
     def configure(self):
         #
@@ -145,7 +143,7 @@ class ADS1115:
 
     def input(self, channel, logical_name):
         self.inputs[logical_name] = channel
-        self.filter[logical_name] = EMAFilter(0.1)
+        self.filters[logical_name] = EMAFilter(0.1)
 
     def read(self):
         if not self.dev:

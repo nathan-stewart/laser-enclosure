@@ -141,6 +141,7 @@ def configure_thread():
         stop_event.wait(wait_config)
 
 def read_gpio():
+    print(gpio.read_all())
     values = gpio.read_all()
 
 def read_expanders():
@@ -149,7 +150,6 @@ def read_expanders():
             val = expander.read(name)
 
 def read_analog():
-    global filters
     for name, channel in adc.get_inputs().items():
         val = adc.read(channel)
         if name in filters:
