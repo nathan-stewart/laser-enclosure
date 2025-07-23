@@ -148,14 +148,17 @@ def monitor_40Hz():
                 last_40Hz_poll = time.time()
 
             for name, value in gpio.read():
-                current_state[name] = value
+                if name:
+                    current_state[name] = value
 
             for expander in expanders.values():
                 for name, value in expander.read():
-                    current_state[name] = value
+                    if name:
+                        current_state[name] = value
 
             for name, value in adc.read():
-                current_state[name] = value
+                if name:
+                    current_state[name] = value
 
             current_state['encoder_delta'] = encoder.read_delta()
 

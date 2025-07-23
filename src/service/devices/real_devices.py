@@ -113,21 +113,22 @@ class MCP23017:
                 self.dev = None
 
     def read(self):
-        if not self.dev:
-            yield None, None
 
         print(self.dev)
         print(self.inputs)
         print(self.outputs)
         print(self.debounce)
         print(self.last_stable)
+        if not self.dev:
+            for name in self.inputs:
+                yield None, None
+        else:
+            for name, (pin, _) in self.inputs.items():
+                self.debounce[pin].append(self.dev.get_pin(pin).value)
 
-        for name, (pin, _) in self.inputs.items():
-            self.debounce[pin].append(self.dev.get_pin(pin).value)
-
-            if len(self.debounce[pin]) == 3 and all(v == self.debounce[pin][0] for v in self.debounce[pin]):
-                self.last_stable[pin] = self.debounce[pin][0]
-            yield name, self.last_stable[name]
+                if len(self.debounce[pin]) == 3 and all(v == self.debounce[pin][0] for v in self.debounce[pin]):
+                    self.last_stable[pin] = self.debounce[pin][0]
+                yield name, self.last_stable[name]
 
     def write(self, logical_name, value):
         if self.dev and logical_name in self.outputs:
@@ -149,10 +150,11 @@ class ADS1115:
 
     def read(self):
         if not self.dev:
-            return {name: None for name in self.inputs}
-        for name, channel in self.inputs.items():
-            raw = self.dev.read_voltage(channel)
-            yield name, self.filters[name].add(raw)
+            for name in self.inputs:
+                yield name, None
+        else:
+            for name, channel in self.inputs.items():
+                yield name, self.filters[name].add(self.dev.read_voltage(channel))
 
     def configure(self):
         if not self.dev:
