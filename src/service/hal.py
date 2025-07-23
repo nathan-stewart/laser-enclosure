@@ -140,30 +140,6 @@ def configure_thread():
         ambient.configure()
         stop_event.wait(wait_config)
 
-def read_gpio():
-    global current_state
-    update = gpio.read()
-    for name in update.keys():
-        current_state[name] = update[name]
-
-def read_expanders():
-    for addr, expander in expanders.items():
-        update = expander.read()
-        for name in update.keys():
-            current_state[name] = update[name]
-
-def read_analog():
-    global current_state
-    update = adc.read().items()
-    for name in update.keys():
-        current_state[name] = update[name]
-
-def read_encoder():
-    global current_state
-    delta = encoder.read_delta()
-    if delta != 0:
-        current_state['encoder_delta'] = delta
-
 def monitor_40Hz():
     global current_state, previous_state, last_40Hz_poll
     while not stop_event.is_set():
@@ -171,10 +147,18 @@ def monitor_40Hz():
             with heartbeat_lock:
                 last_40Hz_poll = time.time()
 
-            read_gpio()
-            read_expanders()
-            read_analog()
-            read_encoder()
+            for name, value in gpio.read():
+                current_state[name] = value
+
+            for addr, expander in expanders.items():
+                for name, value in expander.read():
+                    current_state[name] = value
+
+            for name, value in adc.read():
+                current_state[name] = value
+
+            current_state['encoder_delta'] = encoder.read_delta()
+
             publish_state()
 
         stop_event.wait(wait_40Hz)
