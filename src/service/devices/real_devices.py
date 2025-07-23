@@ -52,8 +52,8 @@ class RpiGpio:
             self.debounce[name].append(GPIO.input(self.inputs[name]))
             if all(v == self.debounce[name][0] for v in self.debounce[name]):
                 self.last_stable[name] = self.debounce[name][0]
-        result[name] = self.last_stable[name]
-        return result
+        yield name, self.last_stable[name]
+
 
     def write(self, name, value):
         if name not in self.outputs:
@@ -114,19 +114,20 @@ class MCP23017:
 
     def read(self):
         if not self.dev:
-            return {name: None for name in self.inputs}
+            yield None, None
 
-        result = {}
+        print(self.dev)
+        print(self.inputs)
+        print(self.outputs)
+        print(self.debounce)
+        print(self.last_stable)
+
         for name, (pin, _) in self.inputs.items():
-            value = self.dev.get_pin(pin).value
-            self.debounce[pin].append(value)
+            self.debounce[pin].append(self.dev.get_pin(pin).value)
 
             if len(self.debounce[pin]) == 3 and all(v == self.debounce[pin][0] for v in self.debounce[pin]):
                 self.last_stable[pin] = self.debounce[pin][0]
-
-            result[name] = self.last_stable[pin]
-
-        return result
+            yield name, self.last_stable[name]
 
     def write(self, logical_name, value):
         if self.dev and logical_name in self.outputs:
@@ -149,12 +150,9 @@ class ADS1115:
     def read(self):
         if not self.dev:
             return {name: None for name in self.inputs}
-        result = {}
         for name, channel in self.inputs.items():
             raw = self.dev.read_voltage(channel)
-            filtered = self.filters[name].add(raw)
-            result[name] = filtered
-        return result
+            yield name, self.filters[name].add(raw)
 
     def configure(self):
         if not self.dev:
@@ -185,15 +183,11 @@ class BME280:
 
     def read(self):
         if not self.dev:
-            return {name: None for name in self.inputs}
+            for name in self.inputs:
+                yield name, None
 
-        result = {}
-        for name, attr in self.inputs.items():
-            try:
-                result[name] = getattr(self.dev, attr)
-            except AttributeError:
-                result[name] = None
-        return result
+        for name, channel in self.inputs.items():
+            yield name, getattr(self.dev, channel)
 
 class QTEncoder:
     def __init__(self, addr=0x36, name=None):
@@ -214,8 +208,8 @@ class QTEncoder:
 
     def read_delta(self):
         if not self.dev:
-            return 0
+            yield 0
         current = self.dev.encoder_position
         delta = current - self.last_position
         self.last_position = current
-        return delta
+        yield delta

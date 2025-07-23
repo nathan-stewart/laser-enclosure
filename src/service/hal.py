@@ -150,7 +150,7 @@ def monitor_40Hz():
             for name, value in gpio.read():
                 current_state[name] = value
 
-            for addr, expander in expanders.items():
+            for expander in expanders.values():
                 for name, value in expander.read():
                     current_state[name] = value
 
@@ -173,7 +173,8 @@ def monitor_60s():
                 last_60s_poll = time.time()
                 if time.time() - last_60s_poll > TIMEOUT_60s:
                     raise RuntimeError("Input read timeout")
-                current_state['ambient_temp'], current_state['ambient_humidity'], current_state['ambient_pressure'] = ambient.read()
+                for name, value in ambient.read():
+                    current_state[name] = value
 
             log.debug(f"Current state: {json.dumps(current_state, indent=2)}")
         stop_event.wait(wait_60s)
