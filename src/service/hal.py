@@ -194,31 +194,17 @@ def set_output(name, value):
     """Set the state of an output pin."""
     global current_state, rep, mcp23017_devices
 
-    try:
-        with state_lock:
-            if name in gpio.outputs:
-                gpio.write(name, value)
+    with state_lock:
+        if name in gpio.outputs:
+            gpio.write(name, value)
+            return True
 
-            else:
-                for expander in expanders.values():
-                    if name in expander.outputs:
-                        expander.write(name, value)
-                        break
-
-            rep.send_json({
-                "status": "ok",
-                "name": name,
-                "value": value
-            })
-
-    except Exception as e:
-        log.error(f"set_output error on '{name}': {e}")
-        rep.send_json({
-            "status": "error",
-            "name": name,
-            "value": value,
-            "error": str(e)
-        })
+        else:
+            for expander in expanders.values():
+                if name in expander.outputs:
+                    expander.write(name, value)
+                    return True
+    return False
 
 def handle_commands():
     global current_state, mcp23017_devices, rep
@@ -227,7 +213,8 @@ def handle_commands():
             msg = rep.recv_json()
             cmd = msg.get("cmd")
             if cmd == "set":
-                set_output(msg["pin"], msg["state"])
+                if set_output(msg["pin"], msg["state"]):
+                    rep.send_json({"status": "ok", "pin": msg["pin"], "state": msg["state"]})
             else:
                 rep.send_json({"status": "unsupported command"})
         except Exception as e:
