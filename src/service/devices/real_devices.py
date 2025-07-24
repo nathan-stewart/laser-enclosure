@@ -37,9 +37,8 @@ class RpiGpio:
 
     def input(self, bcm, name, pullup=True):
         GPIO.setup(bcm, GPIO.IN, pull_up_down=GPIO.PUD_UP if pullup else GPIO.PUD_DOWN)
-        self.debounce[name] = deque(maxlen=3)  # Using deque for efficient appending and popping
+        self.debounce[name] = deque(maxlen=3)
         self.inputs[name] = bcm
-        self.debounce[name] = deque(maxlen=3)  # Initialize debounce queue for this input
         self.last_stable[name] = None
 
     def output(self, bcm, name, initial=False):
@@ -61,7 +60,6 @@ class RpiGpio:
         GPIO.output(self.outputs[name], GPIO.HIGH if value else GPIO.LOW)
 
     def configure(self):
-        #
         pass
 
 

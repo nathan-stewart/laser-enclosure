@@ -160,8 +160,7 @@ def monitor_40Hz():
                 if name:
                     current_state[name] = value
 
-            current_state['encoder_delta'] = encoder.read_delta()
-
+            current_state.update(dict(encoder.read_delta()))
             publish_state()
 
         stop_event.wait(wait_40Hz)
@@ -176,8 +175,7 @@ def monitor_60s():
                 last_60s_poll = time.time()
                 if time.time() - last_60s_poll > TIMEOUT_60s:
                     raise RuntimeError("Input read timeout")
-                for name, value in ambient.read():
-                    current_state[name] = value
+                current_state.update(dict(ambient.read()))
 
             log.debug(f"Current state: {json.dumps(current_state, indent=2)}")
         stop_event.wait(wait_60s)
