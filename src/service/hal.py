@@ -281,8 +281,8 @@ def main(argv=None):
     threads.append(threading.Thread(target=thread_wrapper, name="CommandHandler", args=(handle_commands,), daemon=True))
     threads.append(threading.Thread(target=thread_wrapper, name="40Hz", args=(monitor_40Hz,), daemon=True))
     threads.append(threading.Thread(target=thread_wrapper, name="60s", args=(monitor_60s,), daemon=True))
-    threads.append(threading.Thread(target=thread_wrapper, name="HeartbeatListener", args=(control_heartbeat_listener), daemon=True))
-    threads.append(threading.Thread(target=thread_wrapper, name="HeartbeatMonitor", args=(monitor_control_heartbeat), daemon=True))
+    threads.append(threading.Thread(target=thread_wrapper, name="HeartbeatListener", args=(control_heartbeat_listener,), daemon=True))
+    threads.append(threading.Thread(target=thread_wrapper, name="HeartbeatMonitor", args=(monitor_control_heartbeat,), daemon=True))
 
     threads[0].start()
     for thread in threads[1:]:

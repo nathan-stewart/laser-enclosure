@@ -113,12 +113,6 @@ class MCP23017:
                 self.dev = None
 
     def read(self):
-
-        print(self.dev)
-        print(self.inputs)
-        print(self.outputs)
-        print(self.debounce)
-        print(self.last_stable)
         if not self.dev:
             for name in self.inputs:
                 yield None, None
@@ -185,11 +179,12 @@ class BME280:
 
     def read(self):
         if not self.dev:
-            for name in self.inputs:
+            for name in self.inputs.keys():
                 yield name, None
+            return
 
-        for name, channel in self.inputs.items():
-            yield name, getattr(self.dev, channel)
+        for name in self.inputs.keys():
+            yield name, getattr(self.dev, name)
 
 class QTEncoder:
     def __init__(self, addr=0x36, name=None):
