@@ -7,7 +7,6 @@ import logging
 import math
 import zmq, json, time, threading
 sys.path.insert(0, os.path.dirname(__file__))
-import pinmap
 import threading
 
 state_lock = threading.Lock()
@@ -26,14 +25,14 @@ last_activity = time.time()
 last_backlight_state = None
 
 RULES = {
-    "o_k1_laser"  : lambda i_btn_estop, i_btn_fire : not (i_btn_estop or i_btn_fire),
-    "o_k2_hpa"    : lambda i_btn_estop, i_m7 : not i_btn_estop and i_m7,
-    "o_k3_fire"   : lambda i_btn_fire : i_btn_fire,
-    "o_k5_lpa"    : lambda i_btn_estop, i_m8 : not i_btn_estop and i_m8,
-    "o_k7_exhaust": lambda i_btn_estop, i_m8 : not i_btn_estop and i_m8,
-    # "o_k4_light":    # lights are software button controlled at application layer
-    # "o_k6_dry_fan":  # dehumidifier fan is controlled by dewpoint check
-    # "o_k8_dry_heat": # dehumidifier heat is controlled by dewpoint check
+    "o_k1_laser"    : lambda i_btn_estop, i_btn_fire : not (i_btn_estop or i_btn_fire),
+    "o_k2_hpa"      : lambda i_btn_estop, i_m7 : not i_btn_estop and i_m7,
+    "o_k3_fire"     : lambda i_btn_fire : i_btn_fire,
+    "o_k5_lpa"      : lambda i_btn_estop, i_m8 : not i_btn_estop and i_m8,
+    "o_k7_exhaust"  : lambda i_btn_estop, i_m8 : not i_btn_estop and i_m8,
+    "o_k4_light"    : lambda _: None, # Handled in application
+    "o_k6_dry_fan"  : lambda _: None, # Handled in dewpoint check thread
+    "o_k8_dry_heat" : lambda _: None, # Handled in dewpoint check thread
 }
 
 def start_heartbeat():
@@ -55,9 +54,9 @@ def dewpoint_check():
 
     while not stop_event.is_set():
         try:
-            if "i_airtemp" in state_hal and "i_humidity" in state_hal:
-                temperature = state_hal["i_airtemp"]
-                humidity = state_hal["i_humidity"]
+            if "i_ambient_temp" in state_hal and "i_ambient_humidity" in state_hal:
+                temperature = state_hal["i_ambient_temp"]
+                humidity = state_hal["i_ambient_humidity"]
                 if isinstance(temperature, (int,float)) and isinstance(humidity, (int,float)):
                     dewpoint = dew_point_c(temperature, humidity)
                     delta = dewpoint - temperature

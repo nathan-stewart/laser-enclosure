@@ -55,18 +55,18 @@ current_state = {}
 previous_state = {}
 
 gpio = Gpio()
-gpio.input(22, "m7")
-gpio.input(27, "m8")
-gpio.input(17, "lid")
+gpio.input(22, "i_m7")
+gpio.input(27, "i_m8")
+gpio.input(17, "i_lid")
 
-gpio.output(7,  "k1_laser",    0)
-gpio.output(8,  "k2_hpa",      0)
-gpio.output(25, "k3_fire",     0)
-gpio.output(24, "k4_light",    0)
-gpio.output(23, "k5_lpa",      0)
-gpio.output(18, "k6_dry_fan",  0)
-gpio.output(12, "k7_exhaust",  0)
-gpio.output(16, "k8_dry_heat", 0)
+gpio.output(7,  "o_k1_laser",    0)
+gpio.output(8,  "o_k2_hpa",      0)
+gpio.output(25, "o_k3_fire",     0)
+gpio.output(24, "o_k4_light",    0)
+gpio.output(23, "o_k5_lpa",      0)
+gpio.output(18, "o_k6_dry_fan",  0)
+gpio.output(12, "o_k7_exhaust",  0)
+gpio.output(16, "o_k8_dry_heat", 0)
 for name in gpio.outputs.keys():
     current_state[name] = 0
 
@@ -98,9 +98,9 @@ adc.input(0, "i_air_supply")
 adc.input(1, "i_co2_supply")
 
 ambient = BME280()
-ambient.input('temperature', 'ambient_temp')
-ambient.input('humidity',    'ambient_humidity')
-ambient.input('pressure',    'ambient_pressure')
+ambient.input('temperature', 'i_ambient_temp')
+ambient.input('humidity',    'i_ambient_humidity')
+ambient.input('pressure',    'i_ambient_pressure')
 
 log = None
 last_heartbeat = time.time()
