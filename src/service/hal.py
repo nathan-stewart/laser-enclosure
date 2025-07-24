@@ -33,7 +33,7 @@ service.devices.configure_mock(args.mock)
 from service.devices import Gpio, MCP23017, ADS1115, BME280, QTEncoder
 
 from sdnotify import SystemdNotifier
-from collections import deque
+notifier = SystemdNotifier()
 
 wait_40Hz = 1.0 / 40.0
 wait_60s = 60.0
@@ -141,7 +141,7 @@ def configure_thread():
         stop_event.wait(wait_config)
 
 def monitor_40Hz():
-    global current_state, previous_state, last_40Hz_poll
+    global current_state, last_40Hz_poll
     while not stop_event.is_set():
         with state_lock:
             with heartbeat_lock:
@@ -160,11 +160,11 @@ def monitor_40Hz():
                 if name:
                     current_state[name] = value
 
-            current_state.update(dict(encoder.read_delta()))
+            for name, value in encoder.read_delta():
+                current_state[name] = value
+
             publish_state()
-
         stop_event.wait(wait_40Hz)
-
 
 def monitor_60s():
     """Monitor environment and publish state changes."""
@@ -175,7 +175,9 @@ def monitor_60s():
                 last_60s_poll = time.time()
                 if time.time() - last_60s_poll > TIMEOUT_60s:
                     raise RuntimeError("Input read timeout")
-                current_state.update(dict(ambient.read()))
+                for name, value in ambient.read():
+                    if name:
+                        current_state[name] = value
 
             log.debug(f"Current state: {json.dumps(current_state, indent=2)}")
         stop_event.wait(wait_60s)

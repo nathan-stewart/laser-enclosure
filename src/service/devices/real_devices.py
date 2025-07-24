@@ -202,9 +202,11 @@ class QTEncoder:
                 self.dev = None
 
     def read_delta(self):
+        parameter = "encoder_delta"
         if not self.dev:
-            yield 0
+            yield parameter, 0
+            return
         current = self.dev.encoder_position
         delta = current - self.last_position
         self.last_position = current
-        yield delta
+        yield parameter, delta
