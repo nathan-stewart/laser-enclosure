@@ -58,6 +58,8 @@ gpio = Gpio()
 gpio.input(22, "i_m7")
 gpio.input(27, "i_m8")
 gpio.input(17, "i_lid")
+for name in gpio.input.keys():
+    current_state[name] = 0
 
 gpio.output(7,  "o_k1_laser",    0)
 gpio.output(8,  "o_k2_hpa",      0)
@@ -91,16 +93,28 @@ expanders[0x21].input(3, 'i_coarse')
 expanders[0x21].input(4, 'i_fine')
 expanders[0x21].output(0, 'o_mask_encoder')
 
+for expander in expanders:
+    for name in expander.inputs.keys():
+        current_state[name] = 0
+    for name in expander.outputs.keys():
+        current_state[name] = 0
+
 encoder = QTEncoder()
+name, delta = encoder.read_delta()
+current_state[name] = 0
 
 adc = ADS1115()
 adc.input(0, "i_air_supply")
 adc.input(1, "i_co2_supply")
+for name in adc.inputs.keys():
+    current_state[name] = 0
 
 ambient = BME280()
 ambient.input('temperature', 'i_ambient_temp')
 ambient.input('humidity',    'i_ambient_humidity')
 ambient.input('pressure',    'i_ambient_pressure')
+for name in ambient.inputs.keys():
+    current_state[name] = 0
 
 log = None
 last_heartbeat = time.time()

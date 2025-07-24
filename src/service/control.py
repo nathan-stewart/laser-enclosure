@@ -30,9 +30,9 @@ RULES = {
     "o_k3_fire"     : lambda i_btn_fire : i_btn_fire,
     "o_k5_lpa"      : lambda i_btn_estop, i_m8 : not i_btn_estop and i_m8,
     "o_k7_exhaust"  : lambda i_btn_estop, i_m8 : not i_btn_estop and i_m8,
-    "o_k4_light"    : lambda _: None, # Handled in application
-    "o_k6_dry_fan"  : lambda _: None, # Handled in dewpoint check thread
-    "o_k8_dry_heat" : lambda _: None, # Handled in dewpoint check thread
+    "o_k4_light"    : lambda : None, # Handled in application
+    "o_k6_dry_fan"  : lambda : None, # Handled in dewpoint check thread
+    "o_k8_dry_heat" : lambda : None, # Handled in dewpoint check thread
 }
 
 def start_heartbeat():
