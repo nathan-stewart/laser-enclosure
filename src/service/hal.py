@@ -128,7 +128,7 @@ def monitor_control_heartbeat():
 
 def shutdown_laser():
     print("Laser power disabled due to control heartbeat loss.")
-    for output in RPi_OUTPUT_PINS.keys():
+    for output in gpio.outputs:
         set_output(output, 0)
 
 def configure_thread():
@@ -188,44 +188,35 @@ def publish_state():
     previous_state = copy.deepcopy(current_state)
 
 
-def set_output(pin, value):
+def set_output(name, value):
     """Set the state of an output pin."""
     global current_state, rep, mcp23017_devices
 
     try:
         with state_lock:
-            if pin in RPi_OUTPUT_PINS:
-                # Set RPi GPIO pin
-                GPIO.output(RPi_OUTPUT_PINS[pin], GPIO.HIGH if value else GPIO.LOW)
-                current_state[pin] = GPIO.input(RPi_OUTPUT_PINS[pin])
-                if current_state[pin] != (1 if value else 0):
-                    raise RuntimeError(f"Failed to set RPi output pin {pin} to {value}")
+            if name not in current_state:
+                raise ValueError(f"Output '{name}' not configured")
 
-            elif pin in MCP23017_PINS:
-                # Set MCP23017 pin
-                addr, mcp_pin = MCP23017_PINS[pin]
-                mcp = mcp23017_devices.get(addr)
-                if not mcp:
-                    raise RuntimeError(f"MCP23017 at 0x{addr:02X} not available")
-
-                mcp.setup(mcp_pin, mcp.OUT)
-                mcp.output(mcp_pin, 1 if value else 0)
-                current_state[pin] = 1 if value else 0
+            if name in gpio.outputs:
+                gpio.write(name, value)
 
             else:
-                raise ValueError(f"Unknown pin: {pin}")
+                for expander in expanders.values():
+                    if name in expander.outputs:
+                        expander.write(name, value)
+                        break
 
             rep.send_json({
                 "status": "ok",
-                "pin": pin,
+                "name": name,
                 "value": value
             })
 
     except Exception as e:
-        log.error(f"set_output error on pin '{pin}': {e}")
+        log.error(f"set_output error on '{name}': {e}")
         rep.send_json({
             "status": "error",
-            "pin": pin,
+            "name": name,
             "value": value,
             "error": str(e)
         })
