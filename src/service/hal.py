@@ -67,6 +67,8 @@ gpio.output(23, "k5_lpa",      0)
 gpio.output(18, "k6_dry_fan",  0)
 gpio.output(12, "k7_exhaust",  0)
 gpio.output(16, "k8_dry_heat", 0)
+for name in gpio.outputs.keys():
+    current_state[name] = 0
 
 expanders = {}
 expanders[0x20] = MCP23017(addr=0x20)
@@ -121,13 +123,13 @@ def monitor_control_heartbeat():
     global last_heartbeat
     while True:
         if time.time() - last_heartbeat > 2:
-            print("WARNING: No heartbeat from control process. Taking emergency action.")
+            log.warning("WARNING: No heartbeat from control process. Taking emergency action.")
             # e.g., shut off laser GPIO
             shutdown_laser()
         time.sleep(1)
 
 def shutdown_laser():
-    print("Laser power disabled due to control heartbeat loss.")
+    log.warning("Laser power disabled due to control heartbeat loss.")
     for output in gpio.outputs:
         set_output(output, 0)
 
@@ -194,9 +196,6 @@ def set_output(name, value):
 
     try:
         with state_lock:
-            if name not in current_state:
-                raise ValueError(f"Output '{name}' not configured")
-
             if name in gpio.outputs:
                 gpio.write(name, value)
 
@@ -266,6 +265,7 @@ def main(argv=None):
     rep = ctx.socket(zmq.REP)
     rep.bind("tcp://*:5557")
     log.info("ZeroMQ replier bound to tcp://*:5557")
+
 
     threads = []
     threads.append(threading.Thread(target=thread_wrapper, name="ConfigureThread", args=(configure_thread,), daemon=True))
