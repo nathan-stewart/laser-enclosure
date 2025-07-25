@@ -8,6 +8,7 @@ import math
 import zmq, json, time, threading
 sys.path.insert(0, os.path.dirname(__file__))
 import threading
+import subprocess
 
 state_lock = threading.Lock()
 stop_event = threading.Event()
@@ -16,9 +17,6 @@ log = None
 pub = None
 sub = None
 
-BACKLIGHT_PATH = "/sys/class/backlight/rpi_backlight/brightness"
-BACKLIGHT_FULL = 255
-BACKLIGHT_DIM = 20
 IDLE_TIMEOUT = 5 * 60  # seconds
 
 last_activity = time.time()
@@ -129,12 +127,13 @@ def hal_listener():
             apply_rules()
             log.debug(f"HAL State Updated: {state_hal}")
 
-def set_backlight(level):
+
+def set_backlight(state: bool):
+    cmd = ["vcgencmd", "display_power", "1" if state else "0"]
     try:
-        with open(BACKLIGHT_PATH, "w") as f:
-            f.write(str(level))
-    except Exception as e:
-        log.warning(f"Could not set backlight: {e}")
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError as e:
+        log.warning(f"Failed to set display power: {e}")
 
 def backlight_monitor():
     global last_backlight_state
@@ -143,7 +142,7 @@ def backlight_monitor():
         idle = (now - last_activity) > IDLE_TIMEOUT
         not_logged_in = len(active_users()) == 0
         log.debug(f"HAL Watcher - idle: {idle}, not_logged_in={not_logged_in}")
-        desired = BACKLIGHT_DIM if (idle and not_logged_in) else BACKLIGHT_FULL
+        desired = False if (idle and not_logged_in) else True
         if desired != last_backlight_state:
             set_backlight(desired)
             last_backlight_state = desired
