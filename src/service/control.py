@@ -20,7 +20,7 @@ sub = None
 IDLE_TIMEOUT = 5 * 60  # seconds
 
 last_activity = time.time()
-last_backlight_state = None
+last_display_state = None
 
 RULES = {
     "o_k1_laser"    : lambda i_btn_estop, i_btn_fire : not (i_btn_estop or i_btn_fire),
@@ -127,25 +127,27 @@ def hal_listener():
             apply_rules()
             log.debug(f"HAL State Updated: {state_hal}")
 
-
-def set_backlight(state: bool):
-    cmd = ["vcgencmd", "display_power", "1" if state else "0"]
+def set_display_power(on: bool):
+    env = os.environ.copy()
+    env["DISPLAY"] = ":0"
+    env["XAUTHORITY"] = "/home/kiosk/.Xauthority"  # Adjust if different
+    cmd = ["xset", "dpms", "force", "on" if on else "off"]
     try:
-        subprocess.run(cmd, check=True)
+        subprocess.run(cmd, env=env, check=True)
     except subprocess.CalledProcessError as e:
-        log.warning(f"Failed to set display power: {e}")
+        print(f"Failed to set display power: {e}")
 
 def backlight_monitor():
-    global last_backlight_state
+    global last_display_state
     while not stop_event.is_set():
         now = time.time()
         idle = (now - last_activity) > IDLE_TIMEOUT
         not_logged_in = len(active_users()) == 0
         log.debug(f"HAL Watcher - idle: {idle}, not_logged_in={not_logged_in}")
-        desired = False if (idle and not_logged_in) else True
-        if desired != last_backlight_state:
-            set_backlight(desired)
-            last_backlight_state = desired
+        display_state = False if (idle and not_logged_in) else True
+        if display_state != last_display_state:
+            set_display_power(display_state)
+            last_display_state = display_state
         stop_event.wait(10.0)
 
 def main(argv):
