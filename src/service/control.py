@@ -17,11 +17,18 @@ log = None
 pub = None
 sub = None
 
-IDLE_TIMEOUT = 5 * 60  # seconds
+# Track activity for backlight control
+USER_INPUTS = {"i_lid", "i_fp0", "i_fp1", "i_fp1", "i_fp2", "i_fp3", "i_btn_estop", "i_btn_fire", "i_mask_encoder", "i_axis_x", "i_axis_z", "i_coarse", "i_fine"}
+ENCODER_INPUTS = {"i_mask_encoder"}  # adjust if you rename or track deltas elsewhere
+ENCODER_DELTA_THRESHOLD = 1  # define what counts as significant
+previous_inputs = {}
 
+# backlight control
+IDLE_TIMEOUT = 5 * 60  # seconds
 last_activity = time.time()
 last_display_state = None
 
+# Rules for outputs - this is the brain stem - only handles low level rules
 RULES = {
     "o_k1_laser"    : lambda i_btn_estop, i_btn_fire : not (i_btn_estop or i_btn_fire),
     "o_k2_hpa"      : lambda i_btn_estop, i_m7 : not i_btn_estop and i_m7,
@@ -100,11 +107,6 @@ def apply_rules():
             except KeyError as e:
                 log.error(f"Missing input for {output}: {e}")
 
-USER_INPUTS = {"i_lid", "i_fp0", "i_fp1", "i_fp1", "i_fp2", "i_fp3", "i_btn_estop", "i_btn_fire", "i_mask_encoder", "i_axis_x", "i_axis_z", "i_coarse", "i_fine"}
-ENCODER_INPUTS = {"i_mask_encoder"}  # adjust if you rename or track deltas elsewhere
-ENCODER_DELTA_THRESHOLD = 1  # define what counts as significant
-
-
 def hal_listener():
     global last_activity, previous_inputs
     while not stop_event.is_set():
@@ -141,6 +143,11 @@ def is_laser_active():
     return state_hal.get("k1_laser", 0) == 1
 
 def set_backlight(state: bool):
+    env = os.environ.copy()
+    env["DISPLAY"] = ":0"
+    # Optional: add XAUTHORITY if needed, uncomment if problems occur
+    # env["XAUTHORITY"] = "/home/kiosk/.Xauthority"
+
     cmd = ["vcgencmd", "display_power", "1" if state else "0"]
     try:
         subprocess.run(cmd, env=env, check=True)
@@ -148,7 +155,7 @@ def set_backlight(state: bool):
         print(f"Failed to set display power: {e}")
 
 def idle_monitor():
-    global last_backlight_state
+    global last_display_state
     while not stop_event.is_set():
         now = time.time()
         idle_time = now - last_activity
@@ -159,10 +166,10 @@ def idle_monitor():
 
         desired = not (idle)
 
-        if desired != last_backlight_state:
+        if desired != last_display_state:
             log.debug(f"backlight updated: {desired}")
             set_backlight(desired)
-            last_backlight_state = desired
+            last_display_state = desired
 
         stop_event.wait(30.0)
 
