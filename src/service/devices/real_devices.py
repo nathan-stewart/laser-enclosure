@@ -205,8 +205,8 @@ class QTEncoder:
         parameter = "encoder_delta"
         if not self.dev:
             yield parameter, 0
-            return
-        current = self.dev.encoder_position
-        delta = current - self.last_position
-        self.last_position = current
-        yield parameter, delta
+        else:
+            current = self.dev.encoder_position
+            delta = current - self.last_position
+            self.last_position = current
+            yield parameter, delta

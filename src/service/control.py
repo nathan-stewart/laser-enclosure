@@ -100,55 +100,71 @@ def apply_rules():
             except KeyError as e:
                 log.error(f"Missing input for {output}: {e}")
 
+USER_INPUTS = {"i_lid", "i_fp0", "i_fp1", "i_fp1", "i_fp2", "i_fp3", "i_btn_estop", "i_btn_fire", "i_mask_encoder", "i_axis_x", "i_axis_z", "i_coarse", "i_fine"}
+ENCODER_INPUTS = {"i_mask_encoder"}  # adjust if you rename or track deltas elsewhere
+ENCODER_DELTA_THRESHOLD = 1  # define what counts as significant
 
-def active_users(exclude_user='kiosk'):
-    users = set()
-    try:
-        with open("/var/run/utmp", "rb") as f:
-            while True:
-                entry = f.read(384)
-                if not entry:
-                    break
-                username = entry[:32].split(b'\x00', 1)[0].decode(errors='ignore')
-                if username and username != exclude_user:
-                    users.add(username)
-    except Exception:
-        pass
-    return users
 
 def hal_listener():
-    global last_activity
+    global last_activity, previous_inputs
     while not stop_event.is_set():
         topic, raw = sub.recv_multipart()
         if topic == b'hal':
+            state = json.loads(raw).get("state", {})
             with state_lock:
-                state_hal.update(json.loads(raw).get("state", {}))
-                last_activity = time.time()
-            apply_rules()
-            log.debug(f"HAL State Updated: {state_hal}")
+                state_hal.update(state)
 
-def set_display_power(on: bool):
-    env = os.environ.copy()
-    env["DISPLAY"] = ":0"
-    env["XAUTHORITY"] = "/home/kiosk/.Xauthority"  # Adjust if different
-    cmd = ["xset", "dpms", "force", "on" if on else "off"]
+                # Check for changes in user inputs
+                changed = False
+                for key in USER_INPUTS:
+                    prev = previous_inputs.get(key)
+                    curr = state.get(key)
+                    if key in ENCODER_INPUTS:
+                        try:
+                            delta = abs(int(curr or 0) - int(prev or 0))
+                            if delta >= ENCODER_DELTA_THRESHOLD:
+                                changed = True
+                        except Exception:
+                            pass
+                    elif curr is not None and curr != prev:
+                        changed = True
+                        log.debug(f"Input changed: {key} from {prev} to {curr}")
+
+                if changed:
+                    last_activity = time.time()
+
+                previous_inputs = {k: state.get(k) for k in USER_INPUTS}
+
+            apply_rules()
+
+def is_laser_active():
+    return state_hal.get("k1_laser", 0) == 1
+
+def set_backlight(state: bool):
+    cmd = ["vcgencmd", "display_power", "1" if state else "0"]
     try:
         subprocess.run(cmd, env=env, check=True)
     except subprocess.CalledProcessError as e:
         print(f"Failed to set display power: {e}")
 
-def backlight_monitor():
-    global last_display_state
+def idle_monitor():
+    global last_backlight_state
     while not stop_event.is_set():
         now = time.time()
-        idle = (now - last_activity) > IDLE_TIMEOUT
-        not_logged_in = len(active_users()) == 0
-        log.debug(f"HAL Watcher - idle: {idle}, not_logged_in={not_logged_in}")
-        display_state = False if (idle and not_logged_in) else True
-        if display_state != last_display_state:
-            set_display_power(display_state)
-            last_display_state = display_state
-        stop_event.wait(10.0)
+        idle_time = now - last_activity
+
+        # Consider laser use as activity
+        idle = idle_time > IDLE_TIMEOUT and not is_laser_active()
+        log.debug(f"idle={idle}, idle_time={idle_time}, laser_active={is_laser_active()}")
+
+        desired = not (idle)
+
+        if desired != last_backlight_state:
+            log.debug(f"backlight updated: {desired}")
+            set_backlight(desired)
+            last_backlight_state = desired
+
+        stop_event.wait(30.0)
 
 def main(argv):
     global pub, sub, req, log
@@ -180,7 +196,7 @@ def main(argv):
     threads = []
     threads.append(threading.Thread(target=hal_listener))
     threads.append(threading.Thread(target=dewpoint_check))
-    threads.append(threading.Thread(target=backlight_monitor))
+    threads.append(threading.Thread(target=idle_monitor))
     threads.append(threading.Thread(target=start_heartbeat, daemon=True))
 
     log.info("Starting control threads...")

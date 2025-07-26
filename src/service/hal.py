@@ -58,7 +58,7 @@ gpio = Gpio()
 gpio.input(22, "i_m7")
 gpio.input(27, "i_m8")
 gpio.input(17, "i_lid")
-for name in gpio.input.keys():
+for name in gpio.inputs.keys():
     current_state[name] = 0
 
 gpio.output(7,  "o_k1_laser",    0)
@@ -93,15 +93,14 @@ expanders[0x21].input(3, 'i_coarse')
 expanders[0x21].input(4, 'i_fine')
 expanders[0x21].output(0, 'o_mask_encoder')
 
-for expander in expanders:
+for expander in expanders.values():
     for name in expander.inputs.keys():
         current_state[name] = 0
     for name in expander.outputs.keys():
         current_state[name] = 0
 
 encoder = QTEncoder()
-name, delta = encoder.read_delta()
-current_state[name] = 0
+current_state["encoder_delta"] = 0
 
 adc = ADS1115()
 adc.input(0, "i_air_supply")
@@ -176,8 +175,8 @@ def monitor_40Hz():
                 if name:
                     current_state[name] = value
 
-            for name, value in encoder.read_delta():
-                current_state[name] = value
+            # for name, value in next(encoder.read_delta()):
+                # current_state[name] = value
 
             publish_state()
         stop_event.wait(wait_40Hz)
