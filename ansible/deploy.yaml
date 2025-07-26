@@ -184,3 +184,24 @@
         name: getty@tty2.service
         enabled: true
         state: started
+
+
+    - name: Enable kiosk-hal service
+      systemd:
+        name: kiosk-hal.service
+        enabled: true
+
+    - name: Restart kiosk-hal service after deploy
+      systemd:
+        name: kiosk-hal.service
+        state: restarted
+
+    - name: Enable kiosk-control service
+      systemd:
+        name: kiosk-control.service
+        enabled: true
+
+    - name: Restart kiosk-control service after deploy
+      systemd:
+        name: kiosk-control.service
+        state: restarted
