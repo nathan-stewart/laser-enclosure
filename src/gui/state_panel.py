@@ -34,3 +34,4 @@ class StatePanel(QWidget):
             display = '✔' if v else '✘' if v is not None else '—'
             lbl.setText(f"{k}: {display}")
             lbl.setStyleSheet(f"color: {'green' if v else 'red' if v is not None else 'gray'};")
+

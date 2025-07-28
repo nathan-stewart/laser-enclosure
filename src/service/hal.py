@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# i2c_devices.py
 import sys
 import logging
 import argparse
@@ -95,25 +94,25 @@ expanders[0x21].output(0, 'o_mask_encoder')
 
 for expander in expanders.values():
     for name in expander.inputs.keys():
-        current_state[name] = 0
+        current_state[name] = None
     for name in expander.outputs.keys():
-        current_state[name] = 0
+        current_state[name] = None
 
 encoder = QTEncoder()
-current_state["encoder_delta"] = 0
+current_state["encoder_delta"] = None
 
 adc = ADS1115()
 adc.input(0, "i_air_supply")
 adc.input(1, "i_co2_supply")
 for name in adc.inputs.keys():
-    current_state[name] = 0
+    current_state[name] = None
 
 ambient = BME280()
 ambient.input('temperature', 'i_ambient_temp')
 ambient.input('humidity',    'i_ambient_humidity')
 ambient.input('pressure',    'i_ambient_pressure')
 for name in ambient.inputs.keys():
-    current_state[name] = 0
+    current_state[name] = None
 
 log = None
 last_heartbeat = time.time()

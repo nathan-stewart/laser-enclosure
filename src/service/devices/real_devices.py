@@ -48,7 +48,7 @@ class RpiGpio:
     def read(self):
         result = {}
         for name in list(self.inputs.keys()):
-            self.debounce[name].append(GPIO.input(self.inputs[name]))
+            self.debounce[name].append(not GPIO.input(self.inputs[name])) # active low
             if all(v == self.debounce[name][0] for v in self.debounce[name]):
                 self.last_stable[name] = self.debounce[name][0]
         yield name, self.last_stable[name]
@@ -57,7 +57,7 @@ class RpiGpio:
     def write(self, name, value):
         if name not in self.outputs:
             raise ValueError(f"Output pin '{name}' not configured")
-        GPIO.output(self.outputs[name], GPIO.HIGH if value else GPIO.LOW)
+        GPIO.output(self.outputs[name], GPIO.LOW if value else GPIO.HIGH) # active low
 
     def configure(self):
         pass
