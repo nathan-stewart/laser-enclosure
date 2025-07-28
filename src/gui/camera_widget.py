@@ -18,17 +18,17 @@ class CameraWidget(QLabel):
             self.setStyleSheet("background-color: black;")
             self.setText("Camera View")
 
-    def update_frame(self):
-
+    def update_camera(self):
+        if not self.cap:
+            return
         if self.cap.isOpened():
             ret, frame = self.cap.read()
             if ret:
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                h, w, ch = frame.shape
+                rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                h, w, ch = rgb_image.shape
                 bytes_per_line = ch * w
-                qimg = QImage(frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
-                self.setPixmap(QPixmap.fromImage(qimg).scaled(
-                    self.width(), self.height(), aspectRatioMode=1))
+                qimage = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
+                self.setPixmap(QPixmap.fromImage(qimg).scaled(self.width(), self.height(), aspectRatioMode=1))
             else:
                 self.setText("Camera read error.")
         else:

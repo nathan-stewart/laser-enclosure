@@ -10,11 +10,16 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QImage, QPixmap
 from PyQt5.QtCore import Qt, QTimer
 
+import platform
+import socket
+PLATFORM = "pi" if  platform.machine().startswith("arm") or "raspberrypi" in socket.gethostname() else "x86"
+
 class GPIOMonitor(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Laser Enclosure Front Panel")
         self.resize(1000, 600)
+        self.platform = PLATFORM
 
         # IO Table
         self.table = QTableWidget(0, 4)
@@ -46,15 +51,19 @@ class GPIOMonitor(QMainWindow):
         self.zmq_thread.start()
 
         # Camera setup
-        self.cap = cv2.VideoCapture(0)
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.update_camera)
-        self.timer.start(30)  # ~30 FPS
+        if self.is_pi:
+            self.cap = cv2.VideoCapture(0)
+            self.timer = QTimer()
+            self.timer.timeout.connect(self.update_camera)
+            self.timer.start(30)  # ~30 FPS
+        else:
+            self.camera_label.setText("Camera only available if local")
+            self.cap = None
 
     def listen_zmq(self):
         ctx = zmq.Context()
         sub = ctx.socket(zmq.SUB)
-        sub.connect("tcp://localhost:5556")
+        sub.connect("tcp://laser:5556")
         sub.setsockopt_string(zmq.SUBSCRIBE, "")  # Subscribe to all topics
 
         while True:
