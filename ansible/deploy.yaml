@@ -5,6 +5,27 @@
     app_dir: /opt/kiosk
 
   tasks:
+    - name: Ensure GPIO initial state is configured in /boot/config.txt
+      become: yes
+      lineinfile:
+        path: /boot/config.txt
+        line: "{{ item }}"
+        create: yes
+        state: present
+      loop:
+        - "gpio=22=ip,pu   # i_m7"
+        - "gpio=27=ip,pu   # i_m8"
+        - "gpio=17=ip,pu   # i_lid"
+        - "gpio=7=op,dl    # o_k1_laser"
+        - "gpio=8=op,dl    # o_k2_hpa"
+        - "gpio=25=op,dl   # o_k3_fire"
+        - "gpio=24=op,dl   # o_k4_light"
+        - "gpio=23=op,dl   # o_k5_lpa"
+        - "gpio=18=op,dl   # o_k6_dry_fan"
+        - "gpio=12=op,dl   # o_k7_exhaust"
+        - "gpio=16=op,dl   # o_k8_dry_heat"
+      tags: gpio-config
+
     - name: Install required packages
       apt:
         name:
@@ -70,6 +91,7 @@
           Group=kiosk
           WorkingDirectory=/opt/kiosk
           SyslogIdentifier=kiosk-hal
+        register: hal_unit
 
     - name: Create Control layer systemd service
       copy:
@@ -94,21 +116,7 @@
           Group=kiosk
           WorkingDirectory=/opt/kiosk
           SyslogIdentifier=kiosk-control
-
-          [Install]
-          WantedBy=multi-user.target
-
-    - name: Enable and start kiosk-hal service
-      systemd:
-        name: kiosk-hal.service
-        enabled: true
-        state: started
-
-    - name: Enable and start kiosk-control service
-      systemd:
-        name: kiosk-control.service
-        enabled: true
-        state: started
+        register: control_unit
 
     - name: Install GUI and Python dependencies
       apt:
@@ -192,23 +200,14 @@
         enabled: true
         state: started
 
-
-    - name: Enable kiosk-hal service
-      systemd:
-        name: kiosk-hal.service
-        enabled: true
-
     - name: Restart kiosk-hal service after deploy
       systemd:
         name: kiosk-hal.service
         state: restarted
-
-    - name: Enable kiosk-control service
-      systemd:
-        name: kiosk-control.service
-        enabled: true
+      when : hal_unit.changed
 
     - name: Restart kiosk-control service after deploy
       systemd:
         name: kiosk-control.service
         state: restarted
+      when: control_unit.changed
