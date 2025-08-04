@@ -48,6 +48,9 @@
         dest: /etc/systemd/system/kiosk-hal.service
         mode: '0644'
         content: |
+          [Install]
+          WantedBy=multi-user.target
+
           [Unit]
           Description=HAL GPIO and Sensor Service
           After=network.target
@@ -55,7 +58,7 @@
           [Service]
           ExecStart=/usr/bin/python3 /opt/kiosk/run_hal.py
           Restart=on-failure
-          RestartSec=2
+          RestartSec=5
           WatchdogSec=5s
           NotifyAccess=all
           StandardOutput=journal
@@ -73,6 +76,10 @@
         dest: /etc/systemd/system/kiosk-control.service
         mode: '0644'
         content: |
+          [Install]
+          WantedBy=multi-user.target
+          After=network.target kiosk-hal.service
+
           [Unit]
           Description=Laser Control Logic (Supervisor)
           After=network.target kiosk-hal.service
@@ -80,7 +87,7 @@
           [Service]
           ExecStart=/usr/bin/python3 /opt/kiosk/run_control.py
           Restart=on-failure
-          RestartSec=2
+          RestartSec=5
           StandardOutput=journal
           StandardError=journal
           User=kiosk
