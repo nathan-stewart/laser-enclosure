@@ -28,7 +28,7 @@ class CameraWidget(QLabel):
                 h, w, ch = rgb_image.shape
                 bytes_per_line = ch * w
                 qimage = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
-                self.setPixmap(QPixmap.fromImage(qimg).scaled(self.width(), self.height(), aspectRatioMode=1))
+                self.setPixmap(QPixmap.fromImage(qimage).scaled(self.width(), self.height(), aspectRatioMode=1))
             else:
                 self.setText("Camera read error.")
         else:
