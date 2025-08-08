@@ -91,7 +91,7 @@
           Group=kiosk
           WorkingDirectory=/opt/kiosk
           SyslogIdentifier=kiosk-hal
-        register: hal_unit
+      register: hal_unit
 
     - name: Create Control layer systemd service
       copy:
@@ -116,7 +116,7 @@
           Group=kiosk
           WorkingDirectory=/opt/kiosk
           SyslogIdentifier=kiosk-control
-        register: control_unit
+      register: control_unit
 
     - name: Install GUI and Python dependencies
       apt:
