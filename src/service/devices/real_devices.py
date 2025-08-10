@@ -4,10 +4,11 @@ import RPi.GPIO as GPIO
 import board
 import busio
 from adafruit_mcp230xx.mcp23017 import MCP23017 as AdafruitMCP23017
+from adafruit_ads1x15.ads1115 import ADS1115 as AdafruitADS1115
 from adafruit_ads1x15.analog_in import AnalogIn
-import adafruit_ads1x15.ads1115
-import Adafruit_BME280
-from adafruit_seesaw import digitalio, rotaryio, seesaw
+from adafruit_bme280 import basic as AdafruitBME280
+from adafruit_seesaw.seesaw import Seesaw
+from adafruit_seesaw.rotaryio import IncrementalEncoder
 from digitalio import Direction
 from collections import deque
 
@@ -149,13 +150,23 @@ class ADS1115:
             for name, channel in self.inputs.items():
                 yield name, self.filters[name].add(self.dev.read_voltage(channel))
 
-    def configure(self):
+
+    def configure(self, addr=0x48):
         if not self.dev:
             try:
                 i2c.writeto(self.addr, b"")  # Dummy write to probe
-                self.dev = adafruit_ads1x15.ADS1115(i2c, address=addr)
+                self.dev = AdafruitADS1115(i2c, address=addr)
+                self.dev.data_rate = 128
+                self.dev.gain = 1
+                self.channels = {
+                    0: AnalogIn(self.dev, 0),
+                    1: AnalogIn(self.dev, 1),
+                    2: AnalogIn(self.dev, 2),
+                    3: AnalogIn(self.dev, 3),
+                }
             except OSError:
                 self.dev = None
+
 
 class BME280:
     def __init__(self, addr=0x76, name=None):
@@ -168,7 +179,7 @@ class BME280:
         if not self.dev:
             try:
                 i2c.writeto(self.addr, b"")  # Dummy write to probe
-                self.dev = Adafruit_BME280.BME280(i2c, address=addr)
+                self.dev = AdafruitBME280.BME280(i2c, address=self.addr)
             except OSError:
                 self.dev = None
 
