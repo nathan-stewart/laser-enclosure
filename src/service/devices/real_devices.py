@@ -3,11 +3,12 @@ import sys
 import RPi.GPIO as GPIO
 import board
 import busio
-import adafruit_mcp230xx.mcp23017
+from adafruit_mcp230xx.mcp23017 import MCP23017 as AdafruitMCP23017
 from adafruit_ads1x15.analog_in import AnalogIn
 import adafruit_ads1x15.ads1115
 import Adafruit_BME280
 from adafruit_seesaw import digitalio, rotaryio, seesaw
+from digitalio import Direction
 from collections import deque
 
 i2c = busio.I2C(board.SCL, board.SDA)
