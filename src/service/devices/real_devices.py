@@ -123,7 +123,7 @@ class MCP23017:
 
                 if len(self.debounce[pin]) == 3 and all(v == self.debounce[pin][0] for v in self.debounce[pin]):
                     self.last_stable[pin] = self.debounce[pin][0]
-                yield name, self.last_stable[name]
+                yield name, self.last_stable[pin]
 
     def write(self, logical_name, value):
         if self.dev and logical_name in self.outputs:
@@ -139,6 +139,8 @@ class ADS1115:
         self.dev = None
 
     def input(self, channel, logical_name):
+        if len (self.inputs.keys()) >= 4:
+            raise ValueError(f"Too many inputs on {self.name} (max 4)")
         self.inputs[logical_name] = channel
         self.filters[logical_name] = EMAFilter(0.1)
 
@@ -149,7 +151,7 @@ class ADS1115:
                 yield name, None
         else:
             for name, channel in self.inputs.items():
-                yield name, self.filters[name].add(self.dev.read_voltage(channel))
+                yield name, self.filters[name].add(AnalogIn(self.dev, )
 
 
     def configure(self, addr=0x48):
