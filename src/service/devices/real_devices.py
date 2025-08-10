@@ -113,7 +113,7 @@ class MCP23017:
             except OSError:
                 self.dev = None
 
-    def read(self): 
+    def read(self):
         if not self.dev:
             for name in self.inputs:
                 yield None, None
@@ -151,7 +151,7 @@ class ADS1115:
                 yield name, None
         else:
             for name, channel in self.inputs.items():
-                yield name, self.filters[name].add(AnalogIn(self.dev, )
+                yield name, self.filters[name].add(AnalogIn(self.dev, channel).voltage)
 
 
     def configure(self, addr=0x48):
