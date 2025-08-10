@@ -85,6 +85,7 @@ class MCP23017:
             raise ValueError(f"Too many inputs on {self.name} (max {MCP23017.MAX_INPUTS})")
         self.inputs[logical_name] = (pin, pullup)
         self.debounce[pin] = deque(maxlen=3)
+        [ self.debounce[pin].append(False) for _ in range(3) ]
         self.last_stable[pin] = False
 
     def output(self, pin, logical_name, *, initial=False):
@@ -112,7 +113,7 @@ class MCP23017:
             except OSError:
                 self.dev = None
 
-    def read(self):
+    def read(self): 
         if not self.dev:
             for name in self.inputs:
                 yield None, None

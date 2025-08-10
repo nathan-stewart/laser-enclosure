@@ -46,20 +46,29 @@ class MockMCP23017:
         self.directions = {}  # pin -> DIR_IN or DIR_OUT
         self.states = {}      # pin -> value
 
+
+    def input(self, pin, name, pullup=True):
+        self._inputs[name] = pin
+        self._state[name] = False
+        self._last_stable[name] = False
+
+    def output(self, pin, name, initial=False):
+        self._outputs[name] = pin
+        self._state[name] = bool(initial)
+
     def set_pin_direction(self, pin, direction):
         self.directions[pin] = direction
         if direction == MockMCP23017.DIR_OUT:
             self.states.setdefault(pin, False)
 
-    def digital_write(self, pin, value):
-        if self.directions.get(pin) != MockMCP23017.DIR_OUT:
-            raise RuntimeError(f"Pin {pin} not configured as output")
-        self.states[pin] = value
+    def read(self):
+        for name in self._inputs:
+            v = bool(self._state.get(name, False))
+            self._last_stable[name] = v
+            yield name, v
 
-    def digital_read(self, pin):
-        if self.directions.get(pin) != MockMCP23017.DIR_IN:
-            raise RuntimeError(f"Pin {pin} not configured as input")
-        return self.states.get(pin, False)
+    def write(self, name, value):
+        self._state[name] = bool(value)
 
     def configure(self):
         """Simulate configuration, no-op in mock"""
