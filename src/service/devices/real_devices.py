@@ -44,6 +44,7 @@ class RpiGpio:
         self.debounce[name] = deque(maxlen=3)
         self.inputs[name] = bcm
         self.last_stable[name] = None
+        self.configured = False
 
     def output(self, bcm, name, initial=False):
         GPIO.setup(bcm, GPIO.OUT, initial=GPIO.HIGH if initial else GPIO.LOW)
@@ -64,8 +65,9 @@ class RpiGpio:
         GPIO.output(self.outputs[name], GPIO.LOW if value else GPIO.HIGH) # active low
 
     def configure(self):
-        pass
-
+        if self.configured is not None:
+            raise RuntimeError("Cannot add inputs after device is configured")
+        self.configured = True
 
 class Expander:
     MAX_INPUTS = 8
@@ -74,23 +76,31 @@ class Expander:
     def __init__(self, addr, name=None):
         self.addr = addr
         self.name = name or f"MCP23017@{hex(addr)}"
-        self.inputs = {}    # logical_name: (pin_number, pullup)
-        self.outputs = {}   # logical_name: (pin_number, initial_value)
-        self.debounce = {}  # pin_number: deque
-        self.last_stable = {}  # pin_number: bool
+        self.inputs = {}       # logical_name -> (pin, pullup)
+        self.outputs = {}      # logical_name -> (pin, initial)
+        self.debounce = {}     # pin -> deque([bool]*3)
+        self.last_stable = {}  # pin -> bool
         self.dev = None
+        self._in_pins = {}     # pin -> pin object (input)
+        self._out_pins = {}    # pin -> pin object (output)
+        self._configured = False
 
     def input(self, pin, logical_name, *, pullup=False):
+        if self._configured:
+            raise RuntimeError("Cannot add inputs after configure()")
         if logical_name in self.inputs or logical_name in self.outputs:
             raise ValueError(f"Duplicate logical name '{logical_name}' on {self.name}")
         if len(self.inputs) >= Expander.MAX_INPUTS:
             raise ValueError(f"Too many inputs on {self.name} (max {Expander.MAX_INPUTS})")
         self.inputs[logical_name] = (pin, pullup)
         self.debounce[pin] = deque(maxlen=3)
-        [ self.debounce[pin].append(False) for _ in range(3) ]
+        for _ in range(3):
+            self.debounce[pin].append(False)
         self.last_stable[pin] = False
 
     def output(self, pin, logical_name, *, initial=False):
+        if self._configured:
+            raise RuntimeError("Cannot add outputs after configure()")
         if logical_name in self.outputs or logical_name in self.inputs:
             raise ValueError(f"Duplicate logical name '{logical_name}' on {self.name}")
         if len(self.outputs) >= Expander.MAX_OUTPUTS:
@@ -98,42 +108,67 @@ class Expander:
         self.outputs[logical_name] = (pin, initial)
 
     def configure(self):
-        if not self.dev:
-            try:
-                with i2c_lock:
-                    i2c.writeto(self.addr, b"")  # probe
-                    self.dev = AdafruitMCP23017(i2c, address=self.addr)
+        if self._configured:
+            raise RuntimeError("Already configured")
+        try:
+            with i2c_lock:
+                i2c.writeto(self.addr, b"")  # probe
+                self.dev = AdafruitMCP23017(i2c, address=self.addr)
 
-                    for name, (pin, pullup) in self.inputs.items():
-                        p = self.dev.get_pin(pin)
-                        p.direction = Direction.INPUT
-                        p.pullup = pullup
+                # Inputs
+                for _, (pin, pullup) in self.inputs.items():
+                    p = self.dev.get_pin(pin)
+                    p.direction = Direction.INPUT
+                    p.pullup = bool(pullup)
+                    self._in_pins[pin] = p
+                    # Seed debouncer from hardware
+                    raw = bool(p.value)
+                    self.debounce[pin] = deque([raw, raw, raw], maxlen=3)
+                    self.last_stable[pin] = raw
 
-                    for name, (pin, initial) in self.outputs.items():
-                        p = self.dev.get_pin(pin)
-                        p.direction = Direction.OUTPUT
-                        p.value = bool(initial)
-            except OSError:
-                self.dev = None
+                # Outputs
+                for _, (pin, initial) in self.outputs.items():
+                    p = self.dev.get_pin(pin)
+                    p.direction = Direction.OUTPUT
+                    p.value = bool(initial)
+                    self._out_pins[pin] = p
+
+            self._configured = True
+        except OSError:
+            self.dev = None
+            self._configured = False
 
     def read(self):
         if not self.dev:
             for name in self.inputs:
-                yield None, None
-        else:
-            with i2c_lock:
-                for name, (pin, _) in self.inputs.items():
-                    self.debounce[pin].append(self.dev.get_pin(pin).value)
-
-                    if len(self.debounce[pin]) == 3 and all(v == self.debounce[pin][0] for v in self.debounce[pin]):
-                        self.last_stable[pin] = self.debounce[pin][0]
+                yield name, None
+            return
+        with i2c_lock:
+            for name, (pin, _) in self.inputs.items():
+                try:
+                    v = bool(self._in_pins[pin].value)
+                except OSError:
+                    # keep previous stable value on error
                     yield name, self.last_stable[pin]
+                    continue
+
+                dq = self.debounce[pin]
+                dq.append(v)
+                if dq[0] == dq[1] == dq[2]:
+                    self.last_stable[pin] = dq[2]
+                yield name, self.last_stable[pin]
 
     def write(self, logical_name, value):
-        if self.dev and logical_name in self.outputs:
-            with i2c_lock:
-                pin, _ = self.outputs[logical_name]
-                self.dev.get_pin(pin).value = bool(value)
+        if not self.dev:
+            raise RuntimeError("Not configured")
+        if logical_name not in self.outputs:
+            raise KeyError(f"Unknown output '{logical_name}'")
+        pin, _ = self.outputs[logical_name]
+        with i2c_lock:
+            try:
+                self._out_pins[pin].value = bool(value)
+            except OSError:
+                pass # optionally log and continue
 
 class AnalogRead:
     def __init__(self, addr=0x48, name=None):
@@ -166,6 +201,9 @@ class AnalogRead:
                     yield name, self.filters[name].add(v) if v is not None else None
 
     def configure(self, addr=0x48):
+        if self.dev is not None:
+            raise RuntimeError("Cannot add inputs after device is configured")
+
         if not self.dev:
             try:
                 with i2c_lock:
@@ -185,24 +223,56 @@ class AnalogRead:
 
 
 class Environment:
+    VALID_KEYS = {"temperature", "humidity", "pressure"}
     def __init__(self, addr=0x76, name=None):
         self.addr = addr
         self.name = name or f"BME280@{hex(addr)}"
         self.dev = None
         self.inputs = {}  # logical_name -> measurement_key ('temperature', 'humidity', 'pressure')
+        self.filters = {}
 
     def configure(self):
-        if not self.dev:
-            try:
-                with i2c_lock:
-                    i2c.writeto(self.addr, b"")  # Dummy write to probe
-                    self.dev = Adafruit_BME280_I2C(i2c, address=self.addr)
-            except OSError:
+        if self.dev is not None:
+            return
+        try:
+            with i2c_lock:
+                i2c.writeto(self.addr, b"")  # probe
+                self.dev = Adafruit_BME280_I2C(i2c, address=self.addr)
+                self.filters = {name: EMAFilter(0.1) for name in self.inputs}
+        except OSError:
+            with self._lock:
                 self.dev = None
 
-    def input(self, channel, logical_name):
-        # channel is one of 'temperature', 'humidity', 'pressure'
-        self.inputs[logical_name] = channel
+    def input(self, measurement_key, logical_name, alpha=0.2):
+        if self.dev is not None:
+            raise RuntimeError("Cannot add inputs after device is configured")
+
+        if measurement_key not in self.VALID_KEYS:
+            raise ValueError(f"Invalid measurement '{measurement_key}'. "
+                             f"Use one of {sorted(self.VALID_KEYS)}")
+        with i2c_lock:
+            self.inputs[logical_name] = measurement_key
+            self.filters[logical_name] = EMAFilter(alpha)
+
+    def read(self):
+        # snapshot under lock so config/read can’t race
+        with self._lock:
+            dev = self.dev
+            mapping = dict(self.inputs)
+            filters = dict(self.filters)
+
+        if not dev:
+            for logical in mapping or self.inputs:
+                yield logical, None
+            return
+
+        with i2c_lock:
+            for logical, key in mapping.items():
+                try:
+                    v = getattr(dev, key)   # 'temperature' | 'humidity' | 'pressure'
+                    yield logical, filters[logical].add(v)
+                except OSError:
+                    yield logical, None
 
     def read(self):
         if not self.dev:
@@ -222,6 +292,9 @@ class RotaryEncoder:
         self.delta = 0
 
     def configure(self):
+        if self.dev is not None:
+            raise RuntimeError("Cannot add inputs after device is configured")
+
         if not self.dev:
             try:
                 with i2c_lock:
