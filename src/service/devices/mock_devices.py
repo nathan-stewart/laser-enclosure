@@ -38,7 +38,7 @@ class MockGpioController:
         """Simulate configuration, no-op in mock"""
         pass
 
-class MockMCP23017:
+class MockExpander:
     DIR_OUT = 1
     DIR_IN = 0
     def __init__(self, address):
@@ -58,7 +58,7 @@ class MockMCP23017:
 
     def set_pin_direction(self, pin, direction):
         self.directions[pin] = direction
-        if direction == MockMCP23017.DIR_OUT:
+        if direction == MockExpander.DIR_OUT:
             self.states.setdefault(pin, False)
 
     def read(self):
@@ -74,7 +74,7 @@ class MockMCP23017:
         """Simulate configuration, no-op in mock"""
         pass
 
-class MockADS1115:
+class MockAnalogRead:
     def __init__(self, address=0x48):
         self.address = address
         self.last_value = 1.23  # Simulated voltage
@@ -87,7 +87,7 @@ class MockADS1115:
         pass
 
 
-class MockBME280:
+class MockEnvironment:
     def __init__(self, address=0x76):
         self.temperature = 22.0
         self.humidity = 45.0
@@ -96,7 +96,7 @@ class MockBME280:
     def configure(self):
         """Simulate configuration, no-op in mock"""
         pass
-class MockQTEncoder:
+class MockRotaryEncoder:
     def __init__(self, address=0x36):
         self.encoder_position = 0
 
@@ -107,7 +107,7 @@ class MockQTEncoder:
         """Simulate configuration, no-op in mock"""
         pass
 
-class MockQTEncoder:
+class MockRotaryEncoder:
     def __init__(self, addr=0x36, name=None):
         self.last_position = 0
         self.delta = 0

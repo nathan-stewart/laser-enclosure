@@ -10,17 +10,17 @@ def configure_mock(use_mock: bool):
 
 if USE_MOCK:
     from .mock_devices import (
-        MockGpioController as Gpio,
-        MockMCP23017 as MCP23017,
-        MockADS1115 as ADS1115,
-        MockBME280 as BME280,
-        MockQTEncoder as QTEncoder,
+        MockGpioController as RpiGpio,
+        MockExpander as Expander,
+        MockAnalogRead as AnalogRead,
+        MockEnvironment as Environment,
+        MockRotaryEncoder as RotaryEncoder,
     )
 else:
     from .real_devices import (
         RpiGpio as Gpio,
-        MCP23017,
-        ADS1115,
-        BME280,
-        QTEncoder,
+        Expander,
+        AnalogRead,
+        Environment,
+        RotaryEncoder,
     )

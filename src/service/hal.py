@@ -29,7 +29,7 @@ args = parser.parse_args()
 
 import service.devices
 service.devices.configure_mock(args.mock)
-from service.devices import Gpio, MCP23017, ADS1115, BME280, QTEncoder
+from service.devices import Gpio, Expander, AnalogRead, Environment, RotaryEncoder
 
 from sdnotify import SystemdNotifier
 notifier = SystemdNotifier()
@@ -72,7 +72,7 @@ for name in gpio.outputs.keys():
     current_state[name] = 0
 
 expanders = {}
-expanders[0x20] = MCP23017(addr=0x20)
+expanders[0x20] = Expander(addr=0x20)
 expanders[0x20].input(0,'i_fp0')
 expanders[0x20].input(1,'i_fp1')
 expanders[0x20].input(2,'i_fp2')
@@ -84,7 +84,7 @@ expanders[0x20].output(1, 'o_fp1')
 expanders[0x20].output(2, 'o_fp2')
 expanders[0x20].output(3, 'o_fp3')
 
-expanders[0x21] = MCP23017(addr=0x21)
+expanders[0x21] = Expander(addr=0x21)
 expanders[0x21].input(0, 'i_mask_encoder')
 expanders[0x21].input(1, 'i_axis_x')
 expanders[0x21].input(2, 'i_axis_z')
@@ -98,16 +98,16 @@ for expander in expanders.values():
     for name in expander.outputs.keys():
         current_state[name] = None
 
-encoder = QTEncoder()
+encoder = RotaryEncoder()
 current_state["encoder_delta"] = None
 
-adc = ADS1115()
+adc = AnalogRead()
 adc.input(0, "i_air_supply")
 adc.input(1, "i_co2_supply")
 for name in adc.inputs.keys():
     current_state[name] = None
 
-ambient = BME280()
+ambient = Environment()
 ambient.input('temperature', 'i_ambient_temp')
 ambient.input('humidity',    'i_ambient_humidity')
 ambient.input('pressure',    'i_ambient_pressure')

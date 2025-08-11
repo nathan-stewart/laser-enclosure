@@ -11,8 +11,10 @@ from adafruit_seesaw.seesaw import Seesaw
 from adafruit_seesaw.rotaryio import IncrementalEncoder
 from digitalio import Direction
 from collections import deque
+import threading
 
 i2c = busio.I2C(board.SCL, board.SDA)
+i2c_lock = threading.Lock()
 
 class EMAFilter:
     def __init__(self, alpha=0.2):
@@ -65,7 +67,7 @@ class RpiGpio:
         pass
 
 
-class MCP23017:
+class Expander:
     MAX_INPUTS = 8
     MAX_OUTPUTS = 8
 
@@ -81,8 +83,8 @@ class MCP23017:
     def input(self, pin, logical_name, *, pullup=False):
         if logical_name in self.inputs or logical_name in self.outputs:
             raise ValueError(f"Duplicate logical name '{logical_name}' on {self.name}")
-        if len(self.inputs) >= MCP23017.MAX_INPUTS:
-            raise ValueError(f"Too many inputs on {self.name} (max {MCP23017.MAX_INPUTS})")
+        if len(self.inputs) >= Expander.MAX_INPUTS:
+            raise ValueError(f"Too many inputs on {self.name} (max {Expander.MAX_INPUTS})")
         self.inputs[logical_name] = (pin, pullup)
         self.debounce[pin] = deque(maxlen=3)
         [ self.debounce[pin].append(False) for _ in range(3) ]
@@ -91,25 +93,26 @@ class MCP23017:
     def output(self, pin, logical_name, *, initial=False):
         if logical_name in self.outputs or logical_name in self.inputs:
             raise ValueError(f"Duplicate logical name '{logical_name}' on {self.name}")
-        if len(self.outputs) >= MCP23017.MAX_OUTPUTS:
-            raise ValueError(f"Too many outputs on {self.name} (max {MCP23017.MAX_OUTPUTS})")
+        if len(self.outputs) >= Expander.MAX_OUTPUTS:
+            raise ValueError(f"Too many outputs on {self.name} (max {Expander.MAX_OUTPUTS})")
         self.outputs[logical_name] = (pin, initial)
 
     def configure(self):
         if not self.dev:
             try:
-                i2c.writeto(self.addr, b"")  # probe
-                self.dev = AdafruitMCP23017(i2c, address=self.addr)
+                with i2c_lock:
+                    i2c.writeto(self.addr, b"")  # probe
+                    self.dev = AdafruitMCP23017(i2c, address=self.addr)
 
-                for name, (pin, pullup) in self.inputs.items():
-                    p = self.dev.get_pin(pin)
-                    p.direction = Direction.INPUT
-                    p.pullup = pullup
+                    for name, (pin, pullup) in self.inputs.items():
+                        p = self.dev.get_pin(pin)
+                        p.direction = Direction.INPUT
+                        p.pullup = pullup
 
-                for name, (pin, initial) in self.outputs.items():
-                    p = self.dev.get_pin(pin)
-                    p.direction = Direction.OUTPUT
-                    p.value = bool(initial)
+                    for name, (pin, initial) in self.outputs.items():
+                        p = self.dev.get_pin(pin)
+                        p.direction = Direction.OUTPUT
+                        p.value = bool(initial)
             except OSError:
                 self.dev = None
 
@@ -118,24 +121,27 @@ class MCP23017:
             for name in self.inputs:
                 yield None, None
         else:
-            for name, (pin, _) in self.inputs.items():
-                self.debounce[pin].append(self.dev.get_pin(pin).value)
+            with i2c_lock:
+                for name, (pin, _) in self.inputs.items():
+                    self.debounce[pin].append(self.dev.get_pin(pin).value)
 
-                if len(self.debounce[pin]) == 3 and all(v == self.debounce[pin][0] for v in self.debounce[pin]):
-                    self.last_stable[pin] = self.debounce[pin][0]
-                yield name, self.last_stable[pin]
+                    if len(self.debounce[pin]) == 3 and all(v == self.debounce[pin][0] for v in self.debounce[pin]):
+                        self.last_stable[pin] = self.debounce[pin][0]
+                    yield name, self.last_stable[pin]
 
     def write(self, logical_name, value):
         if self.dev and logical_name in self.outputs:
-            pin, _ = self.outputs[logical_name]
-            self.dev.get_pin(pin).value = bool(value)
+            with i2c_lock:
+                pin, _ = self.outputs[logical_name]
+                self.dev.get_pin(pin).value = bool(value)
 
-class ADS1115:
+class AnalogRead:
     def __init__(self, addr=0x48, name=None):
         self.addr = addr
         self.name = name or f"ADS@{hex(addr)}"
         self.inputs = {}  # logical_name -> channel
         self.filters = {}
+        self.channels = {} # hold the AnalogIn objects
         self.dev = None
 
     def input(self, channel, logical_name):
@@ -144,34 +150,41 @@ class ADS1115:
         self.inputs[logical_name] = channel
         self.filters[logical_name] = EMAFilter(0.1)
 
-
     def read(self):
         if not self.dev:
             for name in self.inputs:
                 yield name, None
         else:
-            for name, channel in self.inputs.items():
-                yield name, self.filters[name].add(AnalogIn(self.dev, channel).voltage)
-
+            with i2c_lock:
+                for name, ch in self.channels.items():
+                    try:
+                        v = self.channels[name].voltage
+                    except OSError:
+                        # transient bus error; attempt soft reset/reinit
+                        self._recover_ads()
+                        v = None
+                    yield name, self.filters[name].add(v) if v is not None else None
 
     def configure(self, addr=0x48):
         if not self.dev:
             try:
-                i2c.writeto(self.addr, b"")  # Dummy write to probe
-                self.dev = AdafruitADS1115(i2c, address=addr)
-                self.dev.data_rate = 128
-                self.dev.gain = 1
-                self.channels = {
-                    0: AnalogIn(self.dev, 0),
-                    1: AnalogIn(self.dev, 1),
-                    2: AnalogIn(self.dev, 2),
-                    3: AnalogIn(self.dev, 3),
-                }
+                with i2c_lock:
+                    i2c.writeto(self.addr, b"")  # Dummy write to probe
+                    self.dev = AdafruitADS1115(i2c, address=addr)
+                    self.dev.data_rate = 128
+                    self.dev.gain = 1
+                    for logical_name, channel in self.inputs.items():
+                        if channel < 0 or channel > 3:
+                            raise ValueError(f"Invalid channel {channel} for {self.name}")
+                        if logical_name in self.channels:
+                            raise ValueError(f"Duplicate logical name '{logical_name}' on {self.name}")
+                        self.channels[logical_name] = AnalogIn(self.dev, channel)
+
             except OSError:
                 self.dev = None
 
 
-class BME280:
+class Environment:
     def __init__(self, addr=0x76, name=None):
         self.addr = addr
         self.name = name or f"BME280@{hex(addr)}"
@@ -181,8 +194,9 @@ class BME280:
     def configure(self):
         if not self.dev:
             try:
-                i2c.writeto(self.addr, b"")  # Dummy write to probe
-                self.dev = Adafruit_BME280_I2C(i2c, address=self.addr)
+                with i2c_lock:
+                    i2c.writeto(self.addr, b"")  # Dummy write to probe
+                    self.dev = Adafruit_BME280_I2C(i2c, address=self.addr)
             except OSError:
                 self.dev = None
 
@@ -195,11 +209,11 @@ class BME280:
             for name in self.inputs.keys():
                 yield name, None
             return
+        with i2c_lock:
+            for name in self.inputs.keys():
+                yield name, getattr(self.dev, name)
 
-        for name in self.inputs.keys():
-            yield name, getattr(self.dev, name)
-
-class QTEncoder:
+class RotaryEncoder:
     def __init__(self, addr=0x36, name=None):
         self.addr = addr
         self.name = name or f"SeeSaw@{hex(addr)}"
@@ -210,9 +224,10 @@ class QTEncoder:
     def configure(self):
         if not self.dev:
             try:
-                i2c.writeto(self.addr, b"")  # Dummy write to probe
-                self.dev = seesaw.Seesaw(i2c, address=addr)
-                self.last_position = self.dev.encoder_position
+                with i2c_lock:
+                    i2c.writeto(self.addr, b"")  # Dummy write to probe
+                    self.dev = seesaw.Seesaw(i2c, address=addr)
+                    self.last_position = self.dev.encoder_position
             except OSError:
                 self.dev = None
 
@@ -221,7 +236,8 @@ class QTEncoder:
         if not self.dev:
             yield parameter, 0
         else:
-            current = self.dev.encoder_position
-            delta = current - self.last_position
-            self.last_position = current
-            yield parameter, delta
+            with i2c_lock:
+                current = self.dev.encoder_position
+                delta = current - self.last_position
+                self.last_position = current
+                yield parameter, delta

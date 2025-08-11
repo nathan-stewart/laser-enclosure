@@ -31,7 +31,12 @@ class StatePanel(QWidget):
                     col = 0
                     row += 1
             lbl = self.labels[k]
-            display = '✔' if v else '✘' if v is not None else '—'
+            if k in ['i_air_supply', 'i_co2_supply']:
+                display = f"{k}: {v:.2f} V" if v is not None else f"{k}: —"
+            elif k in ['i_ambient_temp', 'i_ambient_humidity', 'i_ambient_pressure']:
+                display = f"{k}: {v:.2f}" if v is not None else f"{k}: —"
+            else:
+                display = '✔' if v else '✘' if v is not None else '—'
             lbl.setText(f"{k}: {display}")
             lbl.setStyleSheet(f"color: {'green' if v else 'red' if v is not None else 'gray'};")
 
