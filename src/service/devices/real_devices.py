@@ -31,6 +31,7 @@ class EMAFilter:
 class RpiGpio:
     def __init__(self):
         GPIO.setmode(GPIO.BCM)
+        self.name = "RaspberryPi GPIO"
         self.inputs = {}
         self.outputs = {}
         self.debounce = {}
@@ -44,7 +45,6 @@ class RpiGpio:
         self.debounce[name] = deque(maxlen=3)
         self.inputs[name] = bcm
         self.last_stable[name] = None
-        self.configured = False
 
     def output(self, bcm, name, initial=False):
         GPIO.setup(bcm, GPIO.OUT, initial=GPIO.HIGH if initial else GPIO.LOW)
@@ -61,13 +61,8 @@ class RpiGpio:
 
     def write(self, name, value):
         if name not in self.outputs:
-            raise ValueError(f"Output pin '{name}' not configured")
+            return 
         GPIO.output(self.outputs[name], GPIO.LOW if value else GPIO.HIGH) # active low
-
-    def configure(self):
-        if self.configured is not None:
-            raise RuntimeError("Cannot add inputs after device is configured")
-        self.configured = True
 
 class Expander:
     MAX_INPUTS = 8
@@ -83,11 +78,10 @@ class Expander:
         self.dev = None
         self._in_pins = {}     # pin -> pin object (input)
         self._out_pins = {}    # pin -> pin object (output)
-        self._configured = False
 
     def input(self, pin, logical_name, *, pullup=False):
-        if self._configured:
-            raise RuntimeError("Cannot add inputs after configure()")
+        if self.dev:
+            raise RuntimeError("f{self.name} Cannot add inputs after configure()")
         if logical_name in self.inputs or logical_name in self.outputs:
             raise ValueError(f"Duplicate logical name '{logical_name}' on {self.name}")
         if len(self.inputs) >= Expander.MAX_INPUTS:
@@ -99,7 +93,7 @@ class Expander:
         self.last_stable[pin] = False
 
     def output(self, pin, logical_name, *, initial=False):
-        if self._configured:
+        if self.dev:
             raise RuntimeError("Cannot add outputs after configure()")
         if logical_name in self.outputs or logical_name in self.inputs:
             raise ValueError(f"Duplicate logical name '{logical_name}' on {self.name}")
@@ -108,8 +102,9 @@ class Expander:
         self.outputs[logical_name] = (pin, initial)
 
     def configure(self):
-        if self._configured:
-            raise RuntimeError("Already configured")
+        if self.dev:
+            raise RuntimeError(f"{self.name} Already configured")
+        
         try:
             with i2c_lock:
                 i2c.writeto(self.addr, b"")  # probe
@@ -133,10 +128,8 @@ class Expander:
                     p.value = bool(initial)
                     self._out_pins[pin] = p
 
-            self._configured = True
         except OSError:
             self.dev = None
-            self._configured = False
 
     def read(self):
         if not self.dev:
@@ -160,7 +153,8 @@ class Expander:
 
     def write(self, logical_name, value):
         if not self.dev:
-            raise RuntimeError("Not configured")
+            return 
+        
         if logical_name not in self.outputs:
             raise KeyError(f"Unknown output '{logical_name}'")
         pin, _ = self.outputs[logical_name]
@@ -180,12 +174,15 @@ class AnalogRead:
         self.dev = None
 
     def input(self, channel, logical_name):
+        if self.dev:
+            raise RuntimeError(f"Cannot add inputs after {self.name} is configured")
+
         if len (self.inputs.keys()) >= 4:
             raise ValueError(f"Too many inputs on {self.name} (max 4)")
         self.inputs[logical_name] = channel
         self.filters[logical_name] = EMAFilter(0.1)
 
-    def read(self):
+    def read(self):        
         if not self.dev:
             for name in self.inputs:
                 yield name, None
@@ -202,7 +199,7 @@ class AnalogRead:
 
     def configure(self, addr=0x48):
         if self.dev is not None:
-            raise RuntimeError("Cannot add inputs after device is configured")
+            raise RuntimeError(f"{self.name} can only be configured once")
 
         if not self.dev:
             try:
@@ -232,19 +229,18 @@ class Environment:
         self.filters = {}
 
     def configure(self):
-        if self.dev is not None:
-            return
+        if self.dev:
+            raise RuntimeError(f"{self.name} can only be configured once")
         try:
             with i2c_lock:
                 i2c.writeto(self.addr, b"")  # probe
                 self.dev = Adafruit_BME280_I2C(i2c, address=self.addr)
                 self.filters = {name: EMAFilter(0.1) for name in self.inputs}
         except OSError:
-            with self._lock:
-                self.dev = None
+            self.dev = None
 
     def input(self, measurement_key, logical_name, alpha=0.2):
-        if self.dev is not None:
+        if self.dev:
             raise RuntimeError("Cannot add inputs after device is configured")
 
         if measurement_key not in self.VALID_KEYS:
@@ -292,10 +288,9 @@ class RotaryEncoder:
         self.delta = 0
 
     def configure(self):
-        if self.dev is not None:
-            raise RuntimeError("Cannot add inputs after device is configured")
-
-        if not self.dev:
+        if self.dev:
+            raise RuntimeError(f"{self.name} can only be configured once")
+        else:
             try:
                 with i2c_lock:
                     i2c.writeto(self.addr, b"")  # Dummy write to probe
@@ -305,6 +300,9 @@ class RotaryEncoder:
                 self.dev = None
 
     def read_delta(self):
+        if not self.dev:
+            return
+        
         parameter = "encoder_delta"
         if not self.dev:
             yield parameter, 0
