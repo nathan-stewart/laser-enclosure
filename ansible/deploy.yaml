@@ -100,7 +100,6 @@
         content: |
           [Install]
           WantedBy=multi-user.target
-          After=network.target kiosk-hal.service
 
           [Unit]
           Description=Laser Control Logic (Supervisor)
