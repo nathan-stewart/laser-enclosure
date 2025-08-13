@@ -9,6 +9,7 @@ import json
 import os
 import struct
 import threading
+import signal 
 
 if sys.argv is None:
     argv = sys.argv[1:]  # exclude script name
@@ -35,7 +36,7 @@ from sdnotify import SystemdNotifier
 notifier = SystemdNotifier()
 
 wait_40Hz = 1.0 / 40.0
-wait_60s = 60.0
+wait_60s = 5.0
 wait_config = 2  # seconds -  rescan periodically if lost comms
 TIMEOUT_40Hz = 0.5  # seconds
 TIMEOUT_60s = 180  # seconds
@@ -47,6 +48,13 @@ last_60s_poll = 0
 error_threshold = 5
 DEBOUNCE_LEN = 3
 
+def graceful_stop(signum, frame):
+    log.info(f"Received signal {signum}, shutting down gracefully...")
+    stop_event.set()
+
+for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+    signal.signal(sig, graceful_stop)
+    
 pub = None
 rep = None
 

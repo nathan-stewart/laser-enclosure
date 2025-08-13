@@ -9,6 +9,7 @@ import zmq, json, time, threading
 sys.path.insert(0, os.path.dirname(__file__))
 import threading
 import subprocess
+import signal
 
 state_lock = threading.Lock()
 stop_event = threading.Event()
@@ -16,6 +17,14 @@ state_hal = {}
 log = None
 pub = None
 sub = None
+
+def graceful_stop(signum, frame):
+    log.info(f"Received signal {signum}, shutting down gracefully...")
+    stop_event.set()
+
+for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+    signal.signal(sig, graceful_stop)
+
 
 # Track activity for backlight control
 USER_INPUTS = {"i_lid", "i_fp0", "i_fp1", "i_fp1", "i_fp2", "i_fp3", "i_btn_estop", "i_btn_fire", "i_mask_encoder", "i_axis_x", "i_axis_z", "i_coarse", "i_fine"}
