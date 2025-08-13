@@ -45,42 +45,52 @@ def start_heartbeat():
         pub.send_string("heartbeat")
         time.sleep(1)
 
-def dew_point_c(temp_c, rh_percent):
-    a = 17.62
-    b = 243.12
-    gamma = (a * temp_c) / (b + temp_c) + math.log(rh_percent / 100.0)
-    dp = (b * gamma) / (a - gamma)
-    return dp
+def num_ok(x):
+    return isinstance(x, (int, float)) and math.isfinite(x)
 
 def dewpoint_check():
-    dewpoint_hyst_on = 3.0
-    dewpoint_hyst_off = 6.0
-    dehumidifier_period = 30.0
+    rh_on = 90.0            # turn ON at/above this RH
+    rh_off = 80.0           # turn OFF at/below this RH
+    period = 30.0
 
     while not stop_event.is_set():
         try:
-            if "i_ambient_temp" in state_hal and "i_ambient_humidity" in state_hal:
-                temperature = state_hal["i_ambient_temp"]
-                humidity = state_hal["i_ambient_humidity"]
-                if isinstance(temperature, (int,float)) and isinstance(humidity, (int,float)):
-                    dewpoint = dew_point_c(temperature, humidity)
-                    delta = dewpoint - temperature
-                    with state_lock:
-                        if delta > dewpoint_hyst_on:
-                            new_val = 1
-                        elif delta < dewpoint_hyst_off:
-                            new_val = 0
-                        else:
-                            new_val = None  # No change
+            # snapshot without holding the lock long
+            with state_lock:
+                h = state_hal.get("i_ambient_humidity")
+                running = bool(state_hal.get("o_k6_dry_fan", 0)) or bool(state_hal.get("o_k8_dry_heat", 0))
 
-                        if new_val is not None:
-                            for key in ("o_k6_dry_fan", "o_k8_dry_heat"):
-                                if state_hal.get(key) != new_val:
-                                    state_hal[key] = new_val
-                    log.debug("Dewpoint check: Temp: %.2f, Humidity: %.2f, Dewpoint: %.2f, Delta: %.2f",temperature, humidity, dewpoint, delta)
+            if not num_ok(h):
+                # No valid humidity yet; skip this cycle
+                stop_event.wait(period)
+                continue
+
+            rh = max(0.0, min(100.0, float(h)))  # clamp
+
+            # Hysteresis: only choose a new value when a threshold is crossed
+            new_val = None
+            if running:
+                if rh <= rh_off:
+                    new_val = 0
+            else:
+                if rh >= rh_on:
+                    new_val = 1
+
+            if new_val is not None:
+                # Prefer: tell HAL so it updates hardware + publishes
+                for key in ("o_k6_dry_fan", "o_k8_dry_heat"):
+                    hal_set(key, new_val)
+
+            # Safe logging (don’t format None as float)
+            log.debug("Humidity control: RH=%.1f%% running=%s decision=%s",
+                      rh, "ON" if running else "OFF",
+                      "ON" if new_val == 1 else "OFF" if new_val == 0 else "HOLD")
+
         except Exception as e:
-            log.error(f"Error in dewpoint check: {e}")
-        stop_event.wait(dehumidifier_period)
+            log.error(f"Error in dewpoint/humidity check: {e}")
+
+        stop_event.wait(period)
+
 
 def publish_to_hal():
     with state_lock:
