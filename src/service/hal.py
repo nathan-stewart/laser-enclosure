@@ -149,10 +149,14 @@ def configure_thread():
     while not stop_event.is_set():
         try:
             for expander in expanders.values():
-                expander.configure()
-            adc.configure()
-            ambient.configure()
-            encoder.configure()
+                if expander.configure():
+                    log.info(f"Configured expander at address {expander.name}")
+            if adc.configure():
+                log.info(f"Configured ADC at address {adc.name}")
+            if ambient.configure():
+                log.info(f"Configured ambient sensors {ambient.name}")
+            if encoder.configure():
+                log.info(f"Configured encoder at address {encoder.name}")
         except Exception as e:
             log.warning("Configure pass error: %s", e)
         stop_event.wait(wait_config)

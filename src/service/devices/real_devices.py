@@ -57,10 +57,10 @@ class RpiGpio:
             if len(self.debounce[name]) == 3 and all(v == self.debounce[name][0] for v in self.debounce[name]):
                 self.last_stable[name] = self.debounce[name][0]
             yield name, self.last_stable[name]
-        
+
     def write(self, name, value):
         if name not in self.outputs:
-            return 
+            return
         GPIO.output(self.outputs[name], GPIO.LOW if value else GPIO.HIGH) # active low
 
 class Expander:
@@ -81,13 +81,13 @@ class Expander:
     def input(self, pin, logical_name, *, pullup=False):
         if self.dev:
             raise RuntimeError(f"{self.name} Cannot add inputs after configure()")
-        
+
         if logical_name in self.inputs or logical_name in self.outputs:
             raise ValueError(f"Duplicate logical name '{logical_name}' on {self.name}")
-        
+
         if len(self.inputs) >= Expander.MAX_INPUTS:
             raise ValueError(f"Too many inputs on {self.name} (max {Expander.MAX_INPUTS})")
-        
+
         self.inputs[logical_name] = (pin, pullup)
         self.debounce[pin] = deque(maxlen=3)
         for _ in range(3):
@@ -97,19 +97,19 @@ class Expander:
     def output(self, pin, logical_name, *, initial=False):
         if self.dev:
             raise RuntimeError(f"{self.name} Cannot add outputs after configure()")
-        
+
         if logical_name in self.outputs or logical_name in self.inputs:
             raise ValueError(f"Duplicate logical name '{logical_name}' on {self.name}")
-        
+
         if len(self.outputs) >= Expander.MAX_OUTPUTS:
             raise ValueError(f"Too many outputs on {self.name} (max {Expander.MAX_OUTPUTS})")
-        
+
         self.outputs[logical_name] = (pin, initial)
 
 
     def configure(self):
         if self.dev:
-            return  # idempotent; safe for your 1s rescan loop
+            return None
         try:
             with i2c_lock:
                 i2c.writeto(self.addr, b"")  # probe
@@ -131,7 +131,8 @@ class Expander:
                     self._out_pins[pin] = p
         except OSError:
             self.dev = None  # remains disconnected
-    
+        return self.dev
+
     def read(self):
         if not self.dev:
             for name in self.inputs:
@@ -187,7 +188,7 @@ class AnalogRead:
 
     def configure(self):
         if self.dev:
-            return  # idempotent
+            return None
         try:
             with i2c_lock:
                 i2c.writeto(self.addr, b"")
@@ -202,6 +203,7 @@ class AnalogRead:
             self._errors = 0
         except OSError:
             self.dev = None
+        return self.dev
 
     def recover_ads(self):
         # Mark disconnected; configure_thread will rebuild
@@ -238,7 +240,7 @@ class Environment:
 
     def configure(self):
         if self.dev:
-            return
+            return None
         try:
             with i2c_lock:
                 i2c.writeto(self.addr, b"")
@@ -247,6 +249,7 @@ class Environment:
             self.filters = {name: self.filters.get(name, EMAFilter(0.1)) for name in self.inputs}
         except OSError:
             self.dev = None
+        return self.dev
 
     def input(self, measurement_key, logical_name, alpha=0.2):
         if self.dev:
@@ -280,7 +283,7 @@ class RotaryEncoder:
 
     def configure(self):
         if self.dev:
-            return
+            return None
         try:
             with i2c_lock:
                 i2c.writeto(self.addr, b"")
@@ -290,6 +293,7 @@ class RotaryEncoder:
         except OSError:
             self.dev = None
             self.enc = None
+        return self.dev
 
     def read_delta(self):
         param = "encoder_delta"
