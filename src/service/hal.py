@@ -36,7 +36,7 @@ notifier = SystemdNotifier()
 
 wait_40Hz = 1.0 / 40.0
 wait_60s = 60.0
-wait_config = 0.5  # seconds # rescan periodically if lost comms
+wait_config = 2  # seconds -  rescan periodically if lost comms
 TIMEOUT_40Hz = 0.5  # seconds
 TIMEOUT_60s = 180  # seconds
 heartbeat_lock = threading.Lock()
@@ -147,11 +147,14 @@ def shutdown_laser():
 
 def configure_thread():
     while not stop_event.is_set():
-         # these return if configured - need to add loss detection
-        for expander in expanders.values():
-            expander.configure()
-        adc.configure()
-        ambient.configure()
+        try:
+            for expander in expanders.values():
+                expander.configure()
+            adc.configure()
+            ambient.configure()
+            encoder.configure()
+        except Exception as e:
+            log.warning("Configure pass error: %s", e)
         stop_event.wait(wait_config)
 
 def monitor_40Hz():
