@@ -27,7 +27,7 @@ for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
 
 
 # Track activity for backlight control
-USER_INPUTS = {"i_lid", "i_fp0", "i_fp1", "i_fp1", "i_fp2", "i_fp3", "i_btn_estop", "i_btn_fire", "i_mask_encoder", "i_axis_x", "i_axis_z", "i_coarse", "i_fine"}
+USER_INPUTS = {"i_lid", "i_fp0", "i_fp1", "i_fp2", "i_fp3", "i_btn_estop", "i_btn_fire", "i_mask_encoder", "i_axis_x", "i_axis_z", "i_coarse", "i_fine"}
 ENCODER_INPUTS = {"i_mask_encoder"}  # adjust if you rename or track deltas elsewhere
 ENCODER_DELTA_THRESHOLD = 1  # define what counts as significant
 previous_inputs = {}
@@ -100,19 +100,6 @@ def dewpoint_check():
 
         stop_event.wait(period)
 
-
-def publish_to_hal():
-    with state_lock:
-        outputs = {k: v for k, v in state_hal.items() if k.startswith("o_")}
-    msg = json.dumps({"set": outputs})
-    try:
-        req.send_string(msg)
-        ack = req.recv_string()
-        if ack != "ok":
-            log.error(f"HAL did not acknowledge output update: {ack}")
-    except Exception as e:
-        log.error(f"Failed to send outputs to HAL: {e}")
-
 def apply_rules():
     log.debug("applying rules: %s", RULES)
     with state_lock:
@@ -129,13 +116,16 @@ def apply_rules():
 def hal_listener():
     global last_activity, previous_inputs
     while not stop_event.is_set():
-        topic, raw = sub.recv_multipart()
-        if topic == b'hal':
-            state = json.loads(raw).get("state", {})
+        try:
+            parts = sub.recv_multipart()
+            if not parts:
+                continue
+            raw = parts[-1]
+            msg = json.loads(raw)
+            state = msg.get("state", msg)
+
             with state_lock:
                 state_hal.update(state)
-
-                # Check for changes in user inputs
                 changed = False
                 for key in USER_INPUTS:
                     prev = previous_inputs.get(key)
@@ -155,11 +145,14 @@ def hal_listener():
                     last_activity = time.time()
 
                 previous_inputs = {k: state.get(k) for k in USER_INPUTS}
-
+            # <<< release lock first
             apply_rules()
+        except Exception as e:
+            log.exception("hal_listener: receive/parse error")
+            time.sleep(0.25)
 
 def is_laser_active():
-    return state_hal.get("k1_laser", 0) == 1
+    return state_hal.get("o_k1_laser", 0) == 1
 
 def set_backlight(state: bool):
     env = os.environ.copy()
@@ -192,6 +185,20 @@ def idle_monitor():
 
         stop_event.wait(30.0)
 
+def hal_set(key, value):
+    with state_lock:
+        state_hal[key] = int(bool(value))
+        outputs = {k: v for k, v in state_hal.items() if k.startswith("o_")}
+    msg = json.dumps({"set": outputs})
+    try:
+        req.send_string(msg)
+        ack = req.recv_string()
+        if ack != "ok":
+            log.error(f"HAL did not acknowledge output update: {ack}")
+    except Exception as e:
+        log.error(f"Failed to send outputs to HAL: {e}")
+
+
 def main(argv):
     global pub, sub, req, log
     parser = argparse.ArgumentParser(description="HAL Watcher")
@@ -213,7 +220,7 @@ def main(argv):
     context = zmq.Context()
     sub = context.socket(zmq.SUB)
     sub.connect("tcp://localhost:5556")      # HAL PUB
-    sub.setsockopt(zmq.SUBSCRIBE, b'hal')
+    sub.setsockopt(zmq.SUBSCRIBE, b'')
     req = context.socket(zmq.REQ)
     req.connect("tcp://localhost:5557")      # HAL REQ/REP
     pub = context.socket(zmq.PUB)
