@@ -144,14 +144,14 @@ def dewpoint_rule(i_ambient_humidity=None,
 
 # Rules for outputs - this is the brain stem - only handles low level rules
 RULES = {
-    "o_k1_laser"    : lambda: i_btn_estop, i_btn_fire : not (i_btn_estop or i_btn_fire),
-    "o_k2_hpa"      : lambda: i_btn_estop, i_m7 : not i_btn_estop and i_m7,
-    "o_k3_fire"     : lambda: i_btn_fire : i_btn_fire,
-    "o_k5_lpa"      : lambda: i_btn_estop, i_m8 : not i_btn_estop and i_m8,
-    "o_k7_exhaust"  : lambda: i_btn_estop, i_m8 : not i_btn_estop and i_m8,
-    "o_k4_light"    : lambda:  None,    # Handled in application
+    "o_k1_laser"    : lambda i_btn_estop=0, i_btn_fire=0  : not (i_btn_estop or i_btn_fire),
+    "o_k2_hpa"      : lambda i_btn_estop=0, i_m7=0        : not i_btn_estop and i_m7,
+    "o_k3_fire"     : lambda i_btn_fire=0,  i_btn_estop=0 : i_btn_fire and (not i_btn_estop),
+    "o_k5_lpa"      : lambda i_btn_estop=0, i_m8=0        : not i_btn_estop and i_m8,
+    "o_k7_exhaust"  : lambda i_btn_estop=0, i_m8=0        : not i_btn_estop and i_m8,
+    "o_k4_light"    : (lambda : None), # Handled in application
+    "o_k8_dry_heat" : (lambda : None), # Handled by dewpoint_rule
     "o_k6_dry_fan"  : dewpoint_rule,
-    "o_k8_dry_heat" : None,             # Handled by dewpoint_rule
 }
 
 def start_heartbeat():
