@@ -36,17 +36,28 @@ previous_inputs = {}
 IDLE_TIMEOUT = 5 * 60  # seconds
 last_activity = time.time()
 last_display_state = None
+rh_on = 45.0  # turn ON at/above this RH
+rh_off = 40.0 # turn OFF at/below this RH
+
+def getb(s, k):  # boolean read with default 0
+    return bool(s.get(k, 0))
+
+def num_ok(x):
+    return isinstance(x, (int, float)) and math.isfinite(x)
+
+def clamp01(x):
+    return 0.0 if x < 0.0 else 100.0 if x > 100.0 else x
 
 # Rules for outputs - this is the brain stem - only handles low level rules
 RULES = {
-    "o_k1_laser"    : lambda i_btn_estop, i_btn_fire : not (i_btn_estop or i_btn_fire),
-    "o_k2_hpa"      : lambda i_btn_estop, i_m7 : not i_btn_estop and i_m7,
-    "o_k3_fire"     : lambda i_btn_fire : i_btn_fire,
-    "o_k5_lpa"      : lambda i_btn_estop, i_m8 : not i_btn_estop and i_m8,
-    "o_k7_exhaust"  : lambda i_btn_estop, i_m8 : not i_btn_estop and i_m8,
-    "o_k4_light"    : lambda : None, # Handled in application
-    "o_k6_dry_fan"  : lambda : None, # Handled in dewpoint check thread
-    "o_k8_dry_heat" : lambda : None, # Handled in dewpoint check thread
+    "o_k1_laser"    : lambda: i_btn_estop, i_btn_fire : not (i_btn_estop or i_btn_fire),
+    "o_k2_hpa"      : lambda: i_btn_estop, i_m7 : not i_btn_estop and i_m7,
+    "o_k3_fire"     : lambda: i_btn_fire : i_btn_fire,
+    "o_k5_lpa"      : lambda: i_btn_estop, i_m8 : not i_btn_estop and i_m8,
+    "o_k7_exhaust"  : lambda: i_btn_estop, i_m8 : not i_btn_estop and i_m8,
+    "o_k4_light"    : lambda:  None, # Handled in application
+    "o_k6_dry_fan"  : dewpoint_rule,
+    "o_k8_dry_heat" : dewpoint_rule,
 }
 
 def start_heartbeat():
@@ -56,49 +67,43 @@ def start_heartbeat():
 
 def num_ok(x):
     return isinstance(x, (int, float)) and math.isfinite(x)
+def dewpoint_rule(i_ambient_humidity=None,
+                  o_k6_dry_fan=0, o_k8_dry_heat=0,
+                  rh_on=45.0, rh_off=40.0,
+                  min_on=120.0, min_off=120.0,
+                  stale_timeout=180.0):
+    now = time.monotonic()
+    st = dewpoint_rule.__dict__      # tiny state store
+    last_change = st.get("last_change", 0.0)
+    last_seen   = st.get("last_seen", now)
+    running = bool(o_k6_dry_fan) or bool(o_k8_dry_heat)
 
-def dewpoint_check():
-    rh_on = 90.0            # turn ON at/above this RH
-    rh_off = 80.0           # turn OFF at/below this RH
-    period = 30.0
+    # sample ingest
+    rh = None
+    if num_ok(i_ambient_humidity):
+        rh = max(0.0, min(100.0, float(i_ambient_humidity)))
+        st["last_seen"] = now
 
-    while not stop_event.is_set():
-        try:
-            # snapshot without holding the lock long
-            with state_lock:
-                h = state_hal.get("i_ambient_humidity")
-                running = bool(state_hal.get("o_k6_dry_fan", 0)) or bool(state_hal.get("o_k8_dry_heat", 0))
+    # stale sensor → fail safe OFF (respect min_on)
+    if now - st.get("last_seen", 0.0) > stale_timeout:
+        if running and (now - last_change) >= min_on:
+            st["last_change"] = now
+            return 0
+        return None
 
-            if not num_ok(h):
-                # No valid humidity yet; skip this cycle
-                stop_event.wait(period)
-                continue
+    # value hysteresis + explicit dwells
+    new_val = None
+    if rh is not None:
+        if running and rh <= rh_off and (now - last_change) >= min_on:
+            new_val = 0
+        elif (not running) and rh >= rh_on and (now - last_change) >= min_off:
+            new_val = 1
 
-            rh = max(0.0, min(100.0, float(h)))  # clamp
+    if new_val is not None:
+        st["last_change"] = now
+        return new_val
+    return None
 
-            # Hysteresis: only choose a new value when a threshold is crossed
-            new_val = None
-            if running:
-                if rh <= rh_off:
-                    new_val = 0
-            else:
-                if rh >= rh_on:
-                    new_val = 1
-
-            if new_val is not None:
-                # Prefer: tell HAL so it updates hardware + publishes
-                for key in ("o_k6_dry_fan", "o_k8_dry_heat"):
-                    hal_set(key, new_val)
-
-            # Safe logging (don’t format None as float)
-            log.debug("Humidity control: RH=%.1f%% running=%s decision=%s",
-                      rh, "ON" if running else "OFF",
-                      "ON" if new_val == 1 else "OFF" if new_val == 0 else "HOLD")
-
-        except Exception as e:
-            log.error(f"Error in dewpoint/humidity check: {e}")
-
-        stop_event.wait(period)
 
 def apply_rules():
     log.debug("applying rules: %s", RULES)
@@ -115,6 +120,7 @@ def apply_rules():
 
 def hal_listener():
     global last_activity, previous_inputs
+    log.info("Starting hal listener...")
     while not stop_event.is_set():
         try:
             parts = sub.recv_multipart()
@@ -192,6 +198,7 @@ def hal_set(key, value):
     msg = json.dumps({"set": outputs})
     try:
         req.send_string(msg)
+        log.debug(f"Sent outputs to HAL: {msg}")
         ack = req.recv_string()
         if ack != "ok":
             log.error(f"HAL did not acknowledge output update: {ack}")
@@ -228,7 +235,6 @@ def main(argv):
 
     threads = []
     threads.append(threading.Thread(target=hal_listener))
-    threads.append(threading.Thread(target=dewpoint_check))
     threads.append(threading.Thread(target=idle_monitor))
     threads.append(threading.Thread(target=start_heartbeat, daemon=True))
 
