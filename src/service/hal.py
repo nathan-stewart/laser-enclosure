@@ -9,10 +9,8 @@ import json
 import os
 import struct
 import threading
-import signal 
+import signal
 
-if sys.argv is None:
-    argv = sys.argv[1:]  # exclude script name
 parser = argparse.ArgumentParser(description="HAL Watcher")
 parser.add_argument(
     "--log", "-l",
@@ -35,16 +33,18 @@ from service.devices import Gpio, Expander, AnalogRead, Environment, RotaryEncod
 from sdnotify import SystemdNotifier
 notifier = SystemdNotifier()
 
-wait_40Hz = 1.0 / 40.0
-wait_60s = 5.0
+wait_inputs = 1.0 / 40.0   # 40Hz for inputs
+wait_sensors = 1.0 / 10.0  # 10Hz for sensors
+wait_env = 5.0             # 30 seconds for environment
 wait_config = 2  # seconds -  rescan periodically if lost comms
-TIMEOUT_40Hz = 0.5  # seconds
-TIMEOUT_60s = 180  # seconds
+TIMEOUT_INPUT = 0.5  # seconds
+TIMEOUT_ENV = 180  # seconds
 heartbeat_lock = threading.Lock()
 stop_event = threading.Event()
 state_lock = threading.Lock()
-last_40Hz_poll = 0
-last_60s_poll = 0
+last_input_poll = 0
+last_sensor_poll = 0
+last_env_poll = 0
 error_threshold = 5
 DEBOUNCE_LEN = 3
 
@@ -54,7 +54,7 @@ def graceful_stop(signum, frame):
 
 for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
     signal.signal(sig, graceful_stop)
-    
+
 pub = None
 rep = None
 
@@ -125,23 +125,42 @@ for name in ambient.inputs.keys():
 log = None
 last_heartbeat = time.time()
 
+# virtual output, state, physical outputs
+virtual_outputs = {"o_dehumidifier" : { 'state' : 0,
+                                        'physical': ["o_k8_dry_heat","o_k6_dry_fan"]}}
+
+# Initialize virtuals by driving their physical pins to the stored state
+with state_lock:
+    for virt, cfg in virtual_outputs.items():
+        v = 1 if cfg.get("state", 0) else 0
+        for pin in cfg["physical"]:
+            if pin in gpio.outputs:
+                gpio.write(pin, v)
+                current_state[pin] = v
+            else:
+                raise ValueError(f"Virtual {virt} references unknown GPIO pin {pin}")
+
 def control_heartbeat_listener():
     global last_heartbeat
     ctx = zmq.Context()
     sub = ctx.socket(zmq.SUB)
     sub.connect("tcp://localhost:5558")
     sub.setsockopt_string(zmq.SUBSCRIBE, "")
-    while True:
+    sub.setsockopt(zmq.RCVTIMEO, 1000)  # 1s
+    while not stop_event.is_set():
         try:
             msg = sub.recv_string()
             if msg == "heartbeat":
                 last_heartbeat = time.time()
-        except zmq.ZMQError:
-            pass
+        except zmq.Again:
+            continue
+        except Exception:
+            log.exception("heartbeat listener")
+            break
 
 def monitor_control_heartbeat():
     global last_heartbeat
-    while True:
+    while not stop_event.is_set():
         if time.time() - last_heartbeat > 2:
             log.warning("WARNING: No heartbeat from control process. Taking emergency action.")
             # e.g., shut off laser GPIO
@@ -150,8 +169,8 @@ def monitor_control_heartbeat():
 
 def shutdown_laser():
     log.warning("Laser power disabled due to control heartbeat loss.")
-    for output in gpio.outputs:
-        set_output(output, 0)
+    for name in list(gpio.outputs.keys()):
+        set_output(name, 0)
 
 def configure_thread():
     while not stop_event.is_set():
@@ -169,12 +188,12 @@ def configure_thread():
             log.warning("Configure pass error: %s", e)
         stop_event.wait(wait_config)
 
-def monitor_40Hz():
-    global current_state, last_40Hz_poll
+def monitor_inputs():
+    global current_state, last_input_poll
     while not stop_event.is_set():
         with state_lock:
             with heartbeat_lock:
-                last_40Hz_poll = time.time()
+                last_input_poll = time.time()
 
             for name, value in gpio.read():
                 if name:
@@ -185,70 +204,98 @@ def monitor_40Hz():
                     if name:
                         current_state[name] = value
 
+            snapshot = copy.deepcopy(current_state)
+
+        publish_state(snapshot)
+        stop_event.wait(wait_inputs)
+
+def monitor_sensors():
+    global current_state, last_sensor_poll
+    while not stop_event.is_set():
+        with state_lock:
+            with heartbeat_lock:
+                last_sensor_poll = time.time()
+
             for name, value in adc.read():
                 if name:
                     current_state[name] = value
 
-            # for name, value in next(encoder.read_delta()):
-                # current_state[name] = value
+            snapshot = copy.deepcopy(current_state)
 
-            publish_state()
-        stop_event.wait(wait_40Hz)
+        publish_state(snapshot)
+        stop_event.wait(wait_sensors)
 
-def monitor_60s():
-    """Monitor environment and publish state changes."""
-    global last_60s_poll, current_state, pub
+def monitor_env():
+    global last_env_poll
     while not stop_event.is_set():
         with state_lock:
-            with heartbeat_lock:
-                last_60s_poll = time.time()
-                if time.time() - last_60s_poll > TIMEOUT_60s:
-                    raise RuntimeError("Input read timeout")
-                for name, value in ambient.read():
-                    if name:
-                        current_state[name] = value
+            last_env_poll = time.time()
+            for name, value in ambient.read():
+                if name:
+                    current_state[name] = value
+            snapshot = copy.deepcopy(current_state)
+        publish_state(snapshot)
+        stop_event.wait(wait_env)
 
-            log.debug(f"Current state: {json.dumps(current_state, indent=2)}")
-        stop_event.wait(wait_60s)
+def publish_state(snapshot):
+    # derive virtual(s) and hide physical pins
+    for virt, cfg in virtual_outputs.items():
+        pins = cfg["physical"]
+        # remove physicals
+        for p in pins:
+            snapshot.pop(p, None)
+        # derive: ON if any physical is ON
+        snapshot[virt] = int(any(current_state.get(p, 0) for p in pins))
 
-def publish_state():
-    global previous_state
-    pub.send_multipart([b'hal', json.dumps({"state": current_state}).encode()])
-    previous_state = copy.deepcopy(current_state)
-
+    pub.send_multipart([b"hal", json.dumps({"state": snapshot}).encode()])
 
 def set_output(name, value):
-    """Set the state of an output pin."""
-    global current_state, rep, mcp23017_devices
+    v = 1 if value else 0
 
-    with state_lock:
-        if name in gpio.outputs:
-            gpio.write(name, value)
-            return True
-
+    def set_primitive(pin, val):
+        # write HW, then update state
+        if pin in gpio.outputs:
+            gpio.write(pin, val)
         else:
             for expander in expanders.values():
-                if name in expander.outputs:
-                    expander.write(name, value)
-                    return True
-    return False
+                if pin in expander.outputs:
+                    expander.write(pin, val)
+                    break
+            else:
+                return False
+        current_state[pin] = val
+        return True
+
+    with state_lock:
+        ok = True
+        if name in virtual_outputs:
+            for pin in virtual_outputs[name]["physical"]:
+                ok = set_primitive(pin, v) and ok
+        else:
+            ok = set_primitive(name, v)
+
+        snapshot = copy.deepcopy(current_state)
+
+    publish_state(snapshot)
+    return ok
 
 def handle_commands():
-    global current_state, mcp23017_devices, rep
     while not stop_event.is_set():
         try:
             msg = rep.recv_json()
-            cmd = msg.get("cmd")
+            cmd = (msg.get("cmd") or "").lower()
+
             if cmd == "set":
-                if set_output(msg["pin"], msg["state"]):
-                    rep.send_json({"status": "ok", "pin": msg["pin"], "state": msg["state"]})
-            else:
-                rep.send_json({"status": "unsupported command"})
+                ok = set_output(msg["pin"], msg["state"])
+                rep.send_json({"status": "ok" if ok else "error"})
+                continue
+
+            rep.send_json({"status": "unsupported command"})
         except Exception as e:
             try:
                 rep.send_json({"status": "error", "error": str(e)})
             except Exception:
-                log.error(f"Error handling ZMQ command and replying: {e}")
+                log.exception("ZMQ reply failed: %s", e)
 
 def thread_wrapper(func):
     try:
@@ -284,8 +331,9 @@ def main(argv=None):
     threads = []
     threads.append(threading.Thread(target=thread_wrapper, name="ConfigureThread", args=(configure_thread,), daemon=True))
     threads.append(threading.Thread(target=thread_wrapper, name="CommandHandler", args=(handle_commands,), daemon=True))
-    threads.append(threading.Thread(target=thread_wrapper, name="40Hz", args=(monitor_40Hz,), daemon=True))
-    threads.append(threading.Thread(target=thread_wrapper, name="60s", args=(monitor_60s,), daemon=True))
+    threads.append(threading.Thread(target=thread_wrapper, name="InputPolling", args=(monitor_inputs,), daemon=True))
+    threads.append(threading.Thread(target=thread_wrapper, name="SensorPolling", args=(monitor_sensors,), daemon=True))
+    threads.append(threading.Thread(target=thread_wrapper, name="EnvPolling", args=(monitor_env,), daemon=True))
     threads.append(threading.Thread(target=thread_wrapper, name="HeartbeatListener", args=(control_heartbeat_listener,), daemon=True))
     threads.append(threading.Thread(target=thread_wrapper, name="HeartbeatMonitor", args=(monitor_control_heartbeat,), daemon=True))
 
@@ -298,12 +346,12 @@ def main(argv=None):
         while not stop_event.is_set():
             # these are only monitoring the threads, not the devices
             with heartbeat_lock:
-                if time.time() - last_40Hz_poll > TIMEOUT_40Hz:
+                if time.time() - last_input_poll > TIMEOUT_INPUT:
                     raise RuntimeError("Heartbeat timeout: No input read in the last 0.5 seconds")
-                if time.time() - last_60s_poll > TIMEOUT_60s:
+                if time.time() - last_env_poll > TIMEOUT_ENV:
                     raise RuntimeError("Heartbeat timeout: No environment read in the last 60 seconds")
                 notifier.notify("WATCHDOG=1")
-            stop_event.wait(TIMEOUT_40Hz)
+            stop_event.wait(TIMEOUT_INPUT)
         log.info("HAL shutting down")
 
     except KeyboardInterrupt:
