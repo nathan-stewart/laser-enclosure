@@ -19,17 +19,17 @@ class StatePanel(QWidget):
 
     def update_state(self, state):
         row, col = 0, 0
-        sorted_items = sorted(state.items(), key=lambda x: x[0])
-        for k, v in sorted_items:
+        items = state.items()
+        for k, v in items:
             if k not in self.labels:
                 lbl = QLabel()
                 lbl.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
                 self.labels[k] = lbl
                 self.label_grid.addWidget(lbl, row, col)
-                col += 1
-                if col > 1:
-                    col = 0
-                    row += 1
+                row += 1
+                if row >= len(items) // 2:
+                    row = 0
+                    col += 1
             lbl = self.labels[k]
             if k in ['i_air_supply', 'i_co2_supply']:
                 display = f"{v:.2f} V" if v is not None else f"{k}: —"
@@ -37,6 +37,6 @@ class StatePanel(QWidget):
                 display = f"{v:.2f}" if v is not None else f"{k}: —"
             else:
                 display = '✔' if v else '✘' if v is not None else '—'
-            lbl.setText(f"{k}: {display}")
+            lbl.setText(f"{display}:{k}")
             lbl.setStyleSheet(f"color: {'green' if v else 'red' if v is not None else 'gray'};")
 
