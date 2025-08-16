@@ -42,6 +42,7 @@ TIMEOUT_ENV = 180  # seconds
 heartbeat_lock = threading.Lock()
 stop_event = threading.Event()
 state_lock = threading.Lock()
+publish_lock = threading.Lock()
 last_input_poll = 0
 last_sensor_poll = 0
 last_env_poll = 0
@@ -59,7 +60,7 @@ pub = None
 rep = None
 
 current_state = {}
-previous_state = {}
+previous_snapshot = {}
 
 gpio = Gpio()
 gpio.input(22, "i_m7")
@@ -126,17 +127,17 @@ log = None
 last_heartbeat = time.time()
 
 # virtual output, state, physical outputs
-virtual_outputs = {"o_dehumidifier" : { 'state' : 0,
-                                        'physical': ["o_k8_dry_heat","o_k6_dry_fan"]}}
+virtual_outputs = {"o_dehumidifier" : ["o_k8_dry_heat","o_k6_dry_fan"]}
+locked_pins = {p for pins in virtual_outputs.values() for p in pins}
 
 # Initialize virtuals by driving their physical pins to the stored state
 with state_lock:
-    for virt, cfg in virtual_outputs.items():
-        v = 1 if cfg.get("state", 0) else 0
-        for pin in cfg["physical"]:
+    boot_val = 0  # or 1 if you want it on at boot
+    for virt, pins in virtual_outputs.items():
+        for pin in pins:
             if pin in gpio.outputs:
-                gpio.write(pin, v)
-                current_state[pin] = v
+                gpio.write(pin, boot_val)
+                current_state[pin] = boot_val
             else:
                 raise ValueError(f"Virtual {virt} references unknown GPIO pin {pin}")
 
@@ -169,8 +170,13 @@ def monitor_control_heartbeat():
 
 def shutdown_laser():
     log.warning("Laser power disabled due to control heartbeat loss.")
+    # turn off composite first
+    set_output("o_dehumidifier", 0)
+    # then other physicals (skip locked pins)
     for name in list(gpio.outputs.keys()):
-        set_output(name, 0)
+        if name not in locked_pins:
+            set_output(name, 0)
+    # don't turn off expanders - they could be set to indicate a fault
 
 def configure_thread():
     while not stop_event.is_set():
@@ -237,46 +243,62 @@ def monitor_env():
         publish_state(snapshot)
         stop_event.wait(wait_env)
 
-def publish_state(snapshot):
-    # derive virtual(s) and hide physical pins
-    for virt, cfg in virtual_outputs.items():
-        pins = cfg["physical"]
-        # remove physicals
-        for p in pins:
-            snapshot.pop(p, None)
-        # derive: ON if any physical is ON
-        snapshot[virt] = int(any(current_state.get(p, 0) for p in pins))
 
-    pub.send_multipart([b"hal", json.dumps({"state": snapshot}).encode()])
+def publish_state(snapshot):
+    with publish_lock:
+        # derive virtuals from physicals (OR)
+        for virt, pins in virtual_outputs.items():
+            snapshot[virt] = int(any(snapshot.get(p, 0) for p in pins))
+
+        # change filter
+        if snapshot == previous_snapshot:
+            return
+        pub.send_multipart([b"hal", json.dumps({"state": snapshot}).encode()])
+        previous_snapshot.clear()
+        previous_snapshot.update(snapshot)
 
 def set_output(name, value):
     v = 1 if value else 0
 
-    def set_primitive(pin, val):
-        # write HW, then update state
+    def write_pin(pin, val):
+        """Write one physical pin and update current_state (idempotent)."""
+        v = 1 if val else 0
+        if current_state.get(pin, 0) == v:
+            return True
         if pin in gpio.outputs:
-            gpio.write(pin, val)
+            gpio.write(pin, v)
         else:
-            for expander in expanders.values():
-                if pin in expander.outputs:
-                    expander.write(pin, val)
+            for exp in expanders.values():
+                if pin in exp.outputs:
+                    exp.write(pin, v)
                     break
             else:
                 return False
-        current_state[pin] = val
+        current_state[pin] = v
         return True
 
     with state_lock:
         ok = True
+        changed = False
+
         if name in virtual_outputs:
-            for pin in virtual_outputs[name]["physical"]:
-                ok = set_primitive(pin, v) and ok
+            pins = virtual_outputs[name]
+            if not all(current_state.get(p, 0) == v for p in pins):
+                for pin in pins:
+                    ok = write_pin(pin, v) and ok
+                changed = True
         else:
-            ok = set_primitive(name, v)
+            if name in locked_pins:
+                log.warning("Attempt to set locked pin %s directly; ignoring.", name)
+                return False
+            if current_state.get(name, 0) != v:
+                ok = write_pin(name, v)
+                changed = True
 
-        snapshot = copy.deepcopy(current_state)
+        snapshot = dict(current_state)
 
-    publish_state(snapshot)
+    if changed:
+        publish_state(snapshot)
     return ok
 
 def handle_commands():
@@ -347,9 +369,9 @@ def main(argv=None):
             # these are only monitoring the threads, not the devices
             with heartbeat_lock:
                 if time.time() - last_input_poll > TIMEOUT_INPUT:
-                    raise RuntimeError("Heartbeat timeout: No input read in the last 0.5 seconds")
+                    raise RuntimeError(f"Heartbeat timeout: No input read in the last {TIMEOUT_INPUT:0.2f} seconds")
                 if time.time() - last_env_poll > TIMEOUT_ENV:
-                    raise RuntimeError("Heartbeat timeout: No environment read in the last 60 seconds")
+                    raise RuntimeError(f"Heartbeat timeout: No environment read in the last {TIMEOUT_ENV} seconds")
                 notifier.notify("WATCHDOG=1")
             stop_event.wait(TIMEOUT_INPUT)
         log.info("HAL shutting down")

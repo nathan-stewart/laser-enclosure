@@ -31,8 +31,8 @@ for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
 
 
 # Track activity for backlight control
-USER_INPUTS = {"i_lid", "i_fp0", "i_fp1", "i_fp2", "i_fp3", "i_btn_estop", "i_btn_fire", "i_mask_encoder", "i_axis_x", "i_axis_z", "i_coarse", "i_fine"}
-RELEVANT_FOR_RULES = set(USER_INPUTS) | {"i_ambient_humidity"}
+ACTIVITY_INPUTS = {"i_lid", "i_fp0", "i_fp1", "i_fp2", "i_fp3", "i_btn_estop", "i_btn_fire", "i_mask_encoder", "i_axis_x", "i_axis_z", "i_coarse", "i_fine"}
+RULE_INPUTS = set(ACTIVITY_INPUTS) | {"i_ambient_humidity"}
 ENCODER_INPUTS = {"i_mask_encoder"}  # adjust if you rename or track deltas elsewhere
 ENCODER_DELTA_THRESHOLD = 1  # define what counts as significant
 previous_inputs = {}
@@ -52,106 +52,54 @@ def num_ok(x):
 
 def clamp01(x):
     return 0.0 if x < 0.0 else 100.0 if x > 100.0 else x
-def dewpoint_rule(i_ambient_humidity=None,
-                  o_k6_dry_fan=0, o_k8_dry_heat=0,
+
+def dewpoint_rule(i_ambient_humidity=None, o_dehumidifier=0,
                   rh_on=45.0, rh_off=40.0,
                   min_on=120.0, min_off=120.0,
-                  stale_timeout=180.0,
-                  pre=0.0, purge=0.0):
-    """
-    Returns either:
-      - None (hold), or
-      - {'o_k8_dry_heat': 0/1, 'o_k6_dry_fan': 0/1}
-    Enforces: heat implies fan. Optional pre-run/purge if pre/purge > 0.
-    """
+                  stale_timeout=180.0):
     now = time.monotonic()
-    st = dewpoint_rule.__dict__  # process-local state
+    st = dewpoint_rule.__dict__
     last_change = st.get("last_change", 0.0)
     last_seen   = st.get("last_seen", 0.0)
-    fan_on_at   = st.get("fan_on_at", 0.0)
-    purge_until = st.get("purge_until", 0.0)
 
-    running_heat = bool(o_k8_dry_heat)
-    running_fan  = bool(o_k6_dry_fan)
+    running = bool(o_dehumidifier)
 
-    # sample
     rh = None
     if isinstance(i_ambient_humidity, (int, float)) and math.isfinite(i_ambient_humidity):
         rh = max(0.0, min(100.0, float(i_ambient_humidity)))
         last_seen = now
 
-    # stale-sensor failsafe (respect min_on)
+    # stale -> fail safe OFF (respect min_on)
     if now - last_seen > stale_timeout:
-        if running_heat and (now - last_change) >= min_on:
-            st["last_change"] = now
-            st["last_seen"] = last_seen
-            return {"o_k8_dry_heat": 0, "o_k6_dry_fan": 1 if purge > 0 else 0}
+        if running and (now - last_change) >= min_on:
+            st["last_change"] = now; st["last_seen"] = last_seen
+            return 0
         st["last_seen"] = last_seen
         return None
 
-    # decide heat via value + dwell
-    new_heat = None
+    cmd = None
     if rh is not None:
-        if running_heat and rh <= rh_off and (now - last_change) >= min_on:
-            new_heat = 0
-        elif (not running_heat) and rh >= rh_on and (now - last_change) >= min_off:
-            new_heat = 1
+        if running and rh <= rh_off and (now - last_change) >= min_on:
+            cmd = 0
+        elif (not running) and rh >= rh_on and (now - last_change) >= min_off:
+            cmd = 1
 
-    if new_heat is None:
-        st["last_seen"] = last_seen
-        # maintain purge if active
-        if not running_heat and now < purge_until:
-            return {"o_k8_dry_heat": 0, "o_k6_dry_fan": 1}
-        return None
+    if cmd is not None:
+        st["last_change"] = now; st["last_seen"] = last_seen
+        return cmd
 
-    # transitions
-    if new_heat == 1:
-        # ensure fan on; optionally enforce pre-run
-        fan_next = 1
-        heat_next = 1
-        if pre > 0:
-            if not running_fan:
-                fan_on_at = now
-            if now - fan_on_at < pre:
-                heat_next = 0  # delay heat this cycle
-        if heat_next == 1:
-            last_change = now
-    else:  # new_heat == 0
-        heat_next = 0
-        if purge > 0:
-            fan_next = 1
-            purge_until = now + purge
-        else:
-            fan_next = int(running_fan)  # don’t force fan off here
-
-        last_change = now
-
-    # persist locals
-    st["last_change"] = last_change
-    st["last_seen"]   = last_seen
-    st["fan_on_at"]   = fan_on_at
-    st["purge_until"] = purge_until
-
-    # enforce invariant: heat ⇒ fan
-    if heat_next == 1 and 'fan_next' not in locals():
-        fan_next = 1
-
-    # default fan_next if unchanged
-    if 'fan_next' not in locals():
-        fan_next = int(running_fan)
-
-    return {"o_k8_dry_heat": heat_next, "o_k6_dry_fan": fan_next}
+    st["last_seen"] = last_seen
+    return None
 
 # Rules for outputs - this is the brain stem - only handles low level rules
 RULES = {
-    "o_k1_laser"    : lambda i_btn_estop=0, i_btn_fire=0  : not (i_btn_estop or i_btn_fire),
-    "o_k2_hpa"      : lambda i_btn_estop=0, i_m7=0        : not i_btn_estop and i_m7,
-    "o_k3_fire"     : lambda i_btn_fire=0,  i_btn_estop=0 : i_btn_fire and (not i_btn_estop),
-    "o_k5_lpa"      : lambda i_btn_estop=0, i_m8=0        : not i_btn_estop and i_m8,
-    "o_k7_exhaust"  : lambda i_btn_estop=0, i_m8=0        : not i_btn_estop and i_m8,
-    "o_k4_light"    : (lambda : None), # Handled in application
-    "o_k8_dry_heat" : (lambda : None), # Handled by dewpoint_rule
-    "o_k6_dry_fan"  : dewpoint_rule,
+    "o_k1_laser"      : lambda i_btn_estop=0, i_btn_fire=0  : not (i_btn_estop or i_btn_fire),
+    "o_k2_hpa"        : lambda i_btn_estop=0, i_m7=0        : not i_btn_estop and i_m7,
+    "o_k3_fire"       : lambda i_btn_fire=0,  i_btn_estop=0 : i_btn_fire and (not i_btn_estop),
+    "o_k5_lpa"        : lambda i_btn_estop=0, i_m8=0        : not i_btn_estop and i_m8,
+    "o_k7_exhaust"    : lambda i_btn_estop=0, i_m8=0        : not i_btn_estop and i_m8,
+    "o_k4_light"      : (lambda : None), # Handled in application
+    "o_dehumidifier"  : dewpoint_rule,
 }
 
 def start_heartbeat():
@@ -162,28 +110,28 @@ def start_heartbeat():
             log.exception("heartbeat send failed")
         stop_event.wait(1.0)
 
-def hal_set(key, value):
-    with state_lock:
-        state_hal[key] = int(bool(value))
-        outputs = {k: v for k, v in state_hal.items() if k.startswith("o_")}
-    msg = json.dumps({"set": outputs})
+def hal_set(name, value, timeout_ms=1000):
+    payload = {"cmd": "set", "pin": name, "state": int(bool(value))}
     try:
-        req.send_string(msg)
-        log.debug("Sent outputs to HAL: %s", msg)
-        ack = req.recv_string()
-        if ack == "ok":
-            return True
-        try:
-            rep = json.loads(ack)
-            if rep.get("status", "").lower() == "ok" or rep.get("ok") is True:
-                return True
-            log.error("HAL NACK: %s", rep)
-        except Exception:
-            log.error("Unexpected HAL ack: %r", ack)
-    except Exception as e:
-        log.error("Failed to send outputs to HAL: %s", e)
-    return False
+        req.setsockopt(zmq.RCVTIMEO, timeout_ms)
+        req.setsockopt(zmq.SNDTIMEO, timeout_ms)
+    except Exception:
+        pass
+    req.send_json(payload)
+    rep = req.recv_json()
+    ok = str(rep.get("status", "")).lower() == "ok"
+    if not ok:
+        log.error("HAL NACK: %s", rep)
+    return ok
 
+def hal_get_status(timeout_ms=500):
+    try:
+        req.setsockopt(zmq.RCVTIMEO, timeout_ms)
+        req.setsockopt(zmq.SNDTIMEO, timeout_ms)
+    except Exception:
+        pass
+    req.send_json({"cmd":"get_status"})
+    return req.recv_json()  # {"status":"ok","state":{...},"version":N,"ts":...}
 
 def bind_kwargs_for(rule, state):
     if rule is None:
@@ -191,7 +139,6 @@ def bind_kwargs_for(rule, state):
     sig = inspect.signature(rule)
     kwargs = {}
     for name, p in sig.parameters.items():
-        # prefer value from state; otherwise use the rule's default if any
         kwargs[name] = state.get(name, p.default if p.default is not inspect._empty else None)
     return kwargs
 
@@ -205,18 +152,9 @@ def apply_rules(state, now=None, version=None):
         except Exception as e:
             log.error("Rule %s failed: %s", out, e)
             continue
-
         if res is None:
             continue
-        if isinstance(res, dict):
-            for k, v in res.items():
-                if v is None:
-                    continue
-                decisions[k] = int(bool(v))
-        else:
-            decisions[out] = int(bool(res))
-
-    # (optional) safety overrides / priorities here
+        decisions[out] = int(bool(res))
 
     for k, v in decisions.items():
         cur = int(bool(state.get(k, 0)))
@@ -226,31 +164,29 @@ def apply_rules(state, now=None, version=None):
 def hal_listener():
     global last_activity, previous_inputs, state_hal_seq
     log.info("Starting hal listener...")
-    sub.setsockopt(zmq.RCVTIMEO, 500)   # 0.5s recv timeout
+    sub.setsockopt(zmq.RCVTIMEO, 500)
     tick_every = 10.0
     next_tick = time.monotonic() + tick_every
 
     while not stop_event.is_set():
         any_changed = False
         try:
-            parts = sub.recv_multipart()  # blocks up to RCVTIMEO
+            parts = sub.recv_multipart()
         except zmq.Again:
-            # timeout -> periodic tick
             now = time.monotonic()
             if now >= next_tick:
                 with state_lock:
                     snapshot = dict(state_hal)
-                    state_hal_seq = (state_hal_seq + 1) if 'state_hal_seq' in globals() else 1
+                    state_hal_seq = state_hal_seq + 1 if 'state_hal_seq' in globals() else 1
                     version = state_hal_seq
                 apply_rules(snapshot, now=now, version=version)
                 next_tick = now + tick_every
             continue
         except Exception:
             log.exception("hal_listener: recv failed")
-            time.sleep(0.05)  # backoff only on error
+            time.sleep(0.05)
             continue
 
-        # process first message + drain any burst
         frames = [parts]
         while True:
             try:
@@ -265,13 +201,13 @@ def hal_listener():
                     msg = json.loads(p[-1])
                     st = msg.get("state", msg)
                 except Exception:
-                    log.exception("hal_listener: bad json payload")
+                    log.exception("hal_listener: bad json")
                     continue
 
                 state_hal.update(st)
 
-                # relevant change detection (inputs + any i_* your rules read)
-                for key in RELEVANT_FOR_RULES:
+                # change detection
+                for key in RULE_INPUTS:
                     prev = previous_inputs.get(key)
                     curr = state_hal.get(key)
                     if key in ENCODER_INPUTS:
@@ -283,17 +219,14 @@ def hal_listener():
                     elif curr is not None and curr != prev:
                         any_changed = True
 
-                previous_inputs = {k: state_hal.get(k) for k in RELEVANT_FOR_RULES}
+                previous_inputs = {k: state_hal.get(k) for k in RULE_INPUTS}
+                if any(k in ACTIVITY_INPUTS and previous_inputs.get(k) is not None for k in RULE_INPUTS):
+                    last_activity = now
 
-            if any_changed:
-                last_activity = now
-
-            # snapshot & version after ingesting the whole burst
             snapshot = dict(state_hal)
-            state_hal_seq = (state_hal_seq + 1) if 'state_hal_seq' in globals() else 1
+            state_hal_seq = state_hal_seq + 1 if 'state_hal_seq' in globals() else 1
             version = state_hal_seq
 
-        # release lock before heavy work
         if any_changed or now >= next_tick:
             apply_rules(snapshot, now=now, version=version)
             if now >= next_tick:
