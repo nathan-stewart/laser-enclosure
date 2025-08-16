@@ -41,8 +41,6 @@ previous_inputs = {}
 IDLE_TIMEOUT = 5 * 60  # seconds
 last_activity = time.monotonic()
 last_display_state = None
-rh_on = 45.0  # turn ON at/above this RH
-rh_off = 40.0 # turn OFF at/below this RH
 
 def getb(s, k):  # boolean read with default 0
     return bool(s.get(k, 0))
@@ -54,8 +52,8 @@ def clamp01(x):
     return 0.0 if x < 0.0 else 100.0 if x > 100.0 else x
 
 def dewpoint_rule(i_ambient_humidity=None, o_dehumidifier=0,
-                  rh_on=45.0, rh_off=40.0,
-                  min_on=120.0, min_off=120.0,
+                  rh_on=90.0, rh_off=70.0,
+                  min_on=60.0, min_off=60.0,
                   stale_timeout=180.0):
     now = time.monotonic()
     st = dewpoint_rule.__dict__
