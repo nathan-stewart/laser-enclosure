@@ -300,24 +300,54 @@ def set_output(name, value):
     if changed:
         publish_state(snapshot)
     return ok
-
 def handle_commands():
+    # optional, but lets the loop exit when stop_event is set
+    try:
+        rep.setsockopt(zmq.RCVTIMEO, 1000)  # 1s
+    except Exception:
+        pass
+
     while not stop_event.is_set():
         try:
-            msg = rep.recv_json()
+            msg = rep.recv_json()  # blocks up to RCVTIMEO if set
+        except zmq.Again:
+            continue  # timeout -> check stop_event and loop
+        except Exception:
+            log.exception("handle_commands: recv failed")
+            continue
+
+        try:
             cmd = (msg.get("cmd") or "").lower()
 
             if cmd == "set":
-                ok = set_output(msg["pin"], msg["state"])
-                rep.send_json({"status": "ok" if ok else "error"})
+                # strict payload
+                if "pin" not in msg or "state" not in msg:
+                    rep.send_json({"status": "error", "error": "missing 'pin' or 'state'"})
+                    continue
+                name = msg["pin"]
+                val  = 1 if msg["state"] else 0
+
+                ok = set_output(name, val)
+                if ok:
+                    rep.send_json({"status": "ok"})
+                else:
+                    rep.send_json({"status": "error", "error": "read-only or unknown pin"})
+                continue
+
+            if cmd == "get_status":
+                with state_lock:
+                    snap = dict(current_state)
+                    for virt, pins in virtual_outputs.items():
+                        snap[virt] = int(any(snap.get(p, 0) for p in pins))
+                rep.send_json({"status": "ok", "state": snap, "ts": time.time()})
                 continue
 
             rep.send_json({"status": "unsupported command"})
+
         except Exception as e:
-            try:
-                rep.send_json({"status": "error", "error": str(e)})
-            except Exception:
-                log.exception("ZMQ reply failed: %s", e)
+            # We DID receive a request; safe to reply once.
+            rep.send_json({"status": "error", "error": str(e)})
+            log.exception("handle_commands: processing error")
 
 def thread_wrapper(func):
     try:
