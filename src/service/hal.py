@@ -168,19 +168,26 @@ def write_pin(pin, val):
 
 def set_output(name, value):
     v = 1 if value else 0
-    # expand targets: virtual -> members, else itself
-    targets = virtual_outputs.get(name, (name,))
-
     with state_lock:
+        if name not in set(current_state):
+            log.warning(f"Trying to set unknown parameter {name}")
+
         ok = True
         # only touch pins that need a change
-        to_change = [p for p in targets if current_state.get(p, 0) != v]
+        to_change = []
+        if name in virtual_outputs:
+            to_change = [p for p in virtual_outputs.get(name, (name,)) if current_state.get(p, 0) != v]
+        else:
+            if current_state.get(name, 0) != v:
+                to_change.append(name)
 
-        for pin in to_change:
-            if not write_pin(pin, v):
-                ok = False
-            else:
-                current_state[pin] = v
+        if to_change:
+            log.debug(f"set_output() - {name} update needed")
+            for pin in to_change:
+                if not write_pin(pin, v):
+                    ok = False
+                else:
+                    current_state[pin] = v
 
         changed = bool(to_change)
         snap = dict(current_state)
