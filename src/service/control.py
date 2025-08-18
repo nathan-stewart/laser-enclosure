@@ -51,7 +51,7 @@ def num_ok(x):
 def clamp01(x):
     return 0.0 if x < 0.0 else 100.0 if x > 100.0 else x
 
-def dewpoint_rule(i_ambient_humidity=None, o_dehumidifier=0,
+def dewpoint_rule(i_ambient_humidity=None, o_dryer=0,
                   rh_on=50.0, rh_off=45.0,
                   min_on=30.0, min_off=30.0,
                   stale_timeout=180.0):
@@ -60,7 +60,7 @@ def dewpoint_rule(i_ambient_humidity=None, o_dehumidifier=0,
     last_change = st.get("last_change", 0.0)
     last_seen   = st.get("last_seen", 0.0)
 
-    running = bool(o_dehumidifier)
+    running = bool(o_dryer)
 
     rh = None
     if isinstance(i_ambient_humidity, (int, float)) and math.isfinite(i_ambient_humidity):
@@ -83,6 +83,7 @@ def dewpoint_rule(i_ambient_humidity=None, o_dehumidifier=0,
             cmd = 1
 
     if cmd is not None:
+        log.debug(f'Humidity {rh:.1f} turning dryer {"on" if cmd else "off"} ')
         st["last_change"] = now; st["last_seen"] = last_seen
         return cmd
 
@@ -91,13 +92,13 @@ def dewpoint_rule(i_ambient_humidity=None, o_dehumidifier=0,
 
 # Rules for outputs - this is the brain stem - only handles low level rules
 RULES = {
-    "o_k1_laser"      : lambda i_btn_estop=0, i_btn_fire=0  : not (i_btn_estop or i_btn_fire),
-    "o_k2_hpa"        : lambda i_btn_estop=0, i_m7=0        : not i_btn_estop and i_m7,
-    "o_k3_fire"       : lambda i_btn_fire=0,  i_btn_estop=0 : i_btn_fire and (not i_btn_estop),
-    "o_k5_lpa"        : lambda i_btn_estop=0, i_m8=0        : not i_btn_estop and i_m8,
-    "o_k7_exhaust"    : lambda i_btn_estop=0, i_m8=0        : not i_btn_estop and i_m8,
-    "o_k4_light"      : (lambda : None), # Handled in application
-    "o_dehumidifier"  : dewpoint_rule,
+    "o_k1_laser"   : lambda i_btn_estop=0, i_btn_fire=0  : not (i_btn_estop or i_btn_fire),
+    "o_k2_hpa"     : lambda i_btn_estop=0, i_m7=0        : not i_btn_estop and i_m7,
+    "o_k3_fire"    : lambda i_btn_fire=0,  i_btn_estop=0 : i_btn_fire and (not i_btn_estop),
+    "o_k5_lpa"     : lambda i_btn_estop=0, i_m8=0        : not i_btn_estop and i_m8,
+    "o_k7_exhaust" : lambda i_btn_estop=0, i_m8=0        : not i_btn_estop and i_m8,
+    "o_k4_light"   : (lambda : None), # Handled in application
+    "o_dryer"      : dewpoint_rule,
 }
 
 def start_heartbeat():

@@ -125,7 +125,7 @@ log = None
 last_heartbeat = time.time()
 
 # virtual outputs may only drive physical outputs - only intended for gpios
-virtual_outputs: dict[str,tuple[str,...]] = {"o_dehumidifier" : ("o_k8_dry_heat","o_k6_dry_fan")}
+virtual_outputs: dict[str,tuple[str,...]] = {"o_dryer" : ("o_k8_dry_heat","o_k6_dry_fan")}
 def compute_locked_pins(virtual_outputs, gpio, expanders):
     # all physical output names we own
     phys = set(gpio.outputs.keys()) | {
