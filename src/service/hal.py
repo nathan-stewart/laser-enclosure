@@ -51,8 +51,8 @@ def graceful_stop(signum, frame):
     log.info(f"Received signal {signum}, shutting down gracefully...")
     stop_event.set()
 
-for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
-    signal.signal(sig, graceful_stop)
+    for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        signal.signal(sig, graceful_stop)
 
 pub = None
 rep = None
@@ -147,7 +147,7 @@ def publish_state(snapshot):
         # change filter
         if snapshot == previous_snapshot:
             return
-        
+
         pub.send_multipart([b"hal", json.dumps({"state": snapshot}).encode()])
         previous_snapshot.clear()
         previous_snapshot.update(snapshot)
@@ -407,7 +407,7 @@ def main(argv=None):
         log.exception("Unhandled exception in main loop")
 
     stop_event.set()  # Signal threads to stop
-    time.sleep(0.1)  # Give threads a moment to exit
+    time.sleep(0.5)  # Give threads a moment to exit
     notifier.notify("STOPPING=1")
     for thread in threads:
         thread.join()

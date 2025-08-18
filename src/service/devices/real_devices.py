@@ -278,6 +278,7 @@ class RotaryEncoder:
         self.addr = addr
         self.name = name or f"SeeSaw@{hex(addr)}"
         self.dev = None
+        self.enc = None
         self.last_position = 0
         self.delta = 0
 
