@@ -106,7 +106,7 @@ for expander in expanders.values():
         current_state[name] = None
 
 encoder = RotaryEncoder()
-current_state["encoder_delta"] = None
+current_state["encoder_delta"] = 0
 
 adc = AnalogRead()
 adc.input(0, "i_air_supply")
@@ -254,7 +254,7 @@ def monitor_inputs():
                     if name and name.startswith('i_'):
                         current_state[name] = int(bool(value))
 
-            for name, delta in encoder.read():
+            for name, delta in encoder.read_delta():
                 if current_state[name] is None:
                     current_state[name] = 0
                 current_state[name] += delta
