@@ -52,8 +52,8 @@ def clamp01(x):
     return 0.0 if x < 0.0 else 100.0 if x > 100.0 else x
 
 def dewpoint_rule(i_ambient_humidity=None, o_dehumidifier=0,
-                  rh_on=90.0, rh_off=70.0,
-                  min_on=60.0, min_off=60.0,
+                  rh_on=50.0, rh_off=45.0,
+                  min_on=30.0, min_off=30.0,
                   stale_timeout=180.0):
     now = time.monotonic()
     st = dewpoint_rule.__dict__
