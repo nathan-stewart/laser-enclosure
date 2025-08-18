@@ -60,22 +60,22 @@ rep = None
 current_state = {}
 previous_snapshot = {}
 
-gpio = Gpio()
-gpio.input(22, "i_m7")
-gpio.input(27, "i_m8")
-gpio.input(17, "i_lid")
-for name in gpio.inputs.keys():
+rpi_gpio = Gpio()
+rpi_gpio.input(22, "i_m7")
+rpi_gpio.input(27, "i_m8")
+rpi_gpio.input(17, "i_lid")
+for name in rpi_gpio.inputs.keys():
     current_state[name] = 0
 
-gpio.output(7,  "o_k1_laser",    0)
-gpio.output(8,  "o_k2_hpa",      0)
-gpio.output(25, "o_k3_fire",     0)
-gpio.output(24, "o_k4_light",    0)
-gpio.output(23, "o_k5_lpa",      0)
-gpio.output(18, "o_k6_dry_fan",  0)
-gpio.output(12, "o_k7_exhaust",  0)
-gpio.output(16, "o_k8_dry_heat", 0)
-for name in gpio.outputs.keys():
+rpi_gpio.output(7,  "o_k1_laser",    0)
+rpi_gpio.output(8,  "o_k2_hpa",      0)
+rpi_gpio.output(25, "o_k3_fire",     0)
+rpi_gpio.output(24, "o_k4_light",    0)
+rpi_gpio.output(23, "o_k5_lpa",      0)
+rpi_gpio.output(18, "o_k6_dry_fan",  0)
+rpi_gpio.output(12, "o_k7_exhaust",  0)
+rpi_gpio.output(16, "o_k8_dry_heat", 0)
+for name in rpi_gpio.outputs.keys():
     current_state[name] = 0
 
 expanders = {}
@@ -135,7 +135,7 @@ def compute_locked_pins(virtual_outputs, gpio, expanders):
     members = {p for pins in virtual_outputs.values() for p in pins}
     # lock only the ones that are real physical outputs
     return phys & members
-locked_pins = compute_locked_pins(virtual_outputs, gpio, expanders)
+locked_pins = compute_locked_pins(virtual_outputs, rpi_gpio, expanders)
 
 # Initialize virtuals to off
 with state_lock:
@@ -155,9 +155,9 @@ def publish_state(snapshot):
 def write_pin(pin, val):
     """Write one physical pin."""
     v = 1 if val else 0
-    if pin in gpio.outputs:
+    if pin in rpi_gpio.outputs:
         log.info("Setting GPIO %s to %d", pin, v)
-        gpio.write(pin, v)
+        rpi_gpio.write(pin, v)
         return True
     for exp in expanders.values():
         if pin in exp.outputs:
@@ -219,7 +219,7 @@ def monitor_control_heartbeat():
 
 def shutdown_laser():
     log.warning("Laser power disabled due to control heartbeat loss.")
-    for name in list(gpio.outputs.keys()):
+    for name in list(rpi_gpio.outputs.keys()):
         set_output(name, 0)
 
 def configure_thread():
@@ -245,7 +245,7 @@ def monitor_inputs():
             with heartbeat_lock:
                 last_input_poll = time.time()
 
-            for name, value in gpio.read():
+            for name, value in rpi_gpio.read():
                 if name and name.startswith('i_'):
                     current_state[name] = int(bool(value))
 
