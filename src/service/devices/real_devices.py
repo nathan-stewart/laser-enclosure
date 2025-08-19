@@ -1,4 +1,4 @@
-# i2c_devices.py
+# real_devices.py
 import sys
 import RPi.GPIO as GPIO
 import board
@@ -50,9 +50,13 @@ class RpiGpio:
         GPIO.setup(bcm, GPIO.OUT, initial=GPIO.HIGH if initial else GPIO.LOW)
         self.outputs[name] = bcm
 
+    def read(self, pins = None):
+        if not pins:
+            pins = list(self.inputs.keys())
+        if type(pins) != list:
+            pins = list(pins)
 
-    def read(self):
-        for name in list(self.inputs.keys()):
+        for name in pins:
             self.debounce[name].append(not GPIO.input(self.inputs[name]))  # active low
             if len(self.debounce[name]) == 3 and all(v == self.debounce[name][0] for v in self.debounce[name]):
                 self.last_stable[name] = self.debounce[name][0]
@@ -294,6 +298,7 @@ class RotaryEncoder:
         except OSError:
             self.dev = None
             self.enc = None
+            self.last_position = 0
         return self.dev
 
     def read_delta(self):
