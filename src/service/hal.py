@@ -298,20 +298,33 @@ def monitor_env():
 
 def handle_commands():
     def command_inject(msg):
-        cmd = (msg.get("cmd") or "").lower()
-        if cmd == "inject":
-            st = msg.get("state", {})
-            if not isinstance(st, dict):
-                rep.send_json({"status": "error", "error": "state must be an object"})
-                return True
+        if (msg.get("cmd") or "").lower() != "inject":
+            return False
+
+        st = msg.get("state", {})
+        if not isinstance(st, dict):
+            rep.send_json({"status": "error", "error": "state must be an object"})
+            return True
+
+        with state_lock:
+            outputs = {k for k in current_state if k.startswith("o_")}
+            outputs |= set(virtual_outputs.keys())
+
+        out_ops = [(k, st[k]) for k in st if k in outputs]
+        state_updates = {k: st[k] for k in st if k not in outputs}
+
+        if state_updates:
             with state_lock:
-                for k, v in st.items():
-                    current_state[k] = v
+                current_state.update(state_updates)
                 snap = dict(current_state)
             publish_state(snap)
-            rep.send_json({"status": "ok"})
-            return True
-        return False
+
+        ok = True
+        for k, v in out_ops:
+            ok = set_output(k, v) and ok
+
+        rep.send_json({"status": "ok" if ok else "error"})
+        return True
 
     def command_set(msg):
         cmd = (msg.get("cmd") or "").lower()
