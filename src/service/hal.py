@@ -169,40 +169,30 @@ def write_pin(pin, val):
 
 def set_output(name, value):
     v = 1 if value else 0
+    targets = virtual_outputs.get(name, (name,))
+
     with state_lock:
-        if name is "o_dryer":
-            log.debug(f"set_output({name},{value}) received")
-            log.debug(current_state)
-
-        if name not in set(current_state):
-            log.warning(f"Trying to set unknown parameter {name}")
-
         ok = True
-        # only touch pins that need a change
-        to_change = []
+        changed = False
+
+        to_change = [p for p in targets if current_state.get(p, 0) != v]
+        for pin in to_change:
+            if not write_pin(pin, v):
+                ok = False
+            else:
+                current_state[pin] = v
+                changed = True
+
         if name in virtual_outputs:
-            to_change = [p for p in virtual_outputs.get(name, (name,)) if current_state.get(p, 0) != v]
-            if current_state.get(name, 0) != v:
-                current_state[name] = v # force state update for virtual outputs
-        else:
-            if current_state.get(name, 0) != v:
-                to_change.append(name)
+            if current_state.get(name, None) != v:
+                current_state[name] = v
+                changed = True
 
-        if to_change:
-            log.debug(f"set_output() - {name} update needed")
-            for pin in to_change:
-                if not write_pin(pin, v):
-                    ok = False
-                else:
-                    current_state[pin] = v
-
-        changed = bool(to_change)
         snap = dict(current_state)
 
     if changed:
         publish_state(snap)
     return ok
-
 
 def control_heartbeat_listener():
     global last_heartbeat
@@ -306,8 +296,52 @@ def monitor_env():
         publish_state(snapshot)
         stop_event.wait(wait_env)
 
-
 def handle_commands():
+    def command_inject(msg):
+        cmd = (msg.get("cmd") or "").lower()
+        if cmd == "inject":
+            st = msg.get("state", {})
+            if not isinstance(st, dict):
+                rep.send_json({"status": "error", "error": "state must be an object"})
+                return True
+            with state_lock:
+                for k, v in st.items():
+                    current_state[k] = v
+                snap = dict(current_state)
+            publish_state(snap)
+            rep.send_json({"status": "ok"})
+            return True
+        return False
+
+    def command_set(msg):
+        cmd = (msg.get("cmd") or "").lower()
+        if cmd == "set":
+            # strict payload
+            if "pin" not in msg or "state" not in msg:
+                rep.send_json({"status": "error", "error": "missing 'pin' or 'state'"})
+                return True
+            name = msg["pin"]
+            val  = 1 if msg["state"] else 0
+
+            ok = set_output(name, val)
+            if ok:
+                rep.send_json({"status": "ok"})
+            else:
+                rep.send_json({"status": "error", "error": "read-only or unknown pin"})
+            return True
+        return False
+
+    def command_get_status(msg):
+        cmd = (msg.get("cmd") or "").lower()
+        if cmd == "get_status":
+            with state_lock:
+                snap = dict(current_state)
+                for virt, pins in virtual_outputs.items():
+                    snap[virt] = int(any(snap.get(p, 0) for p in pins))
+            rep.send_json({"status": "ok", "state": snap, "ts": time.time()})
+            return True
+        return False
+
     # optional, but lets the loop exit when stop_event is set
     try:
         rep.setsockopt(zmq.RCVTIMEO, 1000)  # 1s
@@ -324,31 +358,9 @@ def handle_commands():
             continue
 
         try:
-            cmd = (msg.get("cmd") or "").lower()
-
-            if cmd == "set":
-                # strict payload
-                if "pin" not in msg or "state" not in msg:
-                    rep.send_json({"status": "error", "error": "missing 'pin' or 'state'"})
-                    continue
-                name = msg["pin"]
-                val  = 1 if msg["state"] else 0
-
-                ok = set_output(name, val)
-                if ok:
-                    rep.send_json({"status": "ok"})
-                else:
-                    rep.send_json({"status": "error", "error": "read-only or unknown pin"})
-                continue
-
-            if cmd == "get_status":
-                with state_lock:
-                    snap = dict(current_state)
-                    for virt, pins in virtual_outputs.items():
-                        snap[virt] = int(any(snap.get(p, 0) for p in pins))
-                rep.send_json({"status": "ok", "state": snap, "ts": time.time()})
-                continue
-
+            if command_set(msg): continue
+            if command_inject(msg): continue
+            if command_get_status(msg): continue
             rep.send_json({"status": "unsupported command"})
 
         except Exception as e:
