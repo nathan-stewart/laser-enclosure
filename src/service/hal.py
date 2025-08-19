@@ -169,6 +169,10 @@ def write_pin(pin, val):
 def set_output(name, value):
     v = 1 if value else 0
     with state_lock:
+        if name is "o_dryer":
+            log.debug(f"set_output({name},{value}) received")
+            log.debug(current_state)
+
         if name not in set(current_state):
             log.warning(f"Trying to set unknown parameter {name}")
 
@@ -177,6 +181,8 @@ def set_output(name, value):
         to_change = []
         if name in virtual_outputs:
             to_change = [p for p in virtual_outputs.get(name, (name,)) if current_state.get(p, 0) != v]
+            if current_state.get(name, 0) != v:
+                current_state[name] = v # force state update for virtual outputs
         else:
             if current_state.get(name, 0) != v:
                 to_change.append(name)

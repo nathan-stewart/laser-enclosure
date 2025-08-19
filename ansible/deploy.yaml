@@ -77,11 +77,13 @@
           After=network.target
 
           [Service]
-          ExecStart=/usr/bin/python3 /opt/kiosk/run_hal.py
+          Type=notify
+          NotifyAccess=all
           Restart=on-failure
           RestartSec=5
+          ExecStart=/usr/bin/python3 /opt/kiosk/run_hal.py
+          Restart=on-failure
           WatchdogSec=5s
-          NotifyAccess=all
           StandardOutput=journal
           StandardError=journal
           StartLimitBurst=5
@@ -98,14 +100,16 @@
         dest: /etc/systemd/system/kiosk-control.service
         mode: '0644'
         content: |
+          [Unit]
+          Description=Laser Control Logic (Supervisor)
+          Requires=hal.service
+          After=kiosk-hal.service
+
           [Install]
           WantedBy=multi-user.target
 
-          [Unit]
-          Description=Laser Control Logic (Supervisor)
-          After=network.target kiosk-hal.service
-
           [Service]
+          Type=simple
           ExecStart=/usr/bin/python3 /opt/kiosk/run_control.py
           Restart=on-failure
           RestartSec=5

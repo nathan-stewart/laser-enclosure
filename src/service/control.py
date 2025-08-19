@@ -18,9 +18,11 @@ sys.path.insert(0, os.path.dirname(__file__))
 state_lock = threading.Lock()
 stop_event = threading.Event()
 state_hal = {}
+hal_req_lock = threading.Lock()
 log = None
 pub = None
 sub = None
+
 
 def graceful_stop(signum, frame):
     log.info(f"Received signal {signum}, shutting down gracefully...")
@@ -41,6 +43,23 @@ previous_inputs = {}
 IDLE_TIMEOUT = 5 * 60  # seconds
 last_activity = time.monotonic()
 last_display_state = None
+
+def hal_ping():
+    with hal_req_lock:
+        try:
+            req.send_json({"cmd": "get_status"})
+            rep = req.recv_json()
+            return isinstance(rep, dict) and rep.get("status") == "ok"
+        except zmq.Again:
+            return False
+
+def wait_for_hal_ready(total_timeout=15.0, interval=0.25):
+    end = time.monotonic() + total_timeout
+    while time.monotonic() < end:
+        if hal_ping():
+            return True
+        time.sleep(interval)
+    return False
 
 def getb(s, k):  # boolean read with default 0
     return bool(s.get(k, 0))
@@ -109,28 +128,25 @@ def start_heartbeat():
             log.exception("heartbeat send failed")
         stop_event.wait(1.0)
 
-def hal_set(name, value, timeout_ms=1000):
+def hal_set(name, value):
     payload = {"cmd": "set", "pin": name, "state": int(bool(value))}
-    try:
-        req.setsockopt(zmq.RCVTIMEO, timeout_ms)
-        req.setsockopt(zmq.SNDTIMEO, timeout_ms)
-    except Exception:
-        pass
-    req.send_json(payload)
-    rep = req.recv_json()
-    ok = str(rep.get("status", "")).lower() == "ok"
-    if not ok:
-        log.error("HAL NACK: %s", rep)
-    return ok
+    with hal_req_lock:
+        try:
+            log.debug("TX->HAL %s", payload)
+            req.send_json(payload)
+            reply = req.recv_json()
+            log.debug("RX<-HAL %s", reply)
+        except zmq.Again:
+            log.error("HAL timeout waiting for reply to %s", payload)
+            return False
+        ok = isinstance(reply, dict) and str(reply.get("status","")).lower() == "ok"
+        if not ok:
+            log.error("HAL NACK: %s", reply)
+        return ok
 
-def hal_get_status(timeout_ms=500):
-    try:
-        req.setsockopt(zmq.RCVTIMEO, timeout_ms)
-        req.setsockopt(zmq.SNDTIMEO, timeout_ms)
-    except Exception:
-        pass
+def hal_get_status():
     req.send_json({"cmd":"get_status"})
-    return req.recv_json()  # {"status":"ok","state":{...},"version":N,"ts":...}
+    return req.recv_json()
 
 def bind_kwargs_for(rule, state):
     if rule is None:
@@ -163,7 +179,6 @@ def apply_rules(state, now=None, version=None):
 def hal_listener():
     global last_activity, previous_inputs, state_hal_seq
     log.info("Starting hal listener...")
-    sub.setsockopt(zmq.RCVTIMEO, 500)
     tick_every = 10.0
     next_tick = time.monotonic() + tick_every
 
@@ -284,10 +299,20 @@ def main(argv):
     sub.connect("tcp://localhost:5556")      # HAL PUB
     sub.setsockopt(zmq.SUBSCRIBE, b'')
     sub.setsockopt(zmq.RCVTIMEO, 500)
+
     req = context.socket(zmq.REQ)
     req.connect("tcp://localhost:5557")      # HAL REQ/REP
+    req.setsockopt(zmq.RCVTIMEO, 500)
+    req.setsockopt(zmq.SNDTIMEO, 500)
+
     pub = context.socket(zmq.PUB)
     pub.bind("tcp://*:5558")                 # Supervisor PUB
+    pub.setsockopt(zmq.RCVTIMEO, 500)
+    pub.setsockopt(zmq.SNDTIMEO, 500)
+
+    if not wait_for_hal_ready():
+        log.error("HAL not ready after timeout")
+        sys.exit(1)
 
     threads = []
     threads.append(threading.Thread(target=hal_listener))
