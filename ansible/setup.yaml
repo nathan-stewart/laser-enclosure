@@ -47,6 +47,7 @@
         mode: '0644'
         content: |
           dtparam=i2c_arm=on
+          dtparam=audio=off
           auto_initramfs=1
           arm_64bit=1
           arm_boost=1

@@ -156,8 +156,9 @@ def write_pin(pin, val):
     """Write one physical pin."""
     v = 1 if val else 0
     if pin in rpi_gpio.outputs:
-        log.info("Setting GPIO %s to %d", pin, v)
+        log.debug("Setting GPIO %d to %d", pin, v)
         rpi_gpio.write(pin, v)
+        log.debug("Reading back GPIO %d = %d", pin, rpi_gpio.read(pin))
         return True
     for exp in expanders.values():
         if pin in exp.outputs:
