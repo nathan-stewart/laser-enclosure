@@ -70,7 +70,7 @@ def num_ok(x):
 def clamp01(x):
     return 0.0 if x < 0.0 else 100.0 if x > 100.0 else x
 
-def dewpoint_rule(i_ambient_humidity=None, o_dryer=0,
+def dewpoint_rule(i_ambient_humidity=None, o_k8_dryer=0,
                   rh_on=50.0, rh_off=45.0,
                   min_on=30.0, min_off=30.0,
                   stale_timeout=180.0):
@@ -79,7 +79,7 @@ def dewpoint_rule(i_ambient_humidity=None, o_dryer=0,
     last_change = st.get("last_change", 0.0)
     last_seen   = st.get("last_seen", 0.0)
 
-    running = bool(o_dryer)
+    running = bool(o_k8_dryer)
 
     rh = None
     if isinstance(i_ambient_humidity, (int, float)) and math.isfinite(i_ambient_humidity):

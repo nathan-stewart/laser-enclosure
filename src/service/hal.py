@@ -124,25 +124,6 @@ for name in ambient.inputs.keys():
 log = None
 last_heartbeat = time.time()
 
-# virtual outputs may only drive physical outputs - only intended for gpios
-#virtual_outputs: dict[str,tuple[str,...]] = {"o_dryer" : ("o_k8_dryer")}
-virtual_outputs = {}
-def compute_locked_pins(virtual_outputs, gpio, expanders):
-    # all physical output names we own
-    phys = set(gpio.outputs.keys()) | {
-        n for e in expanders.values() for n in e.outputs.keys()
-    }
-    # all members referenced by virtuals
-    members = {p for pins in virtual_outputs.values() for p in pins}
-    # lock only the ones that are real physical outputs
-    return phys & members
-locked_pins = compute_locked_pins(virtual_outputs, rpi_gpio, expanders)
-
-# Initialize virtuals to off
-with state_lock:
-    for virt in virtual_outputs.keys():
-        current_state[virt] = 0
-
 def publish_state(snapshot):
     with publish_lock:
         # change filter
@@ -159,7 +140,6 @@ def write_pin(pin, val):
     if pin in rpi_gpio.outputs:
         log.debug("Setting GPIO %s to %d", pin, v)
         rpi_gpio.write(pin, v)
-        log.debug("Reading back GPIO %s = %d", pin, rpi_gpio.dump_output(pin))
         return True
     for exp in expanders.values():
         if pin in exp.outputs:
@@ -170,25 +150,16 @@ def write_pin(pin, val):
 
 def set_output(name, value):
     v = 1 if value else 0
-    targets = virtual_outputs.get(name, (name,))
-
     with state_lock:
         ok = True
         changed = False
 
-        to_change = [p for p in targets if current_state.get(p, 0) != v]
-        for pin in to_change:
-            if not write_pin(pin, v):
+        if current_state.get(name, 0) != v:
+            if not write_pin(name, v):
                 ok = False
             else:
-                current_state[pin] = v
-                changed = True
-
-        if name in virtual_outputs:
-            if current_state.get(name, None) != v:
                 current_state[name] = v
                 changed = True
-
         snap = dict(current_state)
 
     if changed:
@@ -309,7 +280,6 @@ def handle_commands():
 
         with state_lock:
             outputs = {k for k in current_state if k.startswith("o_")}
-            outputs |= set(virtual_outputs.keys())
 
         out_ops = [(k, st[k]) for k in st if k in outputs]
         state_updates = {k: st[k] for k in st if k not in outputs}
@@ -350,8 +320,6 @@ def handle_commands():
         if cmd == "get_status":
             with state_lock:
                 snap = dict(current_state)
-                for virt, pins in virtual_outputs.items():
-                    snap[virt] = int(any(snap.get(p, 0) for p in pins))
             rep.send_json({"status": "ok", "state": snap, "ts": time.time()})
             return True
         return False
