@@ -50,17 +50,16 @@ class RpiGpio:
         GPIO.setup(bcm, GPIO.OUT, initial=GPIO.HIGH if initial else GPIO.LOW)
         self.outputs[name] = bcm
 
-    def read(self, pins = None):
-        if not pins:
-            pins = list(self.inputs.keys())
-        if type(pins) != list:
-            pins = list(pins)
-
+    def read(self):
+        pins = list(self.inputs.keys())
         for name in pins:
             self.debounce[name].append(not GPIO.input(self.inputs[name]))  # active low
             if len(self.debounce[name]) == 3 and all(v == self.debounce[name][0] for v in self.debounce[name]):
                 self.last_stable[name] = self.debounce[name][0]
             yield name, self.last_stable[name]
+
+    def dump_output(self, name):
+        return GPIO.input(self.outputs[name])
 
     def write(self, name, value):
         if name not in self.outputs:
@@ -298,7 +297,7 @@ class RotaryEncoder:
                 # turn off the LED
                 self.pixel = neopixel.NeoPixel(self.dev, 6, 1)
                 self.pixel.brightness = 0.0
-                
+
         except OSError:
             self.dev = None
             self.enc = None

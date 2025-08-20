@@ -81,7 +81,7 @@
           NotifyAccess=all
           Restart=on-failure
           RestartSec=5
-          ExecStart=/usr/bin/python3 /opt/kiosk/run_hal.py
+          ExecStart=/usr/bin/python3 /opt/kiosk/run_hal.py --log=DEBUG
           Restart=on-failure
           WatchdogSec=5s
           StandardOutput=journal
@@ -110,7 +110,7 @@
 
           [Service]
           Type=simple
-          ExecStart=/usr/bin/python3 /opt/kiosk/run_control.py
+          ExecStart=/usr/bin/python3 /opt/kiosk/run_control.py --log=DEBUG
           Restart=on-failure
           RestartSec=5
           StandardOutput=journal

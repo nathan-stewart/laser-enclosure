@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-from service.hal import main
 import sys
+sys.argv = [sys.argv[0], "--log", "DEBUG"]
 
-if __name__ == "__main__":
-    main(["--log", "DEBUG"])
+import service.hal as hal
+hal.main(sys.argv)
