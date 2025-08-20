@@ -117,7 +117,7 @@ RULES = {
     "o_k5_lpa"     : lambda i_btn_estop=0, i_m8=0        : not i_btn_estop and i_m8,
     "o_k7_exhaust" : lambda i_btn_estop=0, i_m8=0        : not i_btn_estop and i_m8,
     "o_k4_light"   : (lambda : None), # Handled in application
-    "o_dryer"      : dewpoint_rule,
+    "o_k8_dryer"   : dewpoint_rule,
 }
 
 def start_heartbeat():

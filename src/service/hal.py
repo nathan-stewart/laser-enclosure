@@ -72,9 +72,9 @@ rpi_gpio.output(8,  "o_k2_hpa",      0)
 rpi_gpio.output(25, "o_k3_fire",     0)
 rpi_gpio.output(24, "o_k4_light",    0)
 rpi_gpio.output(23, "o_k5_lpa",      0)
-rpi_gpio.output(18, "o_k6_dry_fan",  0)
+rpi_gpio.output(18, "o_k6_spare",    0)
 rpi_gpio.output(12, "o_k7_exhaust",  0)
-rpi_gpio.output(16, "o_k8_dry_heat", 0)
+rpi_gpio.output(16, "o_k8_dryer",    0)
 for name in rpi_gpio.outputs.keys():
     current_state[name] = 0
 
@@ -125,7 +125,8 @@ log = None
 last_heartbeat = time.time()
 
 # virtual outputs may only drive physical outputs - only intended for gpios
-virtual_outputs: dict[str,tuple[str,...]] = {"o_dryer" : ("o_k8_dry_heat","o_k6_dry_fan")}
+#virtual_outputs: dict[str,tuple[str,...]] = {"o_dryer" : ("o_k8_dryer")}
+virtual_outputs = {}
 def compute_locked_pins(virtual_outputs, gpio, expanders):
     # all physical output names we own
     phys = set(gpio.outputs.keys()) | {
