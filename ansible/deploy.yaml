@@ -69,30 +69,29 @@
         dest: /etc/systemd/system/kiosk-hal.service
         mode: '0644'
         content: |
-          [Install]
-          WantedBy=multi-user.target
-
           [Unit]
           Description=HAL GPIO and Sensor Service
-          After=network.target
+          After=network-online.target
+          Wants=network-online.target
+          StartLimitIntervalSec=30
+          StartLimitBurst=5
 
           [Service]
-          Type=notify
-          NotifyAccess=all
+          Type=simple
           Restart=on-failure
           RestartSec=5
           ExecStart=/usr/bin/python3 /opt/kiosk/run_hal.py --log=DEBUG
-          Restart=on-failure
-          WatchdogSec=5s
           StandardOutput=journal
           StandardError=journal
-          StartLimitBurst=5
           TimeoutStartSec=10
           KillSignal=SIGINT
           User=kiosk
           Group=kiosk
           WorkingDirectory=/opt/kiosk
           SyslogIdentifier=kiosk-hal
+
+          [Install]
+          WantedBy=multi-user.target
       register: hal_unit
 
     - name: Create Control layer systemd service
@@ -102,11 +101,11 @@
         content: |
           [Unit]
           Description=Laser Control Logic (Supervisor)
-          Requires=hal.service
-          After=kiosk-hal.service
-
-          [Install]
-          WantedBy=multi-user.target
+          Requires=kiosk-hal.service
+          After=kiosk-hal.service network-online.target
+          Wants=network-online.target
+          StartLimitIntervalSec=30
+          StartLimitBurst=5
 
           [Service]
           Type=simple
@@ -119,6 +118,9 @@
           Group=kiosk
           WorkingDirectory=/opt/kiosk
           SyslogIdentifier=kiosk-control
+
+          [Install]
+          WantedBy=multi-user.target
       register: control_unit
 
     - name: Install GUI and Python dependencies
