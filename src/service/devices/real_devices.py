@@ -7,11 +7,11 @@ from adafruit_mcp230xx.mcp23017 import MCP23017 as AdafruitMCP23017
 from adafruit_ads1x15.ads1115 import ADS1115 as AdafruitADS1115
 from adafruit_ads1x15.analog_in import AnalogIn
 from adafruit_bme280.basic import Adafruit_BME280_I2C
-from adafruit_seesaw.seesaw import Seesaw
-from adafruit_seesaw.rotaryio import IncrementalEncoder
 from digitalio import Direction, Pull
-from collections import deque
+from adafruit_seesaw.rotaryio import IncrementalEncoder
+from adafruit_seesaw import digitalio, neopixel, rotaryio, seesaw
 import threading
+from collections import deque
 
 i2c = busio.I2C(board.SCL, board.SDA)
 i2c_lock = threading.Lock()
@@ -292,9 +292,13 @@ class RotaryEncoder:
         try:
             with i2c_lock:
                 i2c.writeto(self.addr, b"")
-                self.dev = Seesaw(i2c, addr=self.addr)
+                self.dev = seesaw.Seesaw(i2c, addr=self.addr)
                 self.enc = IncrementalEncoder(self.dev)
                 self.last_position = int(self.enc.position)
+                # turn off the LED
+                self.pixel = neopixel.NeoPixel(self.dev, 6, 1)
+                self.pixel.brightness = 0.0
+                
         except OSError:
             self.dev = None
             self.enc = None
