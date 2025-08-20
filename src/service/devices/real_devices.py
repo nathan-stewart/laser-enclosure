@@ -64,7 +64,7 @@ class RpiGpio:
     def write(self, name, value):
         if name not in self.outputs:
             return
-        GPIO.output(self.outputs[name], GPIO.LOW if value else GPIO.HIGH) # active low
+        GPIO.output(self.outputs[name], GPIO.HIGH if value else GPIO.LOW) # active low
 
 class Expander:
     MAX_INPUTS = 8
