@@ -24,9 +24,9 @@
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="mm"
      showgrid="false"
-     inkscape:zoom="3.1718872"
-     inkscape:cx="160.62992"
-     inkscape:cy="65.260833"
+     inkscape:zoom="1.5859436"
+     inkscape:cx="182.54117"
+     inkscape:cy="9.4580917"
      inkscape:window-width="1920"
      inkscape:window-height="1019"
      inkscape:window-x="0"
@@ -40,30 +40,118 @@
      inkscape:groupmode="layer"
      id="layer1">
     <path
-       id="path234"
-       style="fill:none;stroke:#000000;stroke-width:0.0999997;stroke-dasharray:0.0999997,0.29999911;stroke-dashoffset:0"
-       d="M 12.499674,9.7838989 A 7.4499998,7.4499998 0 0 0 5.0499999,17.233573 7.4499998,7.4499998 0 0 0 12.499674,24.683765 7.4499998,7.4499998 0 0 0 19.949866,17.233573 7.4499998,7.4499998 0 0 0 12.499674,9.7838989 Z" />
-    <path
-       id="path234-4-3"
        style="fill:none;stroke:#000000;stroke-width:0.0999995"
-       d="M 0.050126139 0.050126139 L 0.050126139 34.417537 L 84.949854 34.417537 L 84.949854 0.050126139 L 0.050126139 0.050126139 z M 12.500012 12.783716 A 4.45004 4.4500401 0 0 1 16.94987 17.233573 A 4.45004 4.4500401 0 0 1 12.500012 21.683948 A 4.45004 4.4500401 0 0 1 8.0501546 17.233573 A 4.45004 4.4500401 0 0 1 12.500012 12.783716 z M 32.499825 12.783716 A 4.45004 4.4500401 0 0 1 36.949683 17.233573 A 4.45004 4.4500401 0 0 1 32.499825 21.683948 A 4.45004 4.4500401 0 0 1 28.049967 17.233573 A 4.45004 4.4500401 0 0 1 32.499825 12.783716 z M 52.499638 12.783716 A 4.45004 4.4500401 0 0 1 56.950012 17.233573 A 4.45004 4.4500401 0 0 1 52.499638 21.683948 A 4.45004 4.4500401 0 0 1 48.04978 17.233573 A 4.45004 4.4500401 0 0 1 52.499638 12.783716 z M 72.499967 12.783716 A 4.45004 4.4500401 0 0 1 76.949825 17.233573 A 4.45004 4.4500401 0 0 1 72.499967 21.683948 A 4.45004 4.4500401 0 0 1 68.05011 17.233573 A 4.45004 4.4500401 0 0 1 72.499967 12.783716 z " />
+       d="M 0.05012614,0.05012614 V 34.950125 H 89.950125 V 0.05012614 Z"
+       id="path234-4-3" />
+    <g
+       id="g6436"
+       transform="translate(2.5001522)">
+      <path
+         id="path234"
+         style="fill:none;stroke:#000000;stroke-width:0.0999997;stroke-dasharray:0.0999997, 0.299999;stroke-dashoffset:0"
+         d="M 12.500298,13.16363 A 7.4499998,7.4499998 0 0 0 5.0506239,20.613304 7.4499998,7.4499998 0 0 0 12.500298,28.063496 7.4499998,7.4499998 0 0 0 19.95049,20.613304 7.4499998,7.4499998 0 0 0 12.500298,13.16363 Z" />
+      <path
+         style="fill:none;stroke:#000000;stroke-width:0.0999995"
+         d="m 72.499967,16.093806 a 4.45004,4.5190019 0 0 1 4.449858,4.518816 4.45004,4.5190019 0 0 1 -4.449858,4.519342 4.45004,4.5190019 0 0 1 -4.449857,-4.519342 4.45004,4.5190019 0 0 1 4.449857,-4.518816 z"
+         id="path6334" />
+      <path
+         style="fill:none;stroke:#000000;stroke-width:0.0999995"
+         d="m 52.499638,16.093806 a 4.45004,4.5190019 0 0 1 4.450374,4.518816 4.45004,4.5190019 0 0 1 -4.450374,4.519342 4.45004,4.5190019 0 0 1 -4.449858,-4.519342 4.45004,4.5190019 0 0 1 4.449858,-4.518816 z"
+         id="path6332" />
+      <path
+         style="fill:none;stroke:#000000;stroke-width:0.0999995"
+         d="m 32.499825,16.093806 a 4.45004,4.5190019 0 0 1 4.449858,4.518816 4.45004,4.5190019 0 0 1 -4.449858,4.519342 4.45004,4.5190019 0 0 1 -4.449858,-4.519342 4.45004,4.5190019 0 0 1 4.449858,-4.518816 z"
+         id="path6330" />
+      <path
+         style="fill:none;stroke:#000000;stroke-width:0.0999995"
+         d="m 12.500012,16.093806 a 4.45004,4.5190019 0 0 1 4.449858,4.518816 4.45004,4.5190019 0 0 1 -4.449858,4.519342 4.45004,4.5190019 0 0 1 -4.4498574,-4.519342 4.45004,4.5190019 0 0 1 4.4498574,-4.518816 z"
+         id="path6328" />
+      <circle
+         style="fill:none;stroke:#000000;stroke-width:0.0999997;stroke-dasharray:0.0999997, 0.299999;stroke-dashoffset:0"
+         id="path234-3"
+         cx="32.499146"
+         cy="20.612349"
+         r="7.4499998" />
+      <circle
+         style="fill:none;stroke:#000000;stroke-width:0.0999997;stroke-dasharray:0.0999997, 0.299999;stroke-dashoffset:0"
+         id="path234-6"
+         cx="52.499214"
+         cy="20.612349"
+         r="7.4499998" />
+      <circle
+         style="fill:none;stroke:#000000;stroke-width:0.0999997;stroke-dasharray:0.0999997, 0.299999;stroke-dashoffset:0"
+         id="path234-7"
+         cx="72.499283"
+         cy="20.612349"
+         r="7.4499998" />
+      <text
+         xml:space="preserve"
+         style="font-size:4.23333px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.1;stroke-dasharray:0.0999998, 0.299998;stroke-dashoffset:0"
+         x="9.0008965"
+         y="10.02988"
+         id="text6188"><tspan
+           sodipodi:role="line"
+           id="tspan6186"
+           style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.1"
+           x="9.0008965"
+           y="10.02988">AIR</tspan></text>
+      <text
+         xml:space="preserve"
+         style="font-size:4.23333px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.1;stroke-dasharray:0.0999998, 0.299998;stroke-dashoffset:0"
+         x="28.102894"
+         y="10.02988"
+         id="text6192"><tspan
+           sodipodi:role="line"
+           id="tspan6190"
+           style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.1"
+           x="28.102894"
+           y="10.02988">CO2</tspan></text>
+      <text
+         xml:space="preserve"
+         style="font-size:4.23333px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.1;stroke-dasharray:0.0999998, 0.299998;stroke-dashoffset:0"
+         x="46.885399"
+         y="10.02988"
+         id="text6192-1"><tspan
+           sodipodi:role="line"
+           id="tspan6190-0"
+           style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.1"
+           x="46.885399"
+           y="10.02988">AUX1</tspan></text>
+      <text
+         xml:space="preserve"
+         style="font-size:4.23333px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.1;stroke-dasharray:0.0999998, 0.299998;stroke-dashoffset:0"
+         x="66.901932"
+         y="10.02988"
+         id="text6192-6"><tspan
+           sodipodi:role="line"
+           id="tspan6190-3"
+           style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.1"
+           x="66.901932"
+           y="10.02988">AUX2</tspan></text>
+    </g>
     <circle
-       style="fill:none;stroke:#000000;stroke-width:0.0999997;stroke-dasharray:0.0999997,0.29999911;stroke-dashoffset:0"
-       id="path234-3"
-       cx="32.499874"
-       cy="17.233801"
-       r="7.4499998" />
+       style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.0999998;stroke-dasharray:0.0999998, 0.299998;stroke-dashoffset:0"
+       id="path6255"
+       cx="4.5"
+       cy="31.5"
+       r="1.5" />
     <circle
-       style="fill:none;stroke:#000000;stroke-width:0.0999997;stroke-dasharray:0.0999997,0.29999911;stroke-dashoffset:0"
-       id="path234-6"
-       cx="52.499874"
-       cy="17.233801"
-       r="7.4499998" />
+       style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.0999998;stroke-dasharray:0.0999998, 0.299998;stroke-dashoffset:0"
+       id="path6255-2"
+       cx="85.5"
+       cy="4.5"
+       r="1.5" />
     <circle
-       style="fill:none;stroke:#000000;stroke-width:0.0999997;stroke-dasharray:0.0999997,0.29999911;stroke-dashoffset:0"
-       id="path234-7"
-       cx="72.49987"
-       cy="17.233801"
-       r="7.4499998" />
+       style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.0999998;stroke-dasharray:0.0999998, 0.299998;stroke-dashoffset:0"
+       id="path6255-0"
+       cx="85.5"
+       cy="31.5"
+       r="1.5" />
+    <circle
+       style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.0999998;stroke-dasharray:0.0999998, 0.299998;stroke-dashoffset:0"
+       id="path6255-6"
+       cx="4.5"
+       cy="4.5"
+       r="1.5" />
   </g>
 </svg>
