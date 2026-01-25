@@ -1,0 +1,73 @@
+digraph LaserPanelFSM {
+  rankdir=LR;
+  labelloc="t";
+  label="Laser Panel FSM (Mode x Job State)\nEncoder has no push; MODE/START/PAUSE/DONE are the expander buttons. STOP/FIRE are separate.";
+
+  node [shape=record fontsize=10];
+
+  // --- Mode selection (orthogonal) ---
+  subgraph cluster_modes {
+    label="Mode (encoder meaning)";
+    style="rounded";
+
+    JOG   [label="MODE_JOG|Encoder=jog\nAxis/Step toggles active\nREL button=delta accumulate"];
+    JOB   [label="MODE_JOB|Encoder=menu scroll\nButtons execute selection"];
+    SETUP [label="MODE_SETUP|Encoder=adjust value\nAxis selects parameter group\nStep selects coarse/fine"];
+    DEBUG [label="MODE_DEBUG|Encoder=debug scroll\n(usually MODE long-press)"];
+
+    JOG  -> JOB   [label="MODE short"];
+    JOB  -> SETUP [label="MODE short"];
+    SETUP-> JOG   [label="MODE short"];
+
+    JOG  -> DEBUG [label="MODE long (optional)"];
+    JOB  -> DEBUG [label="MODE long (optional)"];
+    SETUP-> DEBUG [label="MODE long (optional)"];
+    DEBUG-> JOG   [label="MODE long (optional)"];
+  }
+
+  // --- Job lifecycle (orthogonal) ---
+  subgraph cluster_jobs {
+    label="Job State (what the machine is doing)";
+    style="rounded";
+
+    EMPTY  [label="JOB_EMPTY|No current job\nqueue may have files"];
+    LOADED [label="JOB_LOADED|Current job selected/loaded\nNot running"];
+    RUNNING[label="JOB_RUNNING|Spooler active"];
+    PAUSED [label="JOB_PAUSED|Spooler paused"];
+    FAULT  [label="JOB_FAULT|Alarm/disconnect/error"];
+
+    // Basic lifecycle
+    EMPTY  -> LOADED [label="START on 'LOAD NEXT'\nA_PROMOTE_NEXT\nA_LOAD_FILE"];
+    LOADED -> RUNNING[label="START on 'START'\nA_START_JOB"];
+    RUNNING-> PAUSED [label="PAUSE\nA_PAUSE_JOB"];
+    PAUSED -> RUNNING[label="START (resume)\nA_RESUME_JOB"];
+
+    // Outline loop (repeatable)
+    LOADED -> LOADED [label="START on 'OUTLINE'\nA_RUN_OUTLINE (repeatable)"];
+
+    // Finish/cleanup policy (manual archive)
+    RUNNING-> LOADED [label="E_SPOOLER_FINISHED\n(job remains current)"];
+    LOADED -> EMPTY  [label="DONE\nA_UNLOAD (or return-to-queue)"];
+
+    // Abort behavior
+    RUNNING-> LOADED [label="STOP hold\nA_ABORT_JOB\n(job stays current)"];
+    PAUSED -> LOADED [label="STOP hold\nA_ABORT_JOB"];
+
+    // Archive action (if you use it)
+    LOADED -> EMPTY  [label="DONE on 'DONE'\nA_ARCHIVE_RUNNING\n(if file-based current job)"];
+
+    // Fault entry/exit
+    EMPTY  -> FAULT  [label="E_DEVICE_DISCONNECTED\nor E_GRBL_ALARM"];
+    LOADED -> FAULT  [label="E_DEVICE_DISCONNECTED\nor E_GRBL_ALARM"];
+    RUNNING-> FAULT  [label="E_DEVICE_DISCONNECTED\nor E_GRBL_ALARM"];
+    PAUSED -> FAULT  [label="E_DEVICE_DISCONNECTED\nor E_GRBL_ALARM"];
+
+    FAULT -> EMPTY   [label="DONE (ack)\n(no device clear)"];
+    FAULT -> LOADED  [label="START on 'REF'/'CLEAR'\nA_REF_MACHINE or A_CLEAR_ALARM\n(when implemented)"];
+  }
+
+  // --- Notes / constraints as edges to a legend node ---
+  Legend [shape=note label="Guards:\n- Disable LOAD NEXT, OUTLINE, DONE while RUNNING\n- STOP always available (hold-to-confirm)\n- FIRE only armed in SETUP/DEBUG and only when not RUNNING\n- Web console is stateless: always prefix commands\n\nMenu in MODE_JOB is derived from job_state.\n(Encoder selects menu_item; START executes it.)"];
+
+  JOB -> Legend [style=dashed arrowhead=none];
+}

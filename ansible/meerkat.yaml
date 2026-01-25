@@ -16,7 +16,7 @@
 
       - name: Install Meerk40t from pip
         pip:
-          name: meerk40t
+          name: git+https://github.com/meerk40t/meerk40t.git@0.9.9000
           executable: pip3
           extra_args: --break-system-packages
 
@@ -33,10 +33,10 @@
             User=kiosk
             Environment=DISPLAY=:0
             Environment=XAUTHORITY=/home/kiosk/.Xauthority
-            ExecStart=/usr/local/bin/meerk40t --no-gui
+            ExecStart=/usr/local/bin/meerk40t -z -c -e "webserver -p 8080"
             Restart=always
             RestartSec=5
-            
+
 
             [Install]
             WantedBy=graphical.target
