@@ -11,6 +11,8 @@
           - python3-pil
           - python3-opencv
           - python3-ezdxf
+          - libopenblas0
+          - libopenjp2-7
           state: present
           update_cache: yes
 
@@ -20,54 +22,6 @@
           executable: pip3
           extra_args: --break-system-packages
 
-      - name: Deploy Meerkat systemd service
-        copy:
-          content: |
-            [Unit]
-            Description=Meerk40t Laser Cutter Control
-            After=graphical.target
-            Requires=graphical.target
-
-
-            [Service]
-            User=kiosk
-            Environment=DISPLAY=:0
-            Environment=XAUTHORITY=/home/kiosk/.Xauthority
-            ExecStart=/usr/local/bin/meerk40t -z -c -e "webserver -p 8080"
-            Restart=always
-            RestartSec=5
-
-
-            [Install]
-            WantedBy=graphical.target
-          dest: /etc/systemd/system/meerkat.service
-          mode: '0644'
-
       - name: Reload systemd
         systemd:
           daemon_reload: yes
-
-      - name: Enable and restart Meerkat service
-        systemd:
-          name: meerkat.service
-          enabled: yes
-          state: restarted
-
-
-- name: Setup Meerkat Kiosk Mode
-  hosts: laser
-  become: true
-  tasks:
-
-  - name: Install minimal X and Chromium
-    apt:
-      name:
-        - xserver-xorg
-        - xinit
-        - x11-xserver-utils
-        - libopenblas0
-        - libopenjp2-7
-        - chromium-browser
-        - matchbox-window-manager
-      state: present
-      update_cache: yes

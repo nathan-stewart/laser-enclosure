@@ -1,6 +1,12 @@
 - name: Setup Raspberry Pi
   hosts: laser
   become: true
+  vars:
+    laser_connection: "preconfigured"
+    laser_static_ip: "192.168.1.12/24"
+    laser_gateway: "192.168.1.1"
+    laser_dns: "192.168.1.2"
+
   tasks:
 
     # Update packages
@@ -19,7 +25,6 @@
       apt:
         name:
           - xserver-xorg
-          - xinit
           - screen
           - git
           - vim
@@ -31,6 +36,11 @@
           - python3-sdnotify
           - watchdog
           - xserver-xorg-legacy
+          - lightdm
+          - lightdm-gtk-greeter
+          - xserver-xorg
+          - x11-xserver-utils
+          - xserver-xorg
         update_cache: true
 
     # Ensure Wayland is not used (skip removing Wayland libraries)
@@ -83,6 +93,13 @@
         home: /home/kiosk
         create_home: true
 
+    - name: Ensure Xauthority file exists
+      file:
+        path: /home/kiosk/.Xauthority
+        state: touch
+        owner: kiosk
+        group: kiosk
+
     # Enable and start watchdog service
     - name: Enable and start watchdog service
       systemd:
@@ -99,3 +116,22 @@
         owner: root
         group: root
         mode: '0644'
+
+    - name: Configure static IP
+      command: >
+        nmcli con mod "{{ laser_connection }}"
+        ipv4.addresses "{{ laser_static_ip }}"
+        ipv4.gateway "{{ laser_gateway }}"
+        ipv4.dns "{{ laser_dns }}"
+        ipv4.method manual
+
+    - name: Disable tty1 kiosk autologin override if it exists
+      file:
+        path: /etc/systemd/system/getty@tty1.service.d/override.conf
+        state: absent
+
+    - name: Enable LightDM
+      systemd:
+        name: lightdm
+        enabled: yes
+        state: started
