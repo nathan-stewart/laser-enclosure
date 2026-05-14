@@ -22,8 +22,7 @@ hal_req_lock = threading.Lock()
 log = None
 pub = None
 sub = None
-
-
+PURGE_SECONDS = 90
 def graceful_stop(signum, frame):
     log.info(f"Received signal {signum}, shutting down gracefully...")
     stop_event.set()
@@ -38,6 +37,7 @@ RULE_INPUTS = set(ACTIVITY_INPUTS) | {"i_ambient_humidity"}
 ENCODER_INPUTS = {"i_mask_encoder"}  # adjust if you rename or track deltas elsewhere
 ENCODER_DELTA_THRESHOLD = 1  # define what counts as significant
 previous_inputs = {}
+
 
 # backlight control
 IDLE_TIMEOUT = 5 * 60  # seconds
@@ -111,11 +111,14 @@ def dewpoint_rule(i_ambient_humidity=None, o_k8_dryer=0,
 
 # Rules for outputs - this is the brain stem - only handles low level rules
 RULES = {
+
+    # m7 enables air assist, m8 enables exhaust fan, m9 shuts off both
     "o_k1_laser"   : lambda i_btn_estop=0, i_btn_fire=0  : not (i_btn_estop or i_btn_fire),
-    "o_k2_hpa"     : lambda i_btn_estop=0, i_m7=0        : not i_btn_estop and i_m7,
-    "o_k3_fire"    : lambda i_btn_fire=0,  i_btn_estop=0 : i_btn_fire and (not i_btn_estop),
-    "o_k5_lpa"     : lambda i_btn_estop=0, i_m8=0        : not i_btn_estop and i_m8,
-    "o_k7_exhaust" : lambda i_btn_estop=0, i_m8=0        : not i_btn_estop and i_m8,
+    "o_k2_hpa"     : lambda i_btn_estop=0, v_job_active=0, i_m7=0 : not i_btn_estop and v_job_active and i_m7,
+    # transitional - lpa is going away once hpa is online
+    "o_k5_lpa"     : lambda i_btn_estop=0, v_job_active=0, i_m7=0 : not i_btn_estop and v_job_active and i_m7,
+    "o_k3_extinguish" : lambda i_btn_fire=0,  i_btn_estop=0 : i_btn_fire and (not i_btn_estop),
+    "o_k7_exhaust": lambda i_btn_estop=0, v_job_active=0, v_purge_active=0, i_m8=0:  not i_btn_estop and (v_purge_active or (v_job_active and i_m8)),
     "o_k4_light"   : (lambda : None), # Handled in application
     "o_k8_dryer"   : dewpoint_rule,
 }
@@ -158,6 +161,7 @@ def bind_kwargs_for(rule, state):
     return kwargs
 
 def apply_rules(state, now=None, version=None):
+    job_monitor(state) # call job monitor to update purge state based on job state
     decisions = {}
     for out, rule in RULES.items():
         if rule is None:
@@ -262,22 +266,21 @@ def set_backlight(state: bool):
     except subprocess.CalledProcessError as e:
         print(f"Failed to set display power: {e}")
 
-def idle_monitor():
-    global last_display_state
-    while not stop_event.is_set():
-        now = time.monotonic()
-        idle_time = now - last_activity
-        idle = (idle_time > IDLE_TIMEOUT) and not is_laser_active()
-        desired = not (idle)
+def purge_timeout():
+    hal_set("v_purge_active", 0)
 
-        if desired != last_display_state:
-            log.debug(f"backlight updated: {desired}")
-            set_backlight(desired)
-            last_display_state = desired
-        stop_event.wait(30.0)
+last_job_active = False
+def job_monitor(control_state):
+    global last_job_active, purge_until
+
+    job_active = bool(control_state.get("v_job_active", 0))
+    if last_job_active and not job_active:
+        hal_set("v_purge_active", 1)
+        purge_timer = threading.Timer(PURGE_SECONDS, purge_timeout, daemon=True)
+        purge_timer.start()
 
 def main(argv):
-    global pub, sub, req, log
+    global pub, sub, req, log, threads
     parser = argparse.ArgumentParser(description="HAL Watcher")
     parser.add_argument(
         "--log", "-l",
@@ -316,7 +319,6 @@ def main(argv):
 
     threads = []
     threads.append(threading.Thread(target=hal_listener))
-    threads.append(threading.Thread(target=idle_monitor))
     threads.append(threading.Thread(target=start_heartbeat, daemon=True))
 
     log.info("Starting control threads...")

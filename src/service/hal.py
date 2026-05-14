@@ -28,7 +28,7 @@ args = parser.parse_args()
 
 import service.devices
 service.devices.configure_mock(args.mock)
-from service.devices import Gpio, Expander, AnalogRead, Environment, RotaryEncoder
+from service.devices import Gpio, Expander, AnalogRead, Environment, RotaryEncoder, VirtualInputs
 
 from sdnotify import SystemdNotifier
 notifier = SystemdNotifier()
@@ -69,7 +69,7 @@ for name in rpi_gpio.inputs.keys():
 
 rpi_gpio.output(7,  "o_k1_laser",    0)
 rpi_gpio.output(8,  "o_k2_hpa",      0)
-rpi_gpio.output(25, "o_k3_fire",     0)
+rpi_gpio.output(25, "o_k3_extinguish",     0)
 rpi_gpio.output(24, "o_k4_light",    0)
 rpi_gpio.output(23, "o_k5_lpa",      0)
 rpi_gpio.output(18, "o_k6_spare",    0)
@@ -120,6 +120,12 @@ ambient.input('humidity',    'i_ambient_humidity')
 ambient.input('pressure',    'i_ambient_pressure')
 for name in ambient.inputs.keys():
     current_state[name] = None
+
+virtual = VirtualInputs()
+virtual.input("v_job_active", 0)
+virtual.input("v_purge_active", 0)
+for name in virtual.inputs.keys():
+    current_state[name] = 0
 
 log = None
 last_heartbeat = time.time()

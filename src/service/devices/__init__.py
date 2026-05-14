@@ -24,3 +24,5 @@ else:
         Environment,
         RotaryEncoder,
     )
+
+from .virtual_devices import VirtualInputs
