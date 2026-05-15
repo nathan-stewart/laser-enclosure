@@ -124,10 +124,6 @@ def main(argv):
     if cmd == "inject":
         return cmd_inject(args)
 
-    # Compatibility with old inject.py KEY VALUE form
-    if len(argv) == 3:
-        return cmd_inject(argv[1:])
-
     usage()
     return 2
 

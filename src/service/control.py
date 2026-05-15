@@ -22,7 +22,8 @@ hal_req_lock = threading.Lock()
 log = None
 pub = None
 sub = None
-PURGE_SECONDS = 90
+
+
 def graceful_stop(signum, frame):
     log.info(f"Received signal {signum}, shutting down gracefully...")
     stop_event.set()
@@ -30,9 +31,15 @@ def graceful_stop(signum, frame):
 for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
     signal.signal(sig, graceful_stop)
 
+PURGE_SECONDS = 90
+purge_timer = None
+last_job_active = False
+last_purge_active = False
+
 
 # Track activity for backlight control
-ACTIVITY_INPUTS = {"i_lid", "i_fp0", "i_fp1", "i_fp2", "i_fp3", "i_btn_estop", "i_btn_fire", "i_mask_encoder", "i_axis_x", "i_axis_z", "i_coarse", "i_fine"}
+ACTIVITY_INPUTS = {"i_lid", "i_fp0", "i_fp1", "i_fp2", "i_fp3", "i_btn_estop", "i_btn_fire", "i_mask_encoder",
+                   "i_axis_x", "i_axis_z", "i_coarse", "i_fine", "v_job_active", "v_purge_active", "i_m7", "i_m8"}
 RULE_INPUTS = set(ACTIVITY_INPUTS) | {"i_ambient_humidity"}
 ENCODER_INPUTS = {"i_mask_encoder"}  # adjust if you rename or track deltas elsewhere
 ENCODER_DELTA_THRESHOLD = 1  # define what counts as significant
@@ -132,7 +139,10 @@ def start_heartbeat():
         stop_event.wait(1.0)
 
 def hal_set(name, value):
-    payload = {"cmd": "set", "pin": name, "state": int(bool(value))}
+    if name.startswith("v_"):
+        payload = {"cmd": "inject", "state": {name: int(bool(value))}}
+    else:
+        payload = {"cmd": "set", "pin": name, "state": int(bool(value))}
     with hal_req_lock:
         try:
             log.debug("TX->HAL %s", payload)
@@ -269,15 +279,34 @@ def set_backlight(state: bool):
 def purge_timeout():
     hal_set("v_purge_active", 0)
 
-last_job_active = False
+def start_purge():
+    global purge_timer
+
+    hal_set("v_purge_active", 1)
+
+    if purge_timer is not None:
+        purge_timer.cancel()
+
+    purge_timer = threading.Timer(PURGE_SECONDS, purge_timeout)
+    purge_timer.daemon = True
+    purge_timer.start()
+
 def job_monitor(control_state):
-    global last_job_active, purge_until
+    global last_job_active, last_purge_active
 
     job_active = bool(control_state.get("v_job_active", 0))
+    purge_active = bool(control_state.get("v_purge_active", 0))
+
+    # Job just ended: start post-job purge.
     if last_job_active and not job_active:
-        hal_set("v_purge_active", 1)
-        purge_timer = threading.Timer(PURGE_SECONDS, purge_timeout, daemon=True)
-        purge_timer.start()
+        start_purge()
+
+    # Manual purge just requested: start/refresh timeout.
+    elif purge_active and not last_purge_active:
+        start_purge()
+
+    last_job_active = job_active
+    last_purge_active = purge_active
 
 def main(argv):
     global pub, sub, req, log, threads
