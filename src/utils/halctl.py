@@ -62,16 +62,23 @@ def cmd_set(args):
         usage()
         return 2
 
-    pin, state = args
-    reply = send({
-        "cmd": "set",
-        "pin": pin,
-        "state": 1 if int(state) else 0,
-    })
+    name, state = args
+    val = parse_value(state)
+
+    if name.startswith("v_"):
+        reply = send({
+            "cmd": "inject",
+            "state": {name: val},
+        })
+    else:
+        reply = send({
+            "cmd": "set",
+            "pin": name,
+            "state": 1 if int(state) else 0,
+        })
 
     print(json.dumps(reply, indent=2, sort_keys=True))
     return 0 if reply.get("status") == "ok" else 1
-
 
 def cmd_inject(args):
     if len(args) != 2:
