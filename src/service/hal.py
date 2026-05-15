@@ -122,8 +122,7 @@ for name in ambient.inputs.keys():
     current_state[name] = None
 
 virtual = VirtualInputs()
-virtual.input("v_job_active", 0)
-virtual.input("v_purge_active", 0)
+virtual.input("v_purge", 0)
 for name in virtual.inputs.keys():
     current_state[name] = 0
 

@@ -31,15 +31,16 @@ def graceful_stop(signum, frame):
 for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
     signal.signal(sig, graceful_stop)
 
-PURGE_SECONDS = 90
+purge_timeout = 90
 purge_timer = None
-last_job_active = False
-last_purge_active = False
-
+last_m7 = False
+purge_active = False
+last_purge_request = False
+last_v_purge = False
 
 # Track activity for backlight control
 ACTIVITY_INPUTS = {"i_lid", "i_fp0", "i_fp1", "i_fp2", "i_fp3", "i_btn_estop", "i_btn_fire", "i_mask_encoder",
-                   "i_axis_x", "i_axis_z", "i_coarse", "i_fine", "v_job_active", "v_purge_active", "i_m7", "i_m8"}
+                   "i_axis_x", "i_axis_z", "i_coarse", "i_fine", "v_purge", "i_m7", "i_m8"}
 RULE_INPUTS = set(ACTIVITY_INPUTS) | {"i_ambient_humidity"}
 ENCODER_INPUTS = {"i_mask_encoder"}  # adjust if you rename or track deltas elsewhere
 ENCODER_DELTA_THRESHOLD = 1  # define what counts as significant
@@ -51,6 +52,7 @@ IDLE_TIMEOUT = 5 * 60  # seconds
 last_activity = time.monotonic()
 last_display_state = None
 
+
 def hal_ping():
     with hal_req_lock:
         try:
@@ -60,6 +62,7 @@ def hal_ping():
         except zmq.Again:
             return False
 
+
 def wait_for_hal_ready(total_timeout=15.0, interval=0.25):
     end = time.monotonic() + total_timeout
     while time.monotonic() < end:
@@ -68,14 +71,18 @@ def wait_for_hal_ready(total_timeout=15.0, interval=0.25):
         time.sleep(interval)
     return False
 
+
 def getb(s, k):  # boolean read with default 0
     return bool(s.get(k, 0))
+
 
 def num_ok(x):
     return isinstance(x, (int, float)) and math.isfinite(x)
 
+
 def clamp01(x):
     return 0.0 if x < 0.0 else 100.0 if x > 100.0 else x
+
 
 def dewpoint_rule(i_ambient_humidity=None, o_k8_dryer=0,
                   rh_on=50.0, rh_off=45.0,
@@ -116,19 +123,20 @@ def dewpoint_rule(i_ambient_humidity=None, o_k8_dryer=0,
     st["last_seen"] = last_seen
     return None
 
+
 # Rules for outputs - this is the brain stem - only handles low level rules
 RULES = {
 
     # m7 enables air assist, m8 enables exhaust fan, m9 shuts off both
     "o_k1_laser"   : lambda i_btn_estop=0, i_btn_fire=0  : not (i_btn_estop or i_btn_fire),
-    "o_k2_hpa"     : lambda i_btn_estop=0, v_job_active=0, i_m7=0 : not i_btn_estop and v_job_active and i_m7,
-    # transitional - lpa is going away once hpa is online
-    "o_k5_lpa"     : lambda i_btn_estop=0, v_job_active=0, i_m7=0 : not i_btn_estop and v_job_active and i_m7,
+    "o_k2_hpa"     : lambda i_btn_estop=0, i_m7=0 : not i_btn_estop and i_m7,
+    "o_k5_lpa"     : lambda i_btn_estop=0, i_m7=0 : not i_btn_estop and i_m7,  # LPA going away once plumbed for air
     "o_k3_extinguish" : lambda i_btn_fire=0,  i_btn_estop=0 : i_btn_fire and (not i_btn_estop),
-    "o_k7_exhaust": lambda i_btn_estop=0, v_job_active=0, v_purge_active=0, i_m8=0:  not i_btn_estop and (v_purge_active or (v_job_active and i_m8)),
+    "o_k7_exhaust": lambda i_btn_estop=0, i_m7=0, purge_active=0: not i_btn_estop and (i_m7 or purge_active),
     "o_k4_light"   : (lambda : None), # Handled in application
     "o_k8_dryer"   : dewpoint_rule,
 }
+
 
 def start_heartbeat():
     while not stop_event.is_set():
@@ -137,6 +145,7 @@ def start_heartbeat():
         except Exception:
             log.exception("heartbeat send failed")
         stop_event.wait(1.0)
+
 
 def hal_set(name, value):
     if name.startswith("v_"):
@@ -157,9 +166,11 @@ def hal_set(name, value):
             log.error("HAL NACK: %s", reply)
         return ok
 
+
 def hal_get_status():
     req.send_json({"cmd":"get_status"})
     return req.recv_json()
+
 
 def bind_kwargs_for(rule, state):
     if rule is None:
@@ -170,8 +181,11 @@ def bind_kwargs_for(rule, state):
         kwargs[name] = state.get(name, p.default if p.default is not inspect._empty else None)
     return kwargs
 
+
 def apply_rules(state, now=None, version=None):
-    job_monitor(state) # call job monitor to update purge state based on job state
+    rule_state = dict(state)
+    rule_state["purge_active"] = purge_active
+    exhaust_monitor(state) # update purge state based on request and m7 history
     decisions = {}
     for out, rule in RULES.items():
         if rule is None:
@@ -189,6 +203,13 @@ def apply_rules(state, now=None, version=None):
         cur = int(bool(state.get(k, 0)))
         if v != cur:
             hal_set(k, v)
+
+
+def apply_rules_with_current_state():
+    with state_lock:
+        snapshot = dict(state_hal)
+    apply_rules(snapshot)
+
 
 def hal_listener():
     global last_activity, previous_inputs, state_hal_seq
@@ -264,6 +285,7 @@ def hal_listener():
 def is_laser_active():
     return state_hal.get("o_k1_laser", 0) == 1
 
+
 def set_backlight(state: bool):
     env = os.environ.copy()
     env["DISPLAY"] = ":0"
@@ -276,13 +298,33 @@ def set_backlight(state: bool):
     except subprocess.CalledProcessError as e:
         print(f"Failed to set display power: {e}")
 
+
+def cancel_purge():
+    global purge_timer, purge_active
+
+    purge_active = False
+    if purge_timer is not None:
+        purge_timer.cancel()
+        purge_timer = None
+
+
+def finish_purge():
+    global purge_timer, purge_active
+
+    purge_active = False
+    purge_timer = None
+    hal_set("v_purge", 0)
+    apply_rules_with_current_state()
+
+
 def purge_timeout():
-    hal_set("v_purge_active", 0)
+    finish_purge()
+
 
 def start_purge():
-    global purge_timer
+    global purge_timer, purge_active
 
-    hal_set("v_purge_active", 1)
+    purge_active = True
 
     if purge_timer is not None:
         purge_timer.cancel()
@@ -291,22 +333,25 @@ def start_purge():
     purge_timer.daemon = True
     purge_timer.start()
 
-def job_monitor(control_state):
-    global last_job_active, last_purge_active
 
-    job_active = bool(control_state.get("v_job_active", 0))
-    purge_active = bool(control_state.get("v_purge_active", 0))
+def exhaust_monitor(control_state):
+    global last_m7, last_v_purge
 
-    # Job just ended: start post-job purge.
-    if last_job_active and not job_active:
+    m7 = bool(control_state.get("i_m7", 0))
+    v_purge = bool(control_state.get("v_purge", 0))
+
+    if m7:
+        cancel_purge()
+
+    elif last_m7 and not m7:
         start_purge()
 
-    # Manual purge just requested: start/refresh timeout.
-    elif purge_active and not last_purge_active:
+    elif v_purge and not last_v_purge:
         start_purge()
 
-    last_job_active = job_active
-    last_purge_active = purge_active
+    last_m7 = m7
+    last_v_purge = v_purge
+
 
 def main(argv):
     global pub, sub, req, log, threads
