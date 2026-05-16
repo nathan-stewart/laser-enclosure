@@ -181,17 +181,18 @@ def bind_kwargs_for(rule, state):
         kwargs[name] = state.get(name, p.default if p.default is not inspect._empty else None)
     return kwargs
 
-
 def apply_rules(state, now=None, version=None):
+    exhaust_monitor(state)
+
     rule_state = dict(state)
     rule_state["purge_active"] = purge_active
-    exhaust_monitor(state) # update purge state based on request and m7 history
+
     decisions = {}
     for out, rule in RULES.items():
         if rule is None:
             continue
         try:
-            res = rule(**bind_kwargs_for(rule, state))
+            res = rule(**bind_kwargs_for(rule, rule_state))
         except Exception as e:
             log.error("Rule %s failed: %s", out, e)
             continue
