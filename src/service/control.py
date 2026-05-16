@@ -31,7 +31,7 @@ def graceful_stop(signum, frame):
 for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
     signal.signal(sig, graceful_stop)
 
-purge_timeout = 90
+purge_time = 90
 purge_timer = None
 last_m7 = False
 purge_active = False
@@ -329,7 +329,7 @@ def start_purge():
     if purge_timer is not None:
         purge_timer.cancel()
 
-    purge_timer = threading.Timer(PURGE_SECONDS, purge_timeout)
+    purge_timer = threading.Timer(purge_time, finish_purge)
     purge_timer.daemon = True
     purge_timer.start()
 
