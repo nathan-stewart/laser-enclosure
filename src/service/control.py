@@ -37,6 +37,7 @@ last_m7 = False
 purge_active = False
 last_purge_request = False
 last_v_purge = False
+last_commanded_outputs = {}
 
 # Track activity for backlight control
 ACTIVITY_INPUTS = {"i_lid", "i_fp0", "i_fp1", "i_fp2", "i_fp3", "i_btn_estop", "i_btn_fire", "i_mask_encoder",
@@ -182,6 +183,7 @@ def bind_kwargs_for(rule, state):
     return kwargs
 
 def apply_rules(state, now=None, version=None):
+    global last_commanded_outputs, purge_active
     exhaust_monitor(state)
 
     rule_state = dict(state)
@@ -201,9 +203,10 @@ def apply_rules(state, now=None, version=None):
         decisions[out] = int(bool(res))
 
     for k, v in decisions.items():
-        cur = int(bool(state.get(k, 0)))
+        cur = last_commanded_outputs.get(k)
         if v != cur:
-            hal_set(k, v)
+            if hal_set(k, v):
+                last_commanded_outputs[k] = v
 
 
 def apply_rules_with_current_state():
