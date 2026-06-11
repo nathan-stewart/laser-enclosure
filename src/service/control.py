@@ -129,13 +129,13 @@ def dewpoint_rule(i_ambient_humidity=None, o_k8_dryer=0,
 RULES = {
 
     # m7 enables air assist, m8 enables exhaust fan, m9 shuts off both
-    "o_k1_laser"   : lambda i_btn_estop=0, i_btn_fire=0  : not (i_btn_estop or i_btn_fire),
-    "o_k2_hpa"     : lambda i_btn_estop=0, i_m7=0 : not i_btn_estop and i_m7,
-    "o_k5_lpa"     : lambda i_btn_estop=0, i_m7=0 : not i_btn_estop and i_m7,  # LPA going away once plumbed for air
-    "o_k3_extinguish" : lambda i_btn_fire=0,  i_btn_estop=0 : i_btn_fire and (not i_btn_estop),
-    "o_k7_exhaust": lambda i_btn_estop=0, i_m7=0, purge_active=0: not i_btn_estop and (i_m7 or purge_active),
-    "o_k4_light"   : (lambda : None), # Handled in application
-    "o_k8_dryer"   : dewpoint_rule,
+    "o_k1_laser"      : lambda i_btn_estop = 0, i_btn_fire=0          : not (i_btn_estop or i_btn_fire),
+    "o_k2_air_assist" : lambda i_btn_estop = 0, i_m8=0                : not  i_btn_estop and i_m8,
+    "o_k3_extinguish" : lambda i_btn_fire  = 0                        :      i_btn_fire,
+    "o_k5_lpa"        : lambda i_btn_estop = 0, i_m7=0                : not  i_btn_estop and i_m7,
+    "o_k7_exhaust"    : lambda i_btn_estop = 0, i_m7=0, purge_active=0: not i_btn_estop and (i_m7 or purge_active),
+    "o_k4_light"      : (lambda : None), # Handled in application
+    "o_k8_dryer"      : dewpoint_rule,
 }
 
 
