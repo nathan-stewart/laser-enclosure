@@ -1,18 +1,19 @@
-# meerk40t_halctl.py
+import json
 
 from .core import run_halctl, HalCtlError
 
 
-def plugin(kernel, lifecycle):
+def plugin(kernel, lifecycle=None):
     if lifecycle != "register":
         return
 
-    @kernel.console_command(
-        "halctl",
-        help="HAL control. Usage: halctl purge on|off|SECONDS",
-    )
-    def halctl_cmd(command, channel, _, args=tuple(), **kwargs):
+    @kernel.console_command("halctl", help="Send command to laser HAL")
+    def halctl_cmd(command, channel, _, args=(), **kwargs):
         try:
-            run_halctl(list(args), source="meerk40t", emit=channel)
+            result = run_halctl(list(args), source="meerk40t")
         except HalCtlError as e:
             channel(f"halctl: {e}")
+            return
+
+        if result is not None:
+            channel(json.dumps(result, indent=2, sort_keys=True))
