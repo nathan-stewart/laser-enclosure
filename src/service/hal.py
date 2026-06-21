@@ -28,7 +28,7 @@ args = parser.parse_args()
 
 import service.devices
 service.devices.configure_mock(args.mock)
-from service.devices import Gpio, Expander, AnalogRead, Environment, RotaryEncoder, VirtualInputs
+from service.devices import Gpio, Expander, AnalogRead, Environment, RotaryEncoder
 
 from sdnotify import SystemdNotifier
 notifier = SystemdNotifier()
@@ -63,15 +63,15 @@ previous_snapshot = {}
 rpi_gpio = Gpio()
 rpi_gpio.input(22, "i_m7")
 rpi_gpio.input(27, "i_m8")
-rpi_gpio.input(17, "i_lid")
+rpi_gpio.input(17, "i_estop")
 for name in rpi_gpio.inputs.keys():
     current_state[name] = 0
 
 rpi_gpio.output(7,  "o_k1_laser",    0)
 rpi_gpio.output(8,  "o_k2_hpa",      0)
-rpi_gpio.output(25, "o_k3_extinguish",     0)
-rpi_gpio.output(24, "o_k4_light",    0)
-rpi_gpio.output(23, "o_k5_lpa",      0)
+rpi_gpio.output(25, "o_k3_lpa",      0)
+rpi_gpio.output(24, "o_k4_spare",     0)
+rpi_gpio.output(23, "o_k5_spare",    0)
 rpi_gpio.output(18, "o_k6_spare",    0)
 rpi_gpio.output(12, "o_k7_exhaust",  0)
 rpi_gpio.output(16, "o_k8_dryer",    0)
@@ -121,13 +121,36 @@ ambient.input('pressure',    'i_ambient_pressure')
 for name in ambient.inputs.keys():
     current_state[name] = None
 
-virtual = VirtualInputs()
-virtual.input("v_purge", 0)
-for name in virtual.inputs.keys():
-    current_state[name] = 0
+current_state["hal_exhaust_active"] = 0
+current_state["hal_exhaust_mode"] = "off"
+current_state["hal_exhaust_duration"] = 0
+current_state["hal_exhaust_until"] = 0.0
 
 log = None
 last_heartbeat = time.time()
+
+
+def monitor_state_timers():
+    while not stop_event.is_set():
+        now = time.time()
+
+        with state_lock:
+            active = bool(current_state.get("hal_exhaust_active", 0))
+            mode = current_state.get("hal_exhaust_mode")
+            until = float(current_state.get("hal_exhaust_until") or 0.0)
+            expired = active and mode == "timed" and until and now >= until
+
+        if expired:
+            log.info("Timed exhaust expired")
+            set_hal_state({
+                "hal_exhaust_active": 0,
+                "hal_exhaust_mode": "off",
+                "hal_exhaust_duration": 0,
+                "hal_exhaust_until": 0.0,
+            })
+
+        stop_event.wait(0.25)
+
 
 def publish_state(snapshot):
     with publish_lock:
@@ -170,6 +193,29 @@ def set_output(name, value):
     if changed:
         publish_state(snap)
     return ok
+
+
+def set_hal_state(updates):
+    """Update HAL-owned non-device state and publish it."""
+    with state_lock:
+        changed = False
+
+        for k, v in updates.items():
+            if not k.startswith("hal_"):
+                log.error("Refusing to set non-HAL state key via set_hal_state: %s", k)
+                return False
+
+            if current_state.get(k) != v:
+                current_state[k] = v
+                changed = True
+
+        snap = dict(current_state)
+
+    if changed:
+        publish_state(snap)
+
+    return True
+
 
 def control_heartbeat_listener():
     global last_heartbeat
@@ -274,6 +320,56 @@ def monitor_env():
         stop_event.wait(wait_env)
 
 def handle_commands():
+    def command_exhaust(msg):
+        cmd = (msg.get("cmd") or "").lower()
+        if cmd != "exhaust":
+            return False
+
+        mode = str(msg.get("mode", "")).strip().lower()
+
+        if mode == "on":
+            set_hal_state({
+                "hal_exhaust_active": 1,
+                "hal_exhaust_mode": "on",
+                "hal_exhaust_duration": 0,
+                "hal_exhaust_until": 0.0,
+            })
+            rep.send_json({"status": "ok"})
+            return True
+
+        if mode == "off":
+            set_hal_state({
+                "hal_exhaust_active": 0,
+                "hal_exhaust_mode": "off",
+                "hal_exhaust_duration": 0,
+                "hal_exhaust_until": 0.0,
+            })
+            rep.send_json({"status": "ok"})
+            return True
+
+        if mode in ("timed", "timer"):
+            try:
+                duration = int(msg.get("duration", msg.get("seconds", 600)))
+            except (TypeError, ValueError):
+                rep.send_json({"status": "error", "error": "duration must be an integer"})
+                return True
+
+            duration = max(0, min(duration, 3600))
+            until = time.time() + duration if duration else 0.0
+
+            set_hal_state({
+                "hal_exhaust_active": 1 if duration else 0,
+                "hal_exhaust_mode": "timed" if duration else "off",
+                "hal_exhaust_duration": duration,
+                "hal_exhaust_until": until,
+            })
+            rep.send_json({"status": "ok"})
+            return True
+
+        rep.send_json({"status": "error", "error": "mode must be on, off, or timed"})
+        return True
+
+
     def command_inject(msg):
         if (msg.get("cmd") or "").lower() != "inject":
             return False
@@ -287,6 +383,13 @@ def handle_commands():
             outputs = {k for k in current_state if k.startswith("o_")}
 
         out_ops = [(k, st[k]) for k in st if k in outputs]
+        for k in st:
+            if k.startswith("hal_"):
+                rep.send_json({
+                    "status": "error",
+                    "error": f"{k} is HAL-owned state; use a command instead"
+                })
+                return True
         state_updates = {k: st[k] for k in st if k not in outputs}
 
         if state_updates:
@@ -348,6 +451,8 @@ def handle_commands():
             if command_set(msg): continue
             if command_inject(msg): continue
             if command_get_status(msg): continue
+            if command_exhaust(msg): continue
+
             rep.send_json({"status": "unsupported command"})
 
         except Exception as e:
@@ -395,6 +500,7 @@ def main(argv=None):
     threads.append(threading.Thread(target=thread_wrapper, name="EnvPolling", args=(monitor_env,), daemon=True))
     threads.append(threading.Thread(target=thread_wrapper, name="HeartbeatListener", args=(control_heartbeat_listener,), daemon=True))
     threads.append(threading.Thread(target=thread_wrapper, name="HeartbeatMonitor", args=(monitor_control_heartbeat,), daemon=True))
+    threads.append(threading.Thread(target=thread_wrapper, name="StateTimerMonitor", args=(monitor_state_timers,), daemon=True))
 
     threads[0].start()
     for thread in threads[1:]:

@@ -23,7 +23,6 @@ log = None
 pub = None
 sub = None
 
-
 def graceful_stop(signum, frame):
     log.info(f"Received signal {signum}, shutting down gracefully...")
     stop_event.set()
@@ -31,17 +30,17 @@ def graceful_stop(signum, frame):
 for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
     signal.signal(sig, graceful_stop)
 
-purge_time = 90
-purge_timer = None
-last_m7 = False
-purge_active = False
-last_purge_request = False
-last_v_purge = False
 last_commanded_outputs = {}
+hal_exhaust_active = False
 
 # Track activity for backlight control
-ACTIVITY_INPUTS = {"i_lid", "i_fp0", "i_fp1", "i_fp2", "i_fp3", "i_btn_estop", "i_btn_fire", "i_mask_encoder",
-                   "i_axis_x", "i_axis_z", "i_coarse", "i_fine", "v_purge", "i_m7", "i_m8"}
+ACTIVITY_INPUTS = {
+    "i_lid", "i_fp0", "i_fp1", "i_fp2", "i_fp3",
+    "i_estop", "i_btn_fire", "i_mask_encoder",
+    "i_axis_x", "i_axis_z", "i_coarse", "i_fine",
+    "i_m7", "i_m8",
+    "hal_exhaust_active", "hal_exhaust_mode",
+}
 RULE_INPUTS = set(ACTIVITY_INPUTS) | {"i_ambient_humidity"}
 ENCODER_INPUTS = {"i_mask_encoder"}  # adjust if you rename or track deltas elsewhere
 ENCODER_DELTA_THRESHOLD = 1  # define what counts as significant
@@ -127,14 +126,12 @@ def dewpoint_rule(i_ambient_humidity=None, o_k8_dryer=0,
 
 # Rules for outputs - this is the brain stem - only handles low level rules
 RULES = {
-
-    # m7 enables air assist, m8 enables exhaust fan, m9 shuts off both
-    "o_k1_laser"      : lambda i_btn_estop = 0, i_btn_fire=0          : not (i_btn_estop or i_btn_fire),
-    "o_k2_air_assist" : lambda i_btn_estop = 0, i_m8=0                : not  i_btn_estop and i_m8,
-    "o_k3_extinguish" : lambda i_btn_fire  = 0                        :      i_btn_fire,
-    "o_k5_lpa"        : lambda i_btn_estop = 0, i_m7=0                : not  i_btn_estop and i_m7,
-    "o_k7_exhaust"    : lambda i_btn_estop = 0, i_m7=0, purge_active=0: not i_btn_estop and (i_m7 or purge_active),
-    "o_k4_light"      : (lambda : None), # Handled in application
+    # Neje Supports both M7 and M8 but Meerk40t only allows one or the other
+    # tie both air assist functions to M8
+    "o_k1_laser"      : lambda i_estop = 0                          : not i_estop,
+    "o_k2_hpa"        : lambda i_estop = 0, i_m8=0             : i_m8 and not i_estop,
+    "o_k3_lpa"        : lambda i_estop = 0, i_m8=0             : i_m8 and not i_estop,
+    "o_k7_exhaust"    : lambda i_estop=0, hal_exhaust_active=0 : hal_exhaust_active and not i_estop,
     "o_k8_dryer"      : dewpoint_rule,
 }
 
@@ -149,10 +146,7 @@ def start_heartbeat():
 
 
 def hal_set(name, value):
-    if name.startswith("v_"):
-        payload = {"cmd": "inject", "state": {name: int(bool(value))}}
-    else:
-        payload = {"cmd": "set", "pin": name, "state": int(bool(value))}
+    payload = {"cmd": "set", "pin": name, "state": int(bool(value))}
     with hal_req_lock:
         try:
             log.debug("TX->HAL %s", payload)
@@ -162,7 +156,8 @@ def hal_set(name, value):
         except zmq.Again:
             log.error("HAL timeout waiting for reply to %s", payload)
             return False
-        ok = isinstance(reply, dict) and str(reply.get("status","")).lower() == "ok"
+
+        ok = isinstance(reply, dict) and str(reply.get("status", "")).lower() == "ok"
         if not ok:
             log.error("HAL NACK: %s", reply)
         return ok
@@ -183,11 +178,9 @@ def bind_kwargs_for(rule, state):
     return kwargs
 
 def apply_rules(state, now=None, version=None):
-    global last_commanded_outputs, purge_active
-    exhaust_monitor(state)
+    global last_commanded_outputs
 
     rule_state = dict(state)
-    rule_state["purge_active"] = purge_active
 
     decisions = {}
     for out, rule in RULES.items():
@@ -205,9 +198,9 @@ def apply_rules(state, now=None, version=None):
     for k, v in decisions.items():
         cur = last_commanded_outputs.get(k)
         if v != cur:
+            log.info("Setting %s=%s; previous commanded=%s", k, v, cur)
             if hal_set(k, v):
                 last_commanded_outputs[k] = v
-
 
 def apply_rules_with_current_state():
     with state_lock:
@@ -301,60 +294,6 @@ def set_backlight(state: bool):
         subprocess.run(cmd, env=env, check=True)
     except subprocess.CalledProcessError as e:
         print(f"Failed to set display power: {e}")
-
-
-def cancel_purge():
-    global purge_timer, purge_active
-
-    purge_active = False
-    if purge_timer is not None:
-        purge_timer.cancel()
-        purge_timer = None
-
-
-def finish_purge():
-    global purge_timer, purge_active
-
-    purge_active = False
-    purge_timer = None
-    hal_set("v_purge", 0)
-    apply_rules_with_current_state()
-
-
-def purge_timeout():
-    finish_purge()
-
-
-def start_purge():
-    global purge_timer, purge_active
-
-    purge_active = True
-
-    if purge_timer is not None:
-        purge_timer.cancel()
-
-    purge_timer = threading.Timer(purge_time, finish_purge)
-    purge_timer.daemon = True
-    purge_timer.start()
-
-
-def exhaust_monitor(control_state):
-    global last_m7, last_v_purge
-
-    m7 = bool(control_state.get("i_m7", 0))
-    v_purge = bool(control_state.get("v_purge", 0))
-
-    if m7:
-        cancel_purge()
-
-    elif last_m7 and not m7:
-        start_purge()
-
-    elif v_purge and not last_v_purge:
-        start_purge()
-
-    last_m7 = m7
-    last_v_purge = v_purge
 
 
 def main(argv):

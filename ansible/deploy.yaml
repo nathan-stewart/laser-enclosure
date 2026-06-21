@@ -15,15 +15,15 @@
       loop:
         - "gpio=22=ip,pu   # i_m7"
         - "gpio=27=ip,pu   # i_m8"
-        - "gpio=17=ip,pu   # i_lid"
+        - "gpio=17=ip,pu   # i_estop"
         - "gpio=7=op,dl    # o_k1_laser"
         - "gpio=8=op,dl    # o_k2_hpa"
-        - "gpio=25=op,dl   # o_k3_fire"
-        - "gpio=24=op,dl   # o_k4_light"
-        - "gpio=23=op,dl   # o_k5_lpa"
-        - "gpio=18=op,dl   # o_k6_dry_fan"
+        - "gpio=25=op,dl   # o_k3_lpa"
+        - "gpio=24=op,dl   # o_k4_spare"
+        - "gpio=23=op,dl   # o_k5_spare"
+        - "gpio=18=op,dl   # o_k6_spare"
         - "gpio=12=op,dl   # o_k7_exhaust"
-        - "gpio=16=op,dl   # o_k8_dry_heat"
+        - "gpio=16=op,dl   # o_k8_dryer"
       tags: gpio-config
 
     - name: Install required packages
@@ -93,6 +93,13 @@
           [Install]
           WantedBy=multi-user.target
       register: hal_unit
+
+    - name: Install halctl MeerK40t plugin from local source
+      pip:
+        name: /opt/kiosk/meerk40t-halctl
+        executable: pip3
+        extra_args: --break-system-packages --editable
+
 
     - name: Create Control layer systemd service
       copy:

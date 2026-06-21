@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "meerk40t-halctl"
+version = "0.1.0"
+description = "HAL control bridge for MeerK40t"
+requires-python = ">=3.9"
+dependencies = [
+    "pyzmq",
+]
+
+[project.scripts]
+halctl = "meerk40t_halctl.cli:main"
+
+[project.entry-points."meerk40t.extension"]
+halctl = "meerk40t_halctl.plugin:plugin"
+
+[tool.setuptools.packages.find]
+where = ["src"]
