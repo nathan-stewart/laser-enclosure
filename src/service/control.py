@@ -129,8 +129,8 @@ RULES = {
     # Neje Supports both M7 and M8 but Meerk40t only allows one or the other
     # tie both air assist functions to M8
     "o_k1_laser"      : lambda i_estop = 0                          : not i_estop,
-    "o_k2_hpa"        : lambda i_estop = 0, i_m8=0             : i_m8 and not i_estop,
     "o_k3_lpa"        : lambda i_estop = 0, i_m8=0             : i_m8 and not i_estop,
+    "o_k4_hpa"        : lambda i_estop = 0, i_m8=0             : i_m8 and not i_estop,
     "o_k7_exhaust"    : lambda i_estop=0, hal_exhaust_active=0 : hal_exhaust_active and not i_estop,
     "o_k8_dryer"      : dewpoint_rule,
 }

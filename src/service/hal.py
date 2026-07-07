@@ -3,11 +3,8 @@ import sys
 import logging
 import argparse
 import zmq
-import copy
 import time
 import json
-import os
-import struct
 import threading
 import signal
 
@@ -68,9 +65,9 @@ for name in rpi_gpio.inputs.keys():
     current_state[name] = 0
 
 rpi_gpio.output(7,  "o_k1_laser",    0)
-rpi_gpio.output(8,  "o_k2_hpa",      0)
+rpi_gpio.output(8,  "o_k2_spare",    0)
 rpi_gpio.output(25, "o_k3_lpa",      0)
-rpi_gpio.output(24, "o_k4_spare",     0)
+rpi_gpio.output(24, "o_k4_hpa",      0)
 rpi_gpio.output(23, "o_k5_spare",    0)
 rpi_gpio.output(18, "o_k6_spare",    0)
 rpi_gpio.output(12, "o_k7_exhaust",  0)

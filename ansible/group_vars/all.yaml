@@ -1,0 +1,37 @@
+---
+# Common project variables. These are intentionally centralized so old-project
+# archaeology starts here, not inside individual playbooks.
+
+kiosk_user: kiosk
+app_dir: /opt/kiosk
+
+# Static IP config. Set configure_static_ip=false if this host is managed by DHCP/Pi-hole.
+configure_static_ip: false
+laser_connection: "preconfigured"
+laser_static_ip: "192.168.1.12/24"
+laser_gateway: "192.168.1.1"
+laser_dns: "192.168.1.2"
+
+# App source path relative to ansible/ directory. This assumes repo layout:
+#   laser-enclosure/
+#     ansible/
+#     src/
+app_src: "{{ playbook_dir }}/../src/"
+
+# MeerK40t install target.
+meerk40t_pip_spec: "git+https://github.com/meerk40t/meerk40t.git@0.9.9000"
+
+# GPIO boot defaults. Keep comments aligned with actual hal.py/control.py wiring.
+# NOTE: update these if the K2/K4 spare/HPA move is reflected differently in code.
+gpio_boot_lines:
+  - "gpio=22=ip,pu   # i_m7"
+  - "gpio=27=ip,pu   # i_m8"
+  - "gpio=17=ip,pu   # i_estop"
+  - "gpio=7=op,dl    # o_k1_laser_enable / laser power gate"
+  - "gpio=8=op,dl    # o_k2_spare"
+  - "gpio=25=op,dl   # o_k3_lpa"
+  - "gpio=24=op,dl   # o_k4_hpa / moved from K2 if code is updated to match"
+  - "gpio=23=op,dl   # o_k5_spare"
+  - "gpio=18=op,dl   # o_k6_spare"
+  - "gpio=12=op,dl   # o_k7_exhaust"
+  - "gpio=16=op,dl   # o_k8_dryer"

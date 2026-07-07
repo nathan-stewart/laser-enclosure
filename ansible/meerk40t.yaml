@@ -1,0 +1,30 @@
+---
+- name: Install MeerK40t
+  hosts: laser
+  become: true
+
+  tasks:
+    - name: Install dependencies for MeerK40t
+      apt:
+        name:
+          - libopencv-dev
+          - python3-pil
+          - python3-opencv
+          - python3-ezdxf
+          - libopenblas0
+          - libopenjp2-7
+        state: present
+        update_cache: yes
+      tags: [meerk40t, packages]
+
+    - name: Install MeerK40t from pip
+      pip:
+        name: "{{ meerk40t_pip_spec }}"
+        executable: pip3
+        extra_args: --break-system-packages
+      tags: [meerk40t]
+
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
+      tags: [meerk40t]

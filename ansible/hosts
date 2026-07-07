@@ -1,3 +1,0 @@
-[local]
-laser ansible_host=laser.lan ansible_user=nps
-

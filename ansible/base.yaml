@@ -1,0 +1,142 @@
+---
+- name: Base Raspberry Pi / kiosk setup
+  hosts: laser
+  become: true
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      tags: [base, packages]
+
+    - name: Install base packages
+      apt:
+        name:
+          - xserver-xorg
+          - xserver-xorg-legacy
+          - x11-xserver-utils
+          - lightdm
+          - lightdm-gtk-greeter
+          - screen
+          - git
+          - vim
+          - python3
+          - python3-pip
+          - python3-sdnotify
+          - watchdog
+        state: present
+      tags: [base, packages]
+
+    - name: Disable Wayland by ensuring X11 is used
+      lineinfile:
+        path: /etc/environment
+        line: "XDG_SESSION_TYPE=x11"
+        state: present
+      tags: [base, x11]
+
+    - name: Configure Raspberry Pi boot display/I2C settings
+      blockinfile:
+        path: /boot/config.txt
+        create: yes
+        marker: "# {mark} ANSIBLE LASER ENCLOSURE BOOT"
+        block: |
+          dtparam=i2c_arm=on
+          dtparam=audio=off
+          hdmi_force_hotplug=1
+          hdmi_group=2
+          hdmi_mode=87
+          hdmi_cvt=800 480 60 6 0 0 0
+          hdmi_drive=2
+          dtoverlay=vc4-kms-v3d
+      tags: [base, boot]
+
+    - name: Configure GPIO boot states
+      blockinfile:
+        path: /boot/config.txt
+        create: yes
+        marker: "# {mark} ANSIBLE LASER ENCLOSURE GPIO"
+        block: "{{ gpio_boot_lines | join('\n') }}"
+      tags: [base, gpio, boot]
+
+    - name: Ensure X11 config directory exists
+      file:
+        path: /etc/X11/xorg.conf.d
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      tags: [base, x11]
+
+    - name: Add touchscreen transformation matrix
+      copy:
+        dest: /etc/X11/xorg.conf.d/99-touchscreen-calibration.conf
+        mode: '0644'
+        content: |
+          Section "InputClass"
+              Identifier "Touchscreen Calibration"
+              MatchIsTouchscreen "on"
+              Option "TransformationMatrix" "1 0 0 0 -1 1 0 0 1"
+          EndSection
+      tags: [base, x11, touchscreen]
+
+    - name: Create kiosk user
+      user:
+        name: "{{ kiosk_user }}"
+        groups: gpio,i2c,video,input,dialout,plugdev
+        append: yes
+        state: present
+        shell: /bin/bash
+        home: "/home/{{ kiosk_user }}"
+        create_home: true
+      tags: [base, user]
+
+    - name: Ensure Xauthority file exists
+      file:
+        path: "/home/{{ kiosk_user }}/.Xauthority"
+        state: touch
+        owner: "{{ kiosk_user }}"
+        group: "{{ kiosk_user }}"
+        mode: '0600'
+      tags: [base, x11, user]
+
+    - name: Configure Xwrapper for kiosk X session
+      copy:
+        dest: /etc/X11/Xwrapper.config
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          allowed_users=anybody
+          needs_root_rights=yes
+      tags: [base, x11]
+
+    - name: Enable and start watchdog service
+      systemd:
+        name: watchdog
+        enabled: yes
+        state: started
+      tags: [base, watchdog]
+
+    - name: Configure static IP if enabled
+      command: >
+        nmcli con mod "{{ laser_connection }}"
+        ipv4.addresses "{{ laser_static_ip }}"
+        ipv4.gateway "{{ laser_gateway }}"
+        ipv4.dns "{{ laser_dns }}"
+        ipv4.method manual
+      when: configure_static_ip | bool
+      tags: [base, network]
+
+    - name: Disable tty1 kiosk autologin override if it exists
+      file:
+        path: /etc/systemd/system/getty@tty1.service.d/override.conf
+        state: absent
+      tags: [base, x11]
+
+    - name: Enable and start LightDM
+      systemd:
+        name: lightdm
+        enabled: yes
+        state: started
+      tags: [base, x11]
