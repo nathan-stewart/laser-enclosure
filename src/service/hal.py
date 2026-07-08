@@ -64,14 +64,14 @@ rpi_gpio.input(17, "i_estop")
 for name in rpi_gpio.inputs.keys():
     current_state[name] = 0
 
-rpi_gpio.output(7,  "o_k1_laser",    0)
-rpi_gpio.output(8,  "o_k2_spare",    0)
-rpi_gpio.output(25, "o_k3_lpa",      0)
-rpi_gpio.output(24, "o_k4_hpa",      0)
-rpi_gpio.output(23, "o_k5_spare",    0)
-rpi_gpio.output(18, "o_k6_spare",    0)
-rpi_gpio.output(12, "o_k7_exhaust",  0)
-rpi_gpio.output(16, "o_k8_dryer",    0)
+rpi_gpio.output(7,  "o_k1",  0)
+rpi_gpio.output(8,  "o_k2",  0)
+rpi_gpio.output(25, "o_k3",  0)
+rpi_gpio.output(24, "o_k4",  0)
+rpi_gpio.output(23, "o_k5",  0)
+rpi_gpio.output(18, "o_k6",  0)
+rpi_gpio.output(12, "o_k7",  0)
+rpi_gpio.output(16, "o_k8",  0)
 for name in rpi_gpio.outputs.keys():
     current_state[name] = 0
 
@@ -81,8 +81,6 @@ expanders[0x20].input(0,'i_fp0')
 expanders[0x20].input(1,'i_fp1')
 expanders[0x20].input(2,'i_fp2')
 expanders[0x20].input(3,'i_fp3')
-expanders[0x20].input(4,'i_btn_estop')
-expanders[0x20].input(5,'i_btn_fire')
 expanders[0x20].output(0, 'o_fp0')
 expanders[0x20].output(1, 'o_fp1')
 expanders[0x20].output(2, 'o_fp2')

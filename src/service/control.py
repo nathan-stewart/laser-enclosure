@@ -33,14 +33,28 @@ for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
 last_commanded_outputs = {}
 hal_exhaust_active = False
 
+OUTPUTS = {
+    "laser_enable": "o_k1",
+    "spare_1": "o_k2",
+    "lpa_enable": "o_k3",
+    "hpa_enable": "o_k4",
+    "spare_2": "o_k5",
+    "spare_3": "o_k6",
+    "exhaust_enable": "o_k7",
+    "dryer_enable": "o_k8",
+}
+
+
 # Track activity for backlight control
 ACTIVITY_INPUTS = {
-    "i_lid", "i_fp0", "i_fp1", "i_fp2", "i_fp3",
-    "i_estop", "i_btn_fire", "i_mask_encoder",
+    "i_fp0", "i_fp1", "i_fp2", "i_fp3",
+    "i_estop", "i_m7", "i_m8",
     "i_axis_x", "i_axis_z", "i_coarse", "i_fine",
-    "i_m7", "i_m8",
+    "i_mask_encoder",
     "hal_exhaust_active", "hal_exhaust_mode",
 }
+
+
 RULE_INPUTS = set(ACTIVITY_INPUTS) | {"i_ambient_humidity"}
 ENCODER_INPUTS = {"i_mask_encoder"}  # adjust if you rename or track deltas elsewhere
 ENCODER_DELTA_THRESHOLD = 1  # define what counts as significant
@@ -84,7 +98,7 @@ def clamp01(x):
     return 0.0 if x < 0.0 else 100.0 if x > 100.0 else x
 
 
-def dewpoint_rule(i_ambient_humidity=None, o_k8_dryer=0,
+def dewpoint_rule(i_ambient_humidity=None, dryer_enable=0,
                   rh_on=50.0, rh_off=45.0,
                   min_on=30.0, min_off=30.0,
                   stale_timeout=180.0):
@@ -93,7 +107,7 @@ def dewpoint_rule(i_ambient_humidity=None, o_k8_dryer=0,
     last_change = st.get("last_change", 0.0)
     last_seen   = st.get("last_seen", 0.0)
 
-    running = bool(o_k8_dryer)
+    running = bool(dryer_enable)
 
     rh = None
     if isinstance(i_ambient_humidity, (int, float)) and math.isfinite(i_ambient_humidity):
@@ -128,11 +142,11 @@ def dewpoint_rule(i_ambient_humidity=None, o_k8_dryer=0,
 RULES = {
     # Neje Supports both M7 and M8 but Meerk40t only allows one or the other
     # tie both air assist functions to M8
-    "o_k1_laser"      : lambda i_estop = 0                          : not i_estop,
-    "o_k3_lpa"        : lambda i_estop = 0, i_m8=0             : i_m8 and not i_estop,
-    "o_k4_hpa"        : lambda i_estop = 0, i_m8=0             : i_m8 and not i_estop,
-    "o_k7_exhaust"    : lambda i_estop=0, hal_exhaust_active=0 : hal_exhaust_active and not i_estop,
-    "o_k8_dryer"      : dewpoint_rule,
+    "laser_enable"      : lambda i_estop = 0                          : not i_estop,
+    "lpa_enable"        : lambda i_estop = 0, i_m8=0             : i_m8 and not i_estop,
+    "hpa_enable"        : lambda i_estop = 0, i_m8=0             : i_m8 and not i_estop,
+    "exhaust_enable"    : lambda i_estop=0, hal_exhaust_active=0 : hal_exhaust_active and not i_estop,
+    "dryer_enable"      : dewpoint_rule,
 }
 
 
@@ -280,7 +294,7 @@ def hal_listener():
 
 
 def is_laser_active():
-    return state_hal.get("o_k1_laser", 0) == 1
+    return state_hal.get("laser_enable", 0) == 1
 
 
 def set_backlight(state: bool):
