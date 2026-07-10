@@ -48,8 +48,8 @@ def graceful_stop(signum, frame):
     log.info(f"Received signal {signum}, shutting down gracefully...")
     stop_event.set()
 
-    for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
-        signal.signal(sig, graceful_stop)
+for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+    signal.signal(sig, graceful_stop)
 
 pub = None
 rep = None
@@ -58,20 +58,20 @@ current_state = {}
 previous_snapshot = {}
 
 rpi_gpio = Gpio()
-rpi_gpio.input(22, "i_m7")
+#rpi_gpio.input(22, "i_m7")
 rpi_gpio.input(27, "i_m8")
 rpi_gpio.input(17, "i_estop")
 for name in rpi_gpio.inputs.keys():
     current_state[name] = 0
 
-rpi_gpio.output(7,  "o_k1",  0)
-rpi_gpio.output(8,  "o_k2",  0)
-rpi_gpio.output(25, "o_k3",  0)
-rpi_gpio.output(24, "o_k4",  0)
-rpi_gpio.output(23, "o_k5",  0)
-rpi_gpio.output(18, "o_k6",  0)
-rpi_gpio.output(12, "o_k7",  0)
-rpi_gpio.output(16, "o_k8",  0)
+rpi_gpio.output(7,  "k1_enable",  0)
+rpi_gpio.output(8,  "laser_enable",  0)
+rpi_gpio.output(25, "lpa_enable",  0)
+rpi_gpio.output(24, "hpa_enable",  0)
+rpi_gpio.output(23, "k5_enable",  0)
+rpi_gpio.output(18, "k6_enable",  0)
+rpi_gpio.output(12, "exhaust_enable",  0)
+rpi_gpio.output(16, "dryer_enable",  0)
 for name in rpi_gpio.outputs.keys():
     current_state[name] = 0
 
@@ -189,7 +189,6 @@ def set_output(name, value):
         publish_state(snap)
     return ok
 
-
 def set_hal_state(updates):
     """Update HAL-owned non-device state and publish it."""
     with state_lock:
@@ -236,11 +235,11 @@ def monitor_control_heartbeat():
         if time.time() - last_heartbeat > 2:
             log.warning("WARNING: No heartbeat from control process. Taking emergency action.")
             # e.g., shut off laser GPIO
-            shutdown_laser()
+            panic_shutoff("control heartbeat lost")
         time.sleep(1)
 
-def shutdown_laser():
-    log.warning("Laser power disabled due to control heartbeat loss.")
+def panic_shutoff(reason):
+    log.warning("Fail-safe output shutdown: %s", reason)
     for name in list(rpi_gpio.outputs.keys()):
         set_output(name, 0)
 
@@ -375,7 +374,9 @@ def handle_commands():
             return True
 
         with state_lock:
-            outputs = {k for k in current_state if k.startswith("o_")}
+            outputs = set(rpi_gpio.outputs.keys())
+            for exp in expanders.values():
+                outputs.update(exp.outputs.keys())
 
         out_ops = [(k, st[k]) for k in st if k in outputs]
         for k in st:

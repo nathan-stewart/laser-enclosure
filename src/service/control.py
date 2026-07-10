@@ -15,6 +15,8 @@ import time
 import threading
 sys.path.insert(0, os.path.dirname(__file__))
 
+ESTOP_BYPASS = True  # TEMPORARY: no physical E-stop wired
+
 state_lock = threading.Lock()
 stop_event = threading.Event()
 state_hal = {}
@@ -33,22 +35,10 @@ for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
 last_commanded_outputs = {}
 hal_exhaust_active = False
 
-OUTPUTS = {
-    "laser_enable": "o_k1",
-    "spare_1": "o_k2",
-    "lpa_enable": "o_k3",
-    "hpa_enable": "o_k4",
-    "spare_2": "o_k5",
-    "spare_3": "o_k6",
-    "exhaust_enable": "o_k7",
-    "dryer_enable": "o_k8",
-}
-
-
 # Track activity for backlight control
 ACTIVITY_INPUTS = {
     "i_fp0", "i_fp1", "i_fp2", "i_fp3",
-    "i_estop", "i_m7", "i_m8",
+    "i_estop", "i_m8",
     "i_axis_x", "i_axis_z", "i_coarse", "i_fine",
     "i_mask_encoder",
     "hal_exhaust_active", "hal_exhaust_mode",
@@ -65,6 +55,12 @@ previous_inputs = {}
 IDLE_TIMEOUT = 5 * 60  # seconds
 last_activity = time.monotonic()
 last_display_state = None
+
+
+def estop_active(i_estop=0):
+    if ESTOP_BYPASS:
+        return False
+    return bool(i_estop)
 
 
 def hal_ping():
@@ -142,10 +138,10 @@ def dewpoint_rule(i_ambient_humidity=None, dryer_enable=0,
 RULES = {
     # Neje Supports both M7 and M8 but Meerk40t only allows one or the other
     # tie both air assist functions to M8
-    "laser_enable"      : lambda i_estop = 0                          : not i_estop,
-    "lpa_enable"        : lambda i_estop = 0, i_m8=0             : i_m8 and not i_estop,
-    "hpa_enable"        : lambda i_estop = 0, i_m8=0             : i_m8 and not i_estop,
-    "exhaust_enable"    : lambda i_estop=0, hal_exhaust_active=0 : hal_exhaust_active and not i_estop,
+    "laser_enable"      : lambda i_estop = 0                     : not estop_active(i_estop),
+    "lpa_enable"        : lambda i_estop = 0, i_m8=0             : i_m8 and not i_estop and not estop_active(i_estop),
+    "hpa_enable"        : lambda i_estop = 0, i_m8=0             : i_m8 and not i_estop and not estop_active(i_estop),
+    "exhaust_enable"    : lambda i_estop=0, hal_exhaust_active=0 : hal_exhaust_active and not estop_active(i_estop),
     "dryer_enable"      : dewpoint_rule,
 }
 
@@ -191,6 +187,18 @@ def bind_kwargs_for(rule, state):
         kwargs[name] = state.get(name, p.default if p.default is not inspect._empty else None)
     return kwargs
 
+
+def rule_context(rule_state):
+    keys = (
+        "i_estop",
+        "i_m8",
+        "hal_exhaust_active",
+        "dryer_enable",
+        "i_ambient_humidity",
+    )
+    return " ".join(f"{k}={rule_state.get(k)!r}" for k in keys)
+
+
 def apply_rules(state, now=None, version=None):
     global last_commanded_outputs
 
@@ -212,9 +220,13 @@ def apply_rules(state, now=None, version=None):
     for k, v in decisions.items():
         cur = last_commanded_outputs.get(k)
         if v != cur:
-            log.info("Setting %s=%s; previous commanded=%s", k, v, cur)
+            log.info(
+                "Setting %s=%s; previous commanded=%s; %s",
+                k, v, cur, rule_context(rule_state)
+            )
             if hal_set(k, v):
                 last_commanded_outputs[k] = v
+
 
 def apply_rules_with_current_state():
     with state_lock:
@@ -224,38 +236,55 @@ def apply_rules_with_current_state():
 
 def hal_listener():
     global last_activity, previous_inputs, state_hal_seq
+
     log.info("Starting hal listener...")
+
+    # This should only be a reconciliation fallback. Normal response should
+    # come from HAL PUB messages causing any_changed=True.
     tick_every = 10.0
     next_tick = time.monotonic() + tick_every
 
     while not stop_event.is_set():
-        any_changed = False
         try:
             parts = sub.recv_multipart()
+
         except zmq.Again:
+            # No HAL PUB message arrived before RCVTIMEO. Only run rules on
+            # the periodic fallback.
             now = time.monotonic()
             if now >= next_tick:
                 with state_lock:
                     snapshot = dict(state_hal)
-                    state_hal_seq = state_hal_seq + 1 if 'state_hal_seq' in globals() else 1
+                    state_hal_seq = state_hal_seq + 1 if "state_hal_seq" in globals() else 1
                     version = state_hal_seq
+
                 apply_rules(snapshot, now=now, version=version)
                 next_tick = now + tick_every
+
             continue
+
         except Exception:
             log.exception("hal_listener: recv failed")
             time.sleep(0.05)
             continue
 
+        # Drain any queued HAL PUB frames so we evaluate rules once against the
+        # newest available state, not once per stale intermediate frame.
         frames = [parts]
         while True:
             try:
                 frames.append(sub.recv_multipart(flags=zmq.NOBLOCK))
             except zmq.Again:
                 break
+            except Exception:
+                log.exception("hal_listener: drain recv failed")
+                break
 
         now = time.monotonic()
+
         with state_lock:
+            old_inputs = dict(previous_inputs)
+
             for p in frames:
                 try:
                     msg = json.loads(p[-1])
@@ -264,34 +293,48 @@ def hal_listener():
                     log.exception("hal_listener: bad json")
                     continue
 
-                state_hal.update(st)
+                if isinstance(st, dict):
+                    state_hal.update(st)
+                else:
+                    log.warning("hal_listener: ignoring non-dict state payload: %r", st)
 
-                # change detection
-                for key in RULE_INPUTS:
-                    prev = previous_inputs.get(key)
-                    curr = state_hal.get(key)
-                    if key in ENCODER_INPUTS:
-                        try:
-                            if abs(int(curr or 0) - int(prev or 0)) >= ENCODER_DELTA_THRESHOLD:
-                                any_changed = True
-                        except Exception:
-                            pass
-                    elif curr is not None and curr != prev:
-                        any_changed = True
+            new_inputs = {k: state_hal.get(k) for k in RULE_INPUTS}
 
-                previous_inputs = {k: state_hal.get(k) for k in RULE_INPUTS}
-                if any(k in ACTIVITY_INPUTS and previous_inputs.get(k) is not None for k in RULE_INPUTS):
-                    last_activity = now
+            any_changed = False
+            for key in RULE_INPUTS:
+                prev = old_inputs.get(key)
+                curr = new_inputs.get(key)
+
+                if key in ENCODER_INPUTS:
+                    try:
+                        if abs(int(curr or 0) - int(prev or 0)) >= ENCODER_DELTA_THRESHOLD:
+                            any_changed = True
+                            break
+                    except Exception:
+                        # Ignore malformed encoder state for change detection.
+                        pass
+
+                elif curr is not None and curr != prev:
+                    any_changed = True
+                    break
+
+            previous_inputs = new_inputs
+
+            if any(
+                key in ACTIVITY_INPUTS and new_inputs.get(key) is not None
+                for key in ACTIVITY_INPUTS
+            ):
+                last_activity = now
 
             snapshot = dict(state_hal)
-            state_hal_seq = state_hal_seq + 1 if 'state_hal_seq' in globals() else 1
+            state_hal_seq = state_hal_seq + 1 if "state_hal_seq" in globals() else 1
             version = state_hal_seq
 
         if any_changed or now >= next_tick:
             apply_rules(snapshot, now=now, version=version)
+
             if now >= next_tick:
                 next_tick = now + tick_every
-
 
 def is_laser_active():
     return state_hal.get("laser_enable", 0) == 1
@@ -327,6 +370,8 @@ def main(argv):
         handlers=[logging.StreamHandler(sys.stdout)]
     )
     log = logging.getLogger("Rules")
+    if ESTOP_BYPASS:
+        log.warning("TEMPORARY ESTOP BYPASS ACTIVE: i_estop will not inhibit outputs")
 
     context = zmq.Context()
     sub = context.socket(zmq.SUB)
